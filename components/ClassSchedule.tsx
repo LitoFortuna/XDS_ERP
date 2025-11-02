@@ -196,7 +196,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
             </tr>
           </thead>
           <tbody>
-            {classes.sort((a,b) => a.name.localeCompare(b.name)).map(c => (
+            {[...classes].sort((a,b) => a.name.localeCompare(b.name)).map(c => (
               <tr key={c.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                 <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{c.name}</td>
                 <td className="px-6 py-4">{c.category}</td>

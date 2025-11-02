@@ -1,8 +1,10 @@
 
 import React, { useState, useRef } from 'react';
-import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory } from '../types';
+import { DanceClass, Instructor, Student, DayOfWeek } from '../types';
 import Modal from './Modal';
 import { ClassForm } from './ClassSchedule';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface InteractiveScheduleProps {
   classes: DanceClass[];
@@ -11,184 +13,151 @@ interface InteractiveScheduleProps {
   updateClass: (danceClass: DanceClass) => void;
 }
 
-const timeToMinutes = (time: string): number => {
-  const [hours, minutes] = time.split(':').map(Number);
-  return hours * 60 + minutes;
-};
-
-const getCategoryColorStyles = (category: ClassCategory): { background: string; border: string } => {
-  const colors: Record<ClassCategory, string> = {
-    'Fitness': '#3b82f6',
-    'Baile Moderno': '#a855f7',
-    'Competición': '#ef4444',
-    'Especializada': '#10b981',
-  };
-  const color = colors[category] || '#6b7280';
-  return { background: `${color}33`, border: color }; // Using hex with alpha
-};
-
+// Fix: Reconstructed the entire InteractiveSchedule component to fix syntax and reference errors.
 const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, instructors, students, updateClass }) => {
-  const scheduleRef = useRef<HTMLDivElement>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingClass, setEditingClass] = useState<DanceClass | undefined>(undefined);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingClass, setEditingClass] = useState<DanceClass | undefined>(undefined);
+    const scheduleRef = useRef<HTMLDivElement>(null);
 
-  const timeSlots: string[] = [];
-  for (let h = 9; h < 22; h++) {
-    for (let m = 0; m < 60; m += 60) { // Show only full hours for clarity
-      timeSlots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-    }
-  }
+    const handleOpenModal = (danceClass: DanceClass) => {
+        setEditingClass(danceClass);
+        setIsModalOpen(true);
+    };
 
-  const days: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-  const dayGridColumn: Record<DayOfWeek, number> = {
-    'Lunes': 2, 'Martes': 3, 'Miércoles': 4, 'Jueves': 5, 'Viernes': 6, 'Sábado': 7, 'Domingo': 8
-  };
-  
-  // Schedule starts at 9:00 (540 mins from midnight), ends at 22:00 (1320 mins). Total 780 mins.
-  const scheduleStartMinutes = 540;
-  const scheduleEndMinutes = 1320;
-  const totalMinutes = scheduleEndMinutes - scheduleStartMinutes;
+    const handleCloseModal = () => {
+        setEditingClass(undefined);
+        setIsModalOpen(false);
+    };
 
-  const handleOpenModal = (danceClass: DanceClass) => {
-    setEditingClass(danceClass);
-    setIsModalOpen(true);
-  };
+    const handleSubmit = (danceClass: Omit<DanceClass, 'id'> | DanceClass) => {
+        if ('id' in danceClass) {
+            updateClass(danceClass);
+        }
+        handleCloseModal();
+    };
 
-  const handleCloseModal = () => {
-    setEditingClass(undefined);
-    setIsModalOpen(false);
-  };
+    const exportToPDF = async () => {
+        const scheduleElement = scheduleRef.current;
+        if (!scheduleElement) return;
 
-  const handleSubmit = (danceClass: Omit<DanceClass, 'id'> | DanceClass) => {
-    if ('id' in danceClass) {
-      updateClass(danceClass as DanceClass);
-    }
-    handleCloseModal();
-  };
-  
-  const getOccupancyInfo = (danceClass: DanceClass) => {
-    const enrolledCount = students.filter(s => s.enrolledClassIds.includes(danceClass.id)).length;
-    const percentage = danceClass.capacity > 0 ? (enrolledCount / danceClass.capacity) * 100 : 0;
+        try {
+            const canvas = await html2canvas(scheduleElement, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            // Use canvas dimensions for PDF to maintain aspect ratio
+            const pdf = new jsPDF({
+                orientation: canvas.width > canvas.height ? 'l' : 'p',
+                unit: 'px',
+                format: [canvas.width, canvas.height]
+            });
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save("horario-xen-dance-space.pdf");
+        } catch (error) {
+            console.error("Error exporting to PDF", error);
+        }
+    };
     
-    let icon = '❌';
-    if (percentage >= 100) icon = '✅';
-    else if (percentage >= 50) icon = '⚠️';
+    const daysOfWeek: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+    const timeToMinutes = (time: string) => {
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+    };
     
-    return { icon, enrolledCount, percentage };
-  };
+    const getGridPosition = (danceClass: DanceClass) => {
+        const calculateRow = (time: string) => {
+            let minutes = timeToMinutes(time);
+            // Anything from 15:00 onwards is shifted up by 2 hours (120 minutes)
+            if (minutes >= timeToMinutes('15:00')) {
+                minutes -= 120;
+            }
+            // The row is relative to the inner grid which starts at row 1.
+            return (minutes - timeToMinutes('08:00')) / 15 + 1;
+        };
 
-  const getEnrolledStudentNames = (classId: string) => {
-    return students
-        .filter(s => s.enrolledClassIds.includes(classId))
-        .map(s => s.name)
-        .join(', ') || 'Ningún alumno inscrito';
-  };
-  
-  return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Horario Interactivo</h2>
-      </div>
+        const rowStart = calculateRow(danceClass.startTime);
+        const rowEnd = calculateRow(danceClass.endTime);
 
-      <div ref={scheduleRef} className="bg-gray-800 p-4 rounded-lg select-none">
-        <div className="grid grid-cols-[4rem_repeat(5,1fr)] grid-rows-[2rem_1fr] gap-x-2">
-          {/* Day Headers */}
-          <div className="row-start-1 col-start-1"></div>
-          {days.map((day) => (
-            <div key={day} className="text-center font-bold text-gray-300 py-2 border-b-2 border-gray-700">
-              {day}
+        return {
+            gridRow: `${rowStart} / ${rowEnd}`,
+        };
+    };
+
+    // Calculate total rows, excluding 13:00-15:00 (2 hours * 4 slots/hour = 8 slots)
+    const totalRows = (22 - 8 - 2) * 4;
+
+    return (
+        <div className="p-4 sm:p-8">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-3xl font-bold">Horario</h2>
+                <button onClick={exportToPDF} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    Exportar a PDF
+                </button>
             </div>
-          ))}
-          
-          {/* Time Gutter */}
-          <div className="row-start-2 col-start-1 relative">
-            {timeSlots.map((time, index) => {
-              const topPosition = (index / timeSlots.length) * 100;
-              return (
-                 <div key={time} className="relative h-12 text-right pr-2">
-                    <span className="text-xs text-gray-500 absolute -top-2">{time}</span>
-                 </div>
-              );
-            })}
-          </div>
-
-          {/* Schedule Grid Content */}
-          <div className="row-start-2 col-start-2 col-span-5 grid grid-cols-5 grid-rows-1 relative border-l border-gray-700">
-            {/* Background Lines */}
-            {timeSlots.slice(1).map((_, index) => (
-                <div key={index} className="absolute w-full border-t border-dashed border-gray-700" style={{ top: `${((index + 1) / timeSlots.length) * 100}%` }}></div>
-            ))}
-            {days.slice(0, -1).map((_, index) => (
-                <div key={index} className="h-full border-r border-gray-700" style={{ gridColumn: index + 1 }}></div>
-            ))}
-
-
-            {/* Class Blocks */}
-            {classes.map(danceClass => {
-              const instructor = instructors.find(i => i.id === danceClass.instructorId);
-              const { icon, enrolledCount, percentage } = getOccupancyInfo(danceClass);
-              const colorStyles = getCategoryColorStyles(danceClass.category);
-
-              return danceClass.days.map(day => {
-                if (!days.includes(day)) return null;
-
-                const startMinutes = timeToMinutes(danceClass.startTime);
-                const endMinutes = timeToMinutes(danceClass.endTime);
-                
-                const top = ((startMinutes - scheduleStartMinutes) / totalMinutes) * 100;
-                const height = ((endMinutes - startMinutes) / totalMinutes) * 100;
-
-                return (
-                  <div
-                    key={`${danceClass.id}-${day}`}
-                    className="absolute w-full p-2 rounded-lg shadow-lg cursor-pointer group"
-                    style={{
-                      gridColumn: dayGridColumn[day] -1,
-                      top: `${top}%`,
-                      height: `${height}%`,
-                      backgroundColor: colorStyles.background,
-                      borderColor: colorStyles.border,
-                      border: '1px solid',
-                      minHeight: '40px',
-                    }}
-                    onClick={() => handleOpenModal(danceClass)}
-                  >
-                    <p className="font-bold text-sm text-white truncate">{danceClass.name}</p>
-                    <p className="text-xs text-gray-300 truncate">{instructor?.name.split(' ')[0]}</p>
-                    <p className="text-xs text-gray-400">{danceClass.startTime}-{danceClass.endTime}</p>
-                    <div className="text-xs text-gray-400 flex items-center">{icon} {enrolledCount}/{danceClass.capacity}</div>
+            <div ref={scheduleRef} className="bg-gray-800 p-4 rounded-lg shadow-sm">
+                <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)', gridTemplateRows: `40px repeat(${totalRows}, 16px)` }} className="relative">
+                    {/* Time labels (hourly), skipping 13h and 14h */}
+                    {Array.from({ length: 15 }, (_, i) => i + 8)
+                        .filter(hour => hour < 13 || hour >= 15)
+                        .map(hour => {
+                            const row = ((hour - 8) - (hour >= 15 ? 2 : 0)) * 4 + 2;
+                            return (
+                                <div key={hour} style={{ gridRow: row, gridColumn: 1 }} className="text-xs text-right pr-2 text-gray-400 -mt-2">
+                                    {hour}:00
+                                </div>
+                            );
+                    })}
                     
-                    {/* Tooltip */}
-                    <div className="absolute z-10 bottom-full mb-2 w-64 p-3 bg-gray-900 border border-gray-600 rounded-lg shadow-xl text-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        <h4 className="font-bold text-white mb-1">{danceClass.name}</h4>
-                        <p><span className="font-semibold">Categoría:</span> {danceClass.category}</p>
-                        <p><span className="font-semibold">Profesor:</span> {instructor?.name}</p>
-                        <p><span className="font-semibold">Ocupación:</span> {enrolledCount}/{danceClass.capacity} ({percentage.toFixed(0)}%)</p>
-                        <hr className="border-gray-700 my-2"/>
-                        <p className="font-semibold">Alumnos Inscritos:</p>
-                        <p className="text-xs max-h-24 overflow-y-auto">{getEnrolledStudentNames(danceClass.id)}</p>
-                    </div>
+                    {/* Day labels */}
+                    {daysOfWeek.map((day, index) => (
+                        <div key={day} style={{ gridColumn: index + 2, gridRow: 1 }} className="text-center font-bold text-white p-2 border-b border-l border-gray-700">
+                            {day}
+                        </div>
+                    ))}
+                    
+                    {/* Grid lines */}
+                    {daysOfWeek.map((day, dayIndex) => (
+                         <div key={`col-${day}`} style={{ gridColumn: dayIndex + 2, gridRow: '2 / -1' }} className="border-l border-gray-700"></div>
+                    ))}
+                     {Array.from({ length: totalRows + 1 }, (_, i) => i + 1).map(rowIndex => (
+                        <div key={`row-${rowIndex}`} style={{ gridRow: rowIndex, gridColumn: '1 / -1' }} className={`border-t border-gray-700 ${ (rowIndex - 1) % 4 === 0 ? '' : 'opacity-50' }`}></div>
+                    ))}
 
-                  </div>
-                );
-              });
-            })}
-          </div>
+                    {/* Classes */}
+                    {daysOfWeek.map((day, dayIndex) => (
+                        <div key={day} style={{ gridColumn: dayIndex + 2, gridRow: '2 / -1', display: 'grid', gridTemplateRows: `repeat(${totalRows}, 16px)` }} className="relative">
+                            {classes
+                                .filter(c => c.days.includes(day))
+                                .map(c => (
+                                    <div
+                                        key={c.id}
+                                        style={getGridPosition(c)}
+                                        className="bg-purple-200 border border-purple-400 rounded-md p-1 m-px overflow-hidden flex flex-col justify-center cursor-pointer hover:bg-purple-300 transition-colors"
+                                        onClick={() => handleOpenModal(c)}
+                                    >
+                                        <span className="font-semibold text-[10px] text-purple-900 truncate" title={c.name}>{c.name}</span>
+                                        <span className="text-[9px] text-purple-700">{c.startTime} - {c.endTime}</span>
+                                    </div>
+                                ))}
+                        </div>
+                    ))}
+                </div>
+            </div>
+            
+             <Modal isOpen={isModalOpen} onClose={handleCloseModal} title="Editar Clase">
+                {editingClass && (
+                <ClassForm
+                    danceClass={editingClass}
+                    instructors={instructors}
+                    onSubmit={handleSubmit}
+                    onCancel={handleCloseModal}
+                />
+                )}
+            </Modal>
         </div>
-      </div>
-
-      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title="Editar Clase">
-        {editingClass && (
-          <ClassForm 
-            danceClass={editingClass} 
-            instructors={instructors} 
-            onSubmit={handleSubmit} 
-            onCancel={handleCloseModal} 
-          />
-        )}
-      </Modal>
-    </div>
-  );
+    );
 };
 
 export default InteractiveSchedule;

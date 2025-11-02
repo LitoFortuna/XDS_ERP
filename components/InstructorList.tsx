@@ -95,7 +95,7 @@ const InstructorForm: React.FC<{ instructor?: Instructor, onSubmit: (instructor:
       </div>
       <div className="flex justify-end space-x-2 pt-4">
         <button type="button" onClick={onCancel} className="bg-gray-600 text-gray-200 px-4 py-2 rounded-md hover:bg-gray-500">Cancelar</button>
-        <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">{instructor ? 'Actualizar' : 'Añadir'} Instructor</button>
+        <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">{instructor ? 'Actualizar' : 'Añadir'} Profesor</button>
       </div>
     </form>
   );
@@ -125,7 +125,7 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
   };
   
   const handleDelete = (id: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar a este instructor? Esta acción no se puede deshacer.')) {
+    if (window.confirm('¿Estás seguro de que quieres eliminar a este profesor? Esta acción no se puede deshacer.')) {
         deleteInstructor(id);
     }
   };
@@ -152,10 +152,10 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Instructores</h2>
-        <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Instructor</button>
+        <h2 className="text-3xl font-bold">Profesores</h2>
+        <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Profesor</button>
       </div>
       <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-400">
@@ -199,7 +199,7 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
           </tbody>
         </table>
       </div>
-      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingInstructor ? 'Editar Instructor' : 'Añadir Nuevo Instructor'}>
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingInstructor ? 'Editar Profesor' : 'Añadir Nuevo Profesor'}>
         <InstructorForm instructor={editingInstructor} onSubmit={handleSubmit} onCancel={handleCloseModal} />
       </Modal>
     </div>

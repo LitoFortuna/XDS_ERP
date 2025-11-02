@@ -1,4 +1,6 @@
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Domiciliación' | 'Bizum';
+export type CostPaymentMethod = 'Efectivo' | 'Transferencia' | 'Domiciliación' | 'Tarjeta';
+
 
 export interface Student {
   id: string;
@@ -49,8 +51,25 @@ export interface Payment {
   studentId: string;
   amount: number;
   date: string; // YYYY-MM-DD
-  type: 'Clase Suelta' | 'Membresía Mensual' | 'Paquete';
+  concept: string;
+  paymentMethod: PaymentMethod;
+  notes?: string;
 }
+
+export type CostCategory = 'Profesores' | 'Alquiler' | 'Suministros' | 'Licencias' | 'Marketing' | 'Mantenimiento' | 'Otros';
+
+export interface Cost {
+  id: string;
+  paymentDate: string; // YYYY-MM-DD
+  category: CostCategory;
+  beneficiary: string;
+  concept: string;
+  amount: number; // Stored as a positive number
+  paymentMethod: CostPaymentMethod;
+  isRecurring: boolean;
+  notes?: string;
+}
+
 
 export enum View {
   DASHBOARD = 'DASHBOARD',

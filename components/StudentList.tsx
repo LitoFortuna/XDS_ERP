@@ -120,6 +120,7 @@ const StudentForm: React.FC<{
 const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent, updateStudent }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleOpenModal = (student?: Student) => {
     setEditingStudent(student);
@@ -148,11 +149,24 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
         .join(', ');
   };
 
+  const filteredStudents = students.filter(student =>
+    student.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Alumnos</h2>
         <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Alumno</button>
+      </div>
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Buscar por nombre..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full max-w-sm bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+        />
       </div>
       <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-400">
@@ -169,7 +183,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
             </tr>
           </thead>
           <tbody>
-            {students.map(student => (
+            {filteredStudents.map(student => (
               <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                 <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
                 <td className="px-6 py-4">{new Date(student.birthDate).toLocaleDateString('es-ES')}</td>

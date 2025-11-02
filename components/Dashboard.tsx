@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Student, DanceClass, Instructor, Payment } from '../types';
@@ -32,10 +31,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         Capacidad: c.capacity,
     }));
     
-    // Fix: By casting the initial value for `reduce`, we ensure TypeScript
-    // correctly infers the type of `monthlyRevenueData`. This resolves
-    // type errors in the subsequent `.sort()` method.
-    const monthlyRevenueData = payments.reduce((acc, p) => {
+    // FIX: Explicitly typing the `acc` parameter in the `reduce` function.
+    // Without this, `acc` is inferred as `any`, causing `monthlyRevenueData` to also be `any`.
+    // This leads to the parameters `a` and `b` in the subsequent `sort` method being of type `unknown`,
+    // which was causing the build error.
+    const monthlyRevenueData = payments.reduce((acc: Record<string, { month: string; revenue: number; monthIndex: number; year: number }>, p) => {
         const date = new Date(p.date);
         const month = date.toLocaleString('es-ES', { month: 'short' });
         const year = date.getFullYear();
@@ -47,12 +47,10 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         acc[key].revenue += p.amount;
         
         return acc;
-    // Fix: Provide a type for the initial value of the reduce function's accumulator.
-    // This ensures TypeScript correctly infers the type of `monthlyRevenueData`,
-    // resolving type errors in the subsequent `.sort()` method.
     }, {} as Record<string, { month: string; revenue: number; monthIndex: number; year: number }>);
 
-    const sortedMonthlyRevenueData = Object.values(monthlyRevenueData).sort((a, b) => {
+    // FIX: Explicitly type `a` and `b` in the sort function to prevent `unknown` type errors.
+    const sortedMonthlyRevenueData = Object.values(monthlyRevenueData).sort((a: { year: number; monthIndex: number; }, b: { year: number; monthIndex: number; }) => {
         if (a.year !== b.year) {
             return a.year - b.year;
         }
@@ -61,8 +59,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 
 
     return (
-        <div className="p-8 space-y-8">
-            <h2 className="text-3xl font-bold">Panel</h2>
+        <div className="p-4 sm:p-8 space-y-8">
+            <h2 className="text-3xl font-bold">Dashboard</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard title="Total Alumnos" value={totalStudents}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
@@ -70,7 +68,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 <StatCard title="Total Clases" value={classes.length}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 </StatCard>
-                <StatCard title="Total Instructores" value={instructors.length}>
+                <StatCard title="Total Profesores" value={instructors.length}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0z" /></svg>
                 </StatCard>
                 <StatCard title="Ingresos Totales" value={`€${totalRevenue.toLocaleString('es-ES')}`}>
