@@ -8,6 +8,7 @@ interface ClassScheduleProps {
   students: Student[];
   addClass: (danceClass: Omit<DanceClass, 'id'>) => void;
   updateClass: (danceClass: DanceClass) => void;
+  deleteClass: (id: string) => void;
 }
 
 const addMinutesToTime = (time: string, minutes: number): string => {
@@ -124,7 +125,7 @@ export const ClassForm: React.FC<{
 };
 
 
-const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, students, addClass, updateClass }) => {
+const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, students, addClass, updateClass, deleteClass }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<DanceClass | undefined>(undefined);
 
@@ -145,6 +146,22 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
       addClass(danceClass);
     }
     handleCloseModal();
+  };
+  
+  const handleDelete = (classId: string) => {
+    const danceClass = classes.find(c => c.id === classId);
+    if (!danceClass) return;
+
+    const enrolledCount = students.filter(s => s.enrolledClassIds.includes(classId)).length;
+    let confirmationMessage = `¿Estás seguro de que quieres eliminar la clase "${danceClass.name}"? Esta acción no se puede deshacer.`;
+    
+    if (enrolledCount > 0) {
+      confirmationMessage += `\n\nADVERTENCIA: Hay ${enrolledCount} alumno(s) inscrito(s) en esta clase. Se desinscribirán automáticamente.`;
+    }
+
+    if (window.confirm(confirmationMessage)) {
+      deleteClass(classId);
+    }
   };
   
   const getInstructorName = (id: string) => instructors.find(i => i.id === id)?.name || 'Desconocido';
@@ -207,8 +224,9 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
                   <OccupancyStatus danceClass={c} />
                 </td>
                 <td className="px-6 py-4">€{c.baseRate.toFixed(2)}</td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 whitespace-nowrap space-x-2">
                   <button onClick={() => handleOpenModal(c)} className="font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
+                  <button onClick={() => handleDelete(c.id)} className="font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
                 </td>
               </tr>
             ))}

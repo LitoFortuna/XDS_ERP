@@ -384,6 +384,23 @@ const App: React.FC = () => {
     const updateClass = (updatedClass: DanceClass) => {
         setClasses(prev => prev.map(c => c.id === updatedClass.id ? updatedClass : c));
     };
+    const deleteClass = (classId: string) => {
+        // Remove class from classes list
+        setClasses(prev => prev.filter(c => c.id !== classId));
+
+        // Un-enroll students from the deleted class
+        setStudents(prevStudents => 
+            prevStudents.map(student => {
+                if (student.enrolledClassIds.includes(classId)) {
+                    return {
+                        ...student,
+                        enrolledClassIds: student.enrolledClassIds.filter(id => id !== classId)
+                    };
+                }
+                return student;
+            })
+        );
+    };
     
     // Payment Handlers
     const addPayment = (payment: Omit<Payment, 'id'>) => {
@@ -414,7 +431,7 @@ const App: React.FC = () => {
             case View.STUDENTS:
                 return <StudentList students={students} classes={classes} addStudent={addStudent} updateStudent={updateStudent} />;
             case View.CLASSES:
-                return <ClassSchedule classes={classes} instructors={instructors} students={students} addClass={addClass} updateClass={updateClass} />;
+                return <ClassSchedule classes={classes} instructors={instructors} students={students} addClass={addClass} updateClass={updateClass} deleteClass={deleteClass} />;
             case View.INTERACTIVE_SCHEDULE:
                 return <InteractiveSchedule classes={classes} instructors={instructors} students={students} updateClass={updateClass} />;
             case View.INSTRUCTORS:
