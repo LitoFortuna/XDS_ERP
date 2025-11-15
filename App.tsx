@@ -8,18 +8,22 @@ import ClassSchedule from './components/ClassSchedule';
 import InstructorList from './components/InstructorList';
 import Billing from './components/Billing';
 import InteractiveSchedule from './components/InteractiveSchedule';
+import DataManagement from './components/DataManagement';
 import {
     subscribeToStudents,
     addStudent as addStudentToDb,
     updateStudent as updateStudentInDb,
+    batchAddStudents,
     subscribeToInstructors,
     addInstructor as addInstructorToDb,
     updateInstructor as updateInstructorInDb,
     deleteInstructor as deleteInstructorFromDb,
+    batchAddInstructors,
     subscribeToClasses,
     addClass as addClassToDb,
     updateClass as updateClassInDb,
     deleteClass as deleteClassFromDb,
+    batchAddClasses,
     subscribeToPayments,
     addPayment as addPaymentToDb,
     subscribeToCosts,
@@ -183,6 +187,14 @@ const App: React.FC = () => {
                 return <InstructorList instructors={instructors} classes={classes} addInstructor={addInstructor} updateInstructor={updateInstructor} deleteInstructor={deleteInstructor} />;
             case View.BILLING:
                 return <Billing payments={payments} costs={costs} students={students} addPayment={addPayment} addCost={addCost} updateCost={updateCost} deleteCost={deleteCost} />;
+            case View.DATA_MANAGEMENT:
+                return <DataManagement 
+                            instructors={instructors}
+                            classes={classes}
+                            batchAddStudents={batchAddStudents} 
+                            batchAddInstructors={batchAddInstructors}
+                            batchAddClasses={batchAddClasses}
+                        />;
             default:
                 return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} />;
         }

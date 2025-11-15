@@ -8,6 +8,7 @@ import {
   query,
   orderBy,
   Unsubscribe,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Student, Instructor, DanceClass, Payment, Cost } from '../../types';
@@ -27,6 +28,16 @@ export const subscribeToStudents = (callback: (students: Student[]) => void): Un
 
 export const addStudent = async (student: Omit<Student, 'id'>) => {
   await addDoc(collection(db, 'students'), student);
+};
+
+export const batchAddStudents = async (students: Omit<Student, 'id'>[]) => {
+  const batch = writeBatch(db);
+  const studentsCollection = collection(db, 'students');
+  students.forEach(student => {
+    const docRef = doc(studentsCollection);
+    batch.set(docRef, student);
+  });
+  await batch.commit();
 };
 
 export const updateStudent = async (student: Student) => {
@@ -50,6 +61,16 @@ export const subscribeToInstructors = (callback: (instructors: Instructor[]) => 
 
 export const addInstructor = async (instructor: Omit<Instructor, 'id'>) => {
   await addDoc(collection(db, 'instructors'), instructor);
+};
+
+export const batchAddInstructors = async (instructors: Omit<Instructor, 'id'>[]) => {
+  const batch = writeBatch(db);
+  const instructorsCollection = collection(db, 'instructors');
+  instructors.forEach(instructor => {
+    const docRef = doc(instructorsCollection);
+    batch.set(docRef, instructor);
+  });
+  await batch.commit();
 };
 
 export const updateInstructor = async (instructor: Instructor) => {
@@ -78,6 +99,16 @@ export const subscribeToClasses = (callback: (classes: DanceClass[]) => void): U
 
 export const addClass = async (danceClass: Omit<DanceClass, 'id'>) => {
   await addDoc(collection(db, 'classes'), danceClass);
+};
+
+export const batchAddClasses = async (classes: Omit<DanceClass, 'id'>[]) => {
+  const batch = writeBatch(db);
+  const classesCollection = collection(db, 'classes');
+  classes.forEach(danceClass => {
+    const docRef = doc(classesCollection);
+    batch.set(docRef, danceClass);
+  });
+  await batch.commit();
 };
 
 export const updateClass = async (danceClass: DanceClass) => {
