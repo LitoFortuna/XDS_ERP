@@ -24,9 +24,10 @@ const addMinutesToTime = (time: string, minutes: number): string => {
 export const ClassForm: React.FC<{
   danceClass?: DanceClass;
   instructors: Instructor[];
+  students?: Student[];
   onSubmit: (danceClass: Omit<DanceClass, 'id'> | DanceClass) => void;
   onCancel: () => void;
-}> = ({ danceClass, instructors, onSubmit, onCancel }) => {
+}> = ({ danceClass, instructors, students, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: danceClass?.name || '',
     instructorId: danceClass?.instructorId || '',
@@ -69,6 +70,10 @@ export const ClassForm: React.FC<{
       onSubmit(formData);
     }
   };
+
+  const enrolledStudents = (danceClass && students)
+    ? students.filter(s => s.enrolledClassIds.includes(danceClass.id))
+    : [];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -116,6 +121,22 @@ export const ClassForm: React.FC<{
                 <input type="number" name="baseRate" value={formData.baseRate} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required min="0" />
             </div>
         </div>
+
+        {danceClass && (
+            <div>
+                <h4 className="text-lg font-medium text-gray-200 mb-2 mt-4">Alumnos Inscritos ({enrolledStudents.length})</h4>
+                <div className="bg-gray-900/50 rounded-md p-3 max-h-32 overflow-y-auto border border-gray-700">
+                    {enrolledStudents.length > 0 ? (
+                        <ul className="list-disc list-inside text-gray-300 space-y-1">
+                            {enrolledStudents.map(s => <li key={s.id}>{s.name}</li>)}
+                        </ul>
+                    ) : (
+                        <p className="text-gray-400 italic">No hay alumnos inscritos en esta clase.</p>
+                    )}
+                </div>
+            </div>
+        )}
+
         <div className="flex justify-end space-x-2 pt-4">
             <button type="button" onClick={onCancel} className="bg-gray-600 text-gray-200 px-4 py-2 rounded-md hover:bg-gray-500">Cancelar</button>
             <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">{danceClass ? 'Actualizar' : 'Añadir'} Clase</button>
@@ -234,7 +255,12 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
         </table>
       </div>
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingClass ? 'Editar Clase' : 'Añadir Nueva Clase'}>
-        <ClassForm danceClass={editingClass} instructors={instructors} onSubmit={handleSubmit} onCancel={handleCloseModal} />
+        <ClassForm 
+            danceClass={editingClass} 
+            instructors={instructors} 
+            students={students}
+            onSubmit={handleSubmit} 
+            onCancel={handleCloseModal} />
       </Modal>
     </div>
   );

@@ -151,6 +151,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                 <ClassForm
                     danceClass={editingClass}
                     instructors={instructors}
+                    students={students}
                     onSubmit={handleSubmit}
                     onCancel={handleCloseModal}
                 />
