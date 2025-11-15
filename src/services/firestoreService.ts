@@ -139,6 +139,16 @@ export const addPayment = async (payment: Omit<Payment, 'id'>) => {
   await addDoc(collection(db, 'payments'), payment);
 };
 
+export const batchAddPayments = async (payments: Omit<Payment, 'id'>[]) => {
+  const batch = writeBatch(db);
+  const paymentsCollection = collection(db, 'payments');
+  payments.forEach(payment => {
+    const docRef = doc(paymentsCollection);
+    batch.set(docRef, payment);
+  });
+  await batch.commit();
+};
+
 // --- Costs ---
 
 export const subscribeToCosts = (callback: (costs: Cost[]) => void): Unsubscribe => {
@@ -154,6 +164,16 @@ export const subscribeToCosts = (callback: (costs: Cost[]) => void): Unsubscribe
 
 export const addCost = async (cost: Omit<Cost, 'id'>) => {
   await addDoc(collection(db, 'costs'), cost);
+};
+
+export const batchAddCosts = async (costs: Omit<Cost, 'id'>[]) => {
+  const batch = writeBatch(db);
+  const costsCollection = collection(db, 'costs');
+  costs.forEach(cost => {
+    const docRef = doc(costsCollection);
+    batch.set(docRef, cost);
+  });
+  await batch.commit();
 };
 
 export const updateCost = async (cost: Cost) => {

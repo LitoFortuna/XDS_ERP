@@ -26,8 +26,10 @@ import {
     batchAddClasses,
     subscribeToPayments,
     addPayment as addPaymentToDb,
+    batchAddPayments,
     subscribeToCosts,
     addCost as addCostToDb,
+    batchAddCosts,
     updateCost as updateCostInDb,
     deleteCost as deleteCostFromDb,
 } from './src/services/firestoreService';
@@ -189,11 +191,14 @@ const App: React.FC = () => {
                 return <Billing payments={payments} costs={costs} students={students} addPayment={addPayment} addCost={addCost} updateCost={updateCost} deleteCost={deleteCost} />;
             case View.DATA_MANAGEMENT:
                 return <DataManagement 
+                            students={students}
                             instructors={instructors}
                             classes={classes}
                             batchAddStudents={batchAddStudents} 
                             batchAddInstructors={batchAddInstructors}
                             batchAddClasses={batchAddClasses}
+                            batchAddPayments={batchAddPayments}
+                            batchAddCosts={batchAddCosts}
                         />;
             default:
                 return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} />;

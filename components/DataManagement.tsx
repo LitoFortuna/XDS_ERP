@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Student, Instructor, DanceClass, PaymentMethod, Specialty, ClassCategory, DayOfWeek } from '../types';
+import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, Specialty, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod } from '../types';
 
 interface DataManagementProps {
+    students: Student[];
     instructors: Instructor[];
     classes: DanceClass[];
     batchAddStudents: (students: Omit<Student, 'id'>[]) => Promise<void>;
     batchAddInstructors: (instructors: Omit<Instructor, 'id'>[]) => Promise<void>;
     batchAddClasses: (classes: Omit<DanceClass, 'id'>[]) => Promise<void>;
+    batchAddPayments: (payments: Omit<Payment, 'id'>[]) => Promise<void>;
+    batchAddCosts: (costs: Omit<Cost, 'id'>[]) => Promise<void>;
 }
 
 const ImporterSection: React.FC<{
@@ -27,13 +30,13 @@ const ImporterSection: React.FC<{
 
     const handleDownloadTemplate = () => {
         const csvContent = templateHeaders.join(';') + '\n';
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         if (link.href) {
             URL.revokeObjectURL(link.href);
         }
         link.href = URL.createObjectURL(blob);
-        link.download = `${title.toLowerCase().replace(' ', '_')}_template.csv`;
+        link.download = `${title.toLowerCase().replace(/ /g, '_').replace(/[\(\)]/g, '')}_plantilla.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -54,16 +57,28 @@ const ImporterSection: React.FC<{
             try {
                 const text = e.target?.result as string;
                 const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
-                const headers = lines.shift()?.split(';').map(h => h.trim());
+                if (lines.length === 0) {
+                     throw new Error('El archivo CSV está vacío o tiene un formato incorrecto.');
+                }
+                
+                const rawHeaders = lines.shift()!.split(';').map(h => h.trim().replace(/"/g, ''));
 
-                if (JSON.stringify(headers) !== JSON.stringify(templateHeaders)) {
+                const cleanedHeaders = rawHeaders.map(h => h.split(' ')[0].trim());
+                const cleanedTemplateHeaders = templateHeaders.map(h => h.split(' ')[0].trim());
+                
+                if (JSON.stringify(cleanedHeaders) !== JSON.stringify(cleanedTemplateHeaders)) {
+                    console.error('Cabeceras esperadas:', cleanedTemplateHeaders);
+                    console.error('Cabeceras recibidas:', cleanedHeaders);
                     throw new Error('Las cabeceras del CSV no coinciden con la plantilla.');
                 }
                 
-                const data = lines.map(line => line.split(';').map(item => item.trim()));
+                const data = lines.map(line => line.split(';').map(item => item.trim().replace(/"/g, '')));
                 await onImport(data);
                 setSuccess(`¡Se han importado ${data.length} registros de ${title.toLowerCase()} correctamente!`);
                 setFile(null);
+                 if (document.getElementById('file-input-' + title)) {
+                    (document.getElementById('file-input-' + title) as HTMLInputElement).value = '';
+                }
             } catch (err: any) {
                 setError(`Error al importar: ${err.message}`);
             } finally {
@@ -74,7 +89,7 @@ const ImporterSection: React.FC<{
              setError('Error al leer el archivo.');
              setIsLoading(false);
         };
-        reader.readAsText(file);
+        reader.readAsText(file, 'UTF-8');
     };
 
     return (
@@ -89,6 +104,7 @@ const ImporterSection: React.FC<{
                 </button>
                 <div className="flex-grow">
                     <input
+                        id={'file-input-' + title}
                         type="file"
                         accept=".csv"
                         onChange={handleFileChange}
@@ -107,30 +123,81 @@ const ImporterSection: React.FC<{
 
 
 const DataManagement: React.FC<DataManagementProps> = ({ 
-    instructors, classes, batchAddStudents, batchAddInstructors, batchAddClasses 
+    students, instructors, classes, batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts
 }) => {
+    // --- Opciones para las plantillas ---
+    const paymentMethodOptions = ['Efectivo', 'Transferencia', 'Domiciliación', 'Bizum'].join(' | ');
+    const costPaymentMethodOptions = ['Efectivo', 'Transferencia', 'Domiciliación', 'Tarjeta'].join(' | ');
+    const specialtyOptions = ['Fitness', 'Baile Moderno', 'Hip Hop', 'Pilates', 'Zumba', 'Competición', 'Contemporáneo', 'Ballet'].join(' | ');
+    const classCategoryOptions = ['Fitness', 'Baile Moderno', 'Competición', 'Especializada'].join(' | ');
+    const dayOfWeekOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'].join(' | ');
+    const costCategoryOptions = ['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Marketing', 'Mantenimiento', 'Otros'].join(' | ');
+    const booleanOptions = 'true | false';
 
-    const studentHeaders = ['name', 'birthDate', 'phone', 'email', 'monthlyFee', 'paymentMethod', 'iban', 'active', 'notes', 'enrolledClassNames'];
-    const instructorHeaders = ['name', 'email', 'phone', 'specialties', 'ratePerClass', 'active', 'hireDate', 'notes'];
-    const classHeaders = ['name', 'instructorName', 'category', 'days', 'startTime', 'endTime', 'capacity', 'baseRate'];
+    // --- Cabeceras de las plantillas con ayudas ---
+    const studentHeaders = [
+        'name (campo libre)',
+        'birthDate (formato: YYYY-MM-DD)',
+        'phone (campo libre)',
+        'email (campo libre)',
+        'monthlyFee (número)',
+        `paymentMethod (opciones: ${paymentMethodOptions})`,
+        'iban (campo libre)',
+        `active (opciones: ${booleanOptions})`,
+        'notes (campo libre)',
+        classes.length > 20 ? 'enrolledClassNames (campo libre; separar con ;)' : `enrolledClassNames (opciones: ${classes.map(c => c.name).join(' | ')}; separar con ;)`
+    ];
+    const instructorHeaders = [
+        'name (campo libre)',
+        'email (campo libre)',
+        'phone (campo libre)',
+        `specialties (opciones: ${specialtyOptions}; separar con ;)`,
+        'ratePerClass (número)',
+        `active (opciones: ${booleanOptions})`,
+        'hireDate (formato: YYYY-MM-DD)',
+        'notes (campo libre)'
+    ];
+    const classHeaders = [
+        'name (campo libre)',
+        instructors.length > 20 ? 'instructorName (campo libre)' : `instructorName (opciones: ${instructors.map(i => i.name).join(' | ')})`,
+        `category (opciones: ${classCategoryOptions})`,
+        `days (opciones: ${dayOfWeekOptions}; separar con ;)`,
+        'startTime (formato: HH:MM)',
+        'endTime (formato: HH:MM)',
+        'capacity (número)',
+        'baseRate (número)'
+    ];
+     const paymentHeaders = [
+        students.length > 20 ? 'studentName (campo libre)' : `studentName (opciones: ${students.map(s => s.name).join(' | ')})`,
+        'amount (número)',
+        'date (formato: YYYY-MM-DD)',
+        'concept (campo libre)',
+        `paymentMethod (opciones: ${paymentMethodOptions})`,
+        'notes (campo libre)'
+    ];
+    const costHeaders = [
+        'paymentDate (formato: YYYY-MM-DD)',
+        `category (opciones: ${costCategoryOptions})`,
+        'beneficiary (campo libre)',
+        'concept (campo libre)',
+        'amount (número)',
+        `paymentMethod (opciones: ${costPaymentMethodOptions})`,
+        `isRecurring (opciones: ${booleanOptions})`,
+        'notes (campo libre)'
+    ];
 
+    // --- Lógica de importación ---
     const handleStudentImport = async (data: string[][]) => {
         const newStudents: Omit<Student, 'id'>[] = data.map(row => {
             const classNames = row[9] ? row[9].split(';').map(s => s.trim()) : [];
             const enrolledClassIds = classNames
                 .map(name => classes.find(c => c.name === name)?.id)
                 .filter((id): id is string => !!id);
-
             return {
-                name: row[0],
-                birthDate: row[1],
-                phone: row[2],
-                email: row[3],
+                name: row[0], birthDate: row[1], phone: row[2], email: row[3],
                 monthlyFee: parseFloat(row[4]) || 0,
                 paymentMethod: row[5] as PaymentMethod,
-                iban: row[6],
-                active: row[7].toLowerCase() === 'true',
-                notes: row[8],
+                iban: row[6], active: row[7].toLowerCase() === 'true', notes: row[8],
                 enrolledClassIds: enrolledClassIds,
             };
         });
@@ -139,14 +206,11 @@ const DataManagement: React.FC<DataManagementProps> = ({
 
     const handleInstructorImport = async (data: string[][]) => {
         const newInstructors: Omit<Instructor, 'id'>[] = data.map(row => ({
-            name: row[0],
-            email: row[1],
-            phone: row[2],
+            name: row[0], email: row[1], phone: row[2],
             specialties: row[3] ? row[3].split(';').map(s => s.trim() as Specialty) : [],
             ratePerClass: parseFloat(row[4]) || 0,
             active: row[5].toLowerCase() === 'true',
-            hireDate: row[6],
-            notes: row[7],
+            hireDate: row[6], notes: row[7],
         }));
         await batchAddInstructors(newInstructors);
     };
@@ -155,14 +219,10 @@ const DataManagement: React.FC<DataManagementProps> = ({
         const newClasses: Omit<DanceClass, 'id'>[] = data.map(row => {
             const instructor = instructors.find(i => i.name === row[1]);
             if (!instructor) throw new Error(`Profesor "${row[1]}" no encontrado para la clase "${row[0]}".`);
-            
             return {
-                name: row[0],
-                instructorId: instructor.id,
-                category: row[2] as ClassCategory,
+                name: row[0], instructorId: instructor.id, category: row[2] as ClassCategory,
                 days: row[3] ? row[3].split(';').map(d => d.trim() as DayOfWeek) : [],
-                startTime: row[4],
-                endTime: row[5],
+                startTime: row[4], endTime: row[5],
                 capacity: parseInt(row[6], 10) || 0,
                 baseRate: parseFloat(row[7]) || 0,
             };
@@ -170,25 +230,42 @@ const DataManagement: React.FC<DataManagementProps> = ({
         await batchAddClasses(newClasses);
     };
 
+    const handlePaymentImport = async (data: string[][]) => {
+        const newPayments: Omit<Payment, 'id'>[] = data.map(row => {
+            const student = students.find(s => s.name === row[0]);
+            if (!student) throw new Error(`Alumno "${row[0]}" no encontrado.`);
+            return {
+                studentId: student.id,
+                amount: parseFloat(row[1]) || 0,
+                date: row[2], concept: row[3],
+                paymentMethod: row[4] as PaymentMethod,
+                notes: row[5],
+            };
+        });
+        await batchAddPayments(newPayments);
+    };
+
+    const handleCostImport = async (data: string[][]) => {
+        const newCosts: Omit<Cost, 'id'>[] = data.map(row => ({
+            paymentDate: row[0], category: row[1] as CostCategory,
+            beneficiary: row[2], concept: row[3],
+            amount: parseFloat(row[4]) || 0,
+            paymentMethod: row[5] as CostPaymentMethod,
+            isRecurring: row[6].toLowerCase() === 'true',
+            notes: row[7],
+        }));
+        await batchAddCosts(newCosts);
+    };
+
     return (
         <div className="p-4 sm:p-8 space-y-8">
             <h2 className="text-3xl font-bold">Gestión de Datos</h2>
             <div className="space-y-6">
-                <ImporterSection 
-                    title="Alumnos"
-                    templateHeaders={studentHeaders}
-                    onImport={handleStudentImport}
-                />
-                <ImporterSection 
-                    title="Profesores"
-                    templateHeaders={instructorHeaders}
-                    onImport={handleInstructorImport}
-                />
-                <ImporterSection 
-                    title="Clases"
-                    templateHeaders={classHeaders}
-                    onImport={handleClassImport}
-                />
+                <ImporterSection title="Alumnos" templateHeaders={studentHeaders} onImport={handleStudentImport} />
+                <ImporterSection title="Profesores" templateHeaders={instructorHeaders} onImport={handleInstructorImport} />
+                <ImporterSection title="Clases" templateHeaders={classHeaders} onImport={handleClassImport} />
+                <ImporterSection title="Ingresos (Cobros)" templateHeaders={paymentHeaders} onImport={handlePaymentImport} />
+                <ImporterSection title="Costes (Gastos)" templateHeaders={costHeaders} onImport={handleCostImport} />
             </div>
         </div>
     );
