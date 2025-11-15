@@ -84,10 +84,10 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
                             <XAxis dataKey="name" tick={{ fill: '#9ca3af' }} />
                             <YAxis tick={{ fill: '#9ca3af' }} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}/>
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
                             <Legend />
-                            <Bar dataKey="Inscritos" fill="#8b5cf6" />
-                            <Bar dataKey="Capacidad" fill="#a78bfa" />
+                            <Bar dataKey="Inscritos" fill="#7C00BA" />
+                            <Bar dataKey="Capacidad" fill="#00B7FF" />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -98,9 +98,9 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568"/>
                             <XAxis dataKey="month" tick={{ fill: '#9ca3af' }} />
                             <YAxis tick={{ fill: '#9ca3af' }} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}/>
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
                             <Legend />
-                            <Line type="monotone" dataKey="revenue" name="Ingresos" stroke="#8b5cf6" strokeWidth={2} />
+                            <Line type="monotone" dataKey="revenue" name="Ingresos" stroke="#7C00BA" strokeWidth={2} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
