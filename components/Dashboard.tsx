@@ -1,12 +1,13 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Student, DanceClass, Instructor, Payment } from '../types';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { Student, DanceClass, Instructor, Payment, Cost } from '../types';
 
 interface DashboardProps {
   students: Student[];
   classes: DanceClass[];
   instructors: Instructor[];
   payments: Payment[];
+  costs: Cost[];
 }
 
 const StatCard: React.FC<{ title: string; value: string | number; children: React.ReactNode }> = ({ title, value, children }) => (
@@ -21,9 +22,10 @@ const StatCard: React.FC<{ title: string; value: string | number; children: Reac
     </div>
 );
 
-const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors }) => {
+const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs }) => {
     const totalStudents = students.length;
     const totalRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
+    const totalCosts = costs.reduce((acc, c) => acc + c.amount, 0);
 
     const classEnrollmentData = classes.map(c => ({
         name: c.name,
@@ -31,10 +33,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         Capacidad: c.capacity,
     }));
     
-    // FIX: Explicitly typing the `acc` parameter in the `reduce` function.
-    // Without this, `acc` is inferred as `any`, causing `monthlyRevenueData` to also be `any`.
-    // This leads to the parameters `a` and `b` in the subsequent `sort` method being of type `unknown`,
-    // which was causing the build error.
     const monthlyRevenueData = payments.reduce((acc: Record<string, { month: string; revenue: number; monthIndex: number; year: number }>, p) => {
         const date = new Date(p.date);
         const month = date.toLocaleString('es-ES', { month: 'short' });
@@ -49,7 +47,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         return acc;
     }, {} as Record<string, { month: string; revenue: number; monthIndex: number; year: number }>);
 
-    // FIX: Explicitly type `a` and `b` in the sort function to prevent `unknown` type errors.
     const sortedMonthlyRevenueData = Object.values(monthlyRevenueData).sort((a: { year: number; monthIndex: number; }, b: { year: number; monthIndex: number; }) => {
         if (a.year !== b.year) {
             return a.year - b.year;
@@ -57,6 +54,39 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         return a.monthIndex - b.monthIndex;
     });
 
+    // Data for new charts
+    const financialSummaryData = [
+        { name: 'Ingresos', value: totalRevenue },
+        { name: 'Costes', value: totalCosts },
+    ];
+
+    const activeStudentsCount = students.filter(s => s.active).length;
+    const studentStatusData = [
+        { name: 'Activos', value: activeStudentsCount },
+        { name: 'Inactivos', value: students.length - activeStudentsCount },
+    ];
+
+    const classCategoryCounts: { [key: string]: number } = classes.reduce((acc, c) => {
+      acc[c.category] = 0;
+      return acc;
+    }, {} as Record<string, number>);
+
+    students.forEach(student => {
+      (student.enrolledClassIds || []).forEach(classId => {
+        const danceClass = classes.find(c => c.id === classId);
+        if (danceClass && classCategoryCounts.hasOwnProperty(danceClass.category)) {
+          classCategoryCounts[danceClass.category]++;
+        }
+      });
+    });
+
+    const classPopularityData = Object.entries(classCategoryCounts).map(([name, value]) => ({
+      name,
+      Alumnos: value,
+    }));
+
+    const COLORS_FINANCIAL = ['#7C00BA', '#FF4136'];
+    const COLORS_STATUS = ['#00B7FF', '#4b5563'];
 
     return (
         <div className="p-4 sm:p-8 space-y-8">
@@ -102,6 +132,49 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <Legend />
                             <Line type="monotone" dataKey="revenue" name="Ingresos" stroke="#7C00BA" strokeWidth={2} />
                         </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
+                    <h3 className="font-semibold mb-4 text-white">Resumen Financiero</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                            <Pie data={financialSummaryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                                {financialSummaryData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS_FINANCIAL[index % COLORS_FINANCIAL.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }}/>
+                            <Legend />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
+                    <h3 className="font-semibold mb-4 text-white">Estado de Alumnos</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                         <PieChart>
+                            <Pie data={studentStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                                 {studentStatusData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS_STATUS[index % COLORS_STATUS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }}/>
+                            <Legend />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
+                    <h3 className="font-semibold mb-4 text-white">Alumnos por Categoría</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={classPopularityData} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
+                            <XAxis type="number" tick={{ fill: '#9ca3af' }} />
+                            <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af' }} width={100} interval={0} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
+                            <Legend />
+                            <Bar dataKey="Alumnos" fill="#7C00BA" />
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
             </div>

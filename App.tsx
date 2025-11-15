@@ -182,7 +182,7 @@ const App: React.FC = () => {
     const renderView = () => {
         switch (currentView) {
             case View.DASHBOARD:
-                return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} />;
+                return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} costs={costs} />;
             case View.STUDENTS:
                 return <StudentList students={students} classes={classes} addStudent={addStudent} updateStudent={updateStudent} deleteStudent={deleteStudent} />;
             case View.CLASSES:
@@ -205,7 +205,7 @@ const App: React.FC = () => {
                             batchAddCosts={batchAddCosts}
                         />;
             default:
-                return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} />;
+                return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} costs={costs} />;
         }
     };
 
