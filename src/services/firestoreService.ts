@@ -46,6 +46,11 @@ export const updateStudent = async (student: Student) => {
   await updateDoc(studentDoc, studentData);
 };
 
+export const deleteStudent = async (studentId: string) => {
+  const studentDoc = doc(db, 'students', studentId);
+  await deleteDoc(studentDoc);
+};
+
 // --- Instructors ---
 
 export const subscribeToInstructors = (callback: (instructors: Instructor[]) => void): Unsubscribe => {

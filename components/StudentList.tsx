@@ -7,6 +7,7 @@ interface StudentListProps {
   classes: DanceClass[];
   addStudent: (student: Omit<Student, 'id'>) => void;
   updateStudent: (student: Student) => void;
+  deleteStudent: (id: string) => void;
 }
 
 const StudentForm: React.FC<{ 
@@ -117,7 +118,7 @@ const StudentForm: React.FC<{
   );
 };
 
-const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent, updateStudent }) => {
+const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent, updateStudent, deleteStudent }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,6 +142,12 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
     handleCloseModal();
   };
   
+  const handleDelete = (student: Student) => {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar a ${student.name}? Esta acción no se puede deshacer.`)) {
+      deleteStudent(student.id);
+    }
+  };
+
   const getEnrolledClassNames = (classIds: string[]): string => {
     if (!classIds || classIds.length === 0) return 'Ninguna';
     return classIds
@@ -196,8 +203,9 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
                     {student.active ? 'Activo' : 'Inactivo'}
                   </span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 whitespace-nowrap">
                   <button onClick={() => handleOpenModal(student)} className="font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
+                  <button onClick={() => handleDelete(student)} className="ml-4 font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
                 </td>
               </tr>
             ))}

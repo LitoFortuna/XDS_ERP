@@ -13,6 +13,7 @@ import {
     subscribeToStudents,
     addStudent as addStudentToDb,
     updateStudent as updateStudentInDb,
+    deleteStudent as deleteStudentFromDb,
     batchAddStudents,
     subscribeToInstructors,
     addInstructor as addInstructorToDb,
@@ -100,6 +101,9 @@ const App: React.FC = () => {
     const updateStudent = async (updatedStudent: Student) => {
         await updateStudentInDb(updatedStudent);
     };
+    const deleteStudent = async (studentId: string) => {
+        await deleteStudentFromDb(studentId);
+    };
 
     // Instructor Handlers
     const addInstructor = async (instructor: Omit<Instructor, 'id'>) => {
@@ -180,7 +184,7 @@ const App: React.FC = () => {
             case View.DASHBOARD:
                 return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} />;
             case View.STUDENTS:
-                return <StudentList students={students} classes={classes} addStudent={addStudent} updateStudent={updateStudent} />;
+                return <StudentList students={students} classes={classes} addStudent={addStudent} updateStudent={updateStudent} deleteStudent={deleteStudent} />;
             case View.CLASSES:
                 return <ClassSchedule classes={classes} instructors={instructors} students={students} addClass={addClass} updateClass={updateClass} deleteClass={deleteClass} />;
             case View.INTERACTIVE_SCHEDULE:
