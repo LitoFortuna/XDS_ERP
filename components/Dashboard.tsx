@@ -27,6 +27,41 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const totalRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
     const totalCosts = costs.reduce((acc, c) => acc + c.amount, 0);
 
+    // --- Logic for Unpaid Students ---
+    const currentYear = new Date().getFullYear();
+    const currentMonthIndex = new Date().getMonth();
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    
+    const unpaidStudentsInfo = students
+        .filter(s => s.active && s.monthlyFee > 0)
+        .map(student => {
+            const unpaidMonths: string[] = [];
+            let totalDebt = 0;
+
+            for (let monthIndex = 0; monthIndex <= currentMonthIndex; monthIndex++) {
+                const paymentsForMonth = payments.filter(p => {
+                    const paymentDate = new Date(p.date);
+                    return p.studentId === student.id && paymentDate.getMonth() === monthIndex && paymentDate.getFullYear() === currentYear;
+                });
+                const totalPaidForMonth = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
+
+                if (totalPaidForMonth < student.monthlyFee) {
+                    unpaidMonths.push(monthNames[monthIndex]);
+                    totalDebt += student.monthlyFee - totalPaidForMonth;
+                }
+            }
+
+            return {
+                name: student.name,
+                unpaidMonths,
+                totalDebt,
+            };
+        })
+        .filter(info => info.totalDebt > 0);
+    
+    const totalPendingAmount = unpaidStudentsInfo.reduce((sum, info) => sum + info.totalDebt, 0);
+
+
     const classEnrollmentData = classes.map(c => ({
         name: c.name,
         Inscritos: students.filter(s => s.enrolledClassIds.includes(c.id)).length,
@@ -91,7 +126,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     return (
         <div className="p-4 sm:p-8 space-y-8">
             <h2 className="text-3xl font-bold">Dashboard</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                 <StatCard title="Total Alumnos" value={totalStudents}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                 </StatCard>
@@ -103,6 +138,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 </StatCard>
                 <StatCard title="Ingresos Totales" value={`€${totalRevenue.toLocaleString('es-ES')}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>
+                </StatCard>
+                 <StatCard title="Pendiente de Cobro" value={`€${totalPendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                 </StatCard>
             </div>
 
@@ -176,6 +216,37 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <Bar dataKey="Alumnos" fill="#7C00BA" />
                         </BarChart>
                     </ResponsiveContainer>
+                </div>
+            </div>
+             <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
+                <h3 className="font-semibold mb-4 text-white">Alumnos con Pagos Pendientes ({currentYear})</h3>
+                <div className="overflow-x-auto max-h-96">
+                    <table className="w-full text-sm text-left text-gray-400">
+                        <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
+                            <tr>
+                                <th scope="col" className="px-6 py-3">Alumno</th>
+                                <th scope="col" className="px-6 py-3">Meses Pendientes</th>
+                                <th scope="col" className="px-6 py-3 text-right">Total Adeudado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {unpaidStudentsInfo.length > 0 ? (
+                                unpaidStudentsInfo.map((info, index) => (
+                                    <tr key={index} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
+                                        <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{info.name}</td>
+                                        <td className="px-6 py-4">{info.unpaidMonths.join(', ')}</td>
+                                        <td className="px-6 py-4 text-right font-bold text-red-400">€{info.totalDebt.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
+                                        ¡Genial! No hay pagos pendientes.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
