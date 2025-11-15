@@ -29,7 +29,8 @@ const ImporterSection: React.FC<{
     };
 
     const handleDownloadTemplate = () => {
-        const csvContent = templateHeaders.join(';') + '\n';
+        const headersForFile = templateHeaders.map(h => h.split('(')[0].trim());
+        const csvContent = headersForFile.join(';') + '\n';
         const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         if (link.href) {
@@ -57,18 +58,18 @@ const ImporterSection: React.FC<{
             try {
                 const text = e.target?.result as string;
                 const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
-                if (lines.length === 0) {
-                     throw new Error('El archivo CSV está vacío o tiene un formato incorrecto.');
+                if (lines.length <= 1) { // Header only or empty
+                     throw new Error('El archivo CSV está vacío o solo contiene la cabecera.');
                 }
                 
                 const rawHeaders = lines.shift()!.split(';').map(h => h.trim().replace(/"/g, ''));
+                rawHeaders[0] = rawHeaders[0].replace(/^\uFEFF/, ''); // Remove BOM from first header if present
 
-                const cleanedHeaders = rawHeaders.map(h => h.split(' ')[0].trim());
-                const cleanedTemplateHeaders = templateHeaders.map(h => h.split(' ')[0].trim());
+                const expectedHeaders = templateHeaders.map(h => h.split('(')[0].trim());
                 
-                if (JSON.stringify(cleanedHeaders) !== JSON.stringify(cleanedTemplateHeaders)) {
-                    console.error('Cabeceras esperadas:', cleanedTemplateHeaders);
-                    console.error('Cabeceras recibidas:', cleanedHeaders);
+                if (JSON.stringify(rawHeaders) !== JSON.stringify(expectedHeaders)) {
+                    console.error('Cabeceras esperadas:', expectedHeaders);
+                    console.error('Cabeceras recibidas:', rawHeaders);
                     throw new Error('Las cabeceras del CSV no coinciden con la plantilla.');
                 }
                 
@@ -125,6 +126,15 @@ const ImporterSection: React.FC<{
 const DataManagement: React.FC<DataManagementProps> = ({ 
     students, instructors, classes, batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts
 }) => {
+    
+    const convertDateToISO = (dateStr: string): string => {
+        if (!dateStr || !/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
+            throw new Error(`Formato de fecha inválido: "${dateStr}". Se esperaba DD-MM-YYYY.`);
+        }
+        const [day, month, year] = dateStr.split('-');
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    };
+
     // --- Opciones para las plantillas ---
     const paymentMethodOptions = ['Efectivo', 'Transferencia', 'Domiciliación', 'Bizum'].join(' | ');
     const costPaymentMethodOptions = ['Efectivo', 'Transferencia', 'Domiciliación', 'Tarjeta'].join(' | ');
@@ -136,54 +146,60 @@ const DataManagement: React.FC<DataManagementProps> = ({
 
     // --- Cabeceras de las plantillas con ayudas ---
     const studentHeaders = [
-        'name (campo libre)',
-        'birthDate (formato: YYYY-MM-DD)',
-        'phone (campo libre)',
-        'email (campo libre)',
-        'monthlyFee (número)',
-        `paymentMethod (opciones: ${paymentMethodOptions})`,
-        'iban (campo libre)',
-        `active (opciones: ${booleanOptions})`,
-        'notes (campo libre)',
-        classes.length > 20 ? 'enrolledClassNames (campo libre; separar con ;)' : `enrolledClassNames (opciones: ${classes.map(c => c.name).join(' | ')}; separar con ;)`
+        'Nombre Completo',
+        'Fecha de Nacimiento (formato: DD-MM-YYYY)',
+        'Teléfono',
+        'Email',
+        'Cuota Mensual (número)',
+        `Forma de Pago (opciones: ${paymentMethodOptions})`,
+        'IBAN',
+        `Activo (opciones: ${booleanOptions})`,
+        'Observaciones',
+        classes.length > 20
+            ? 'Clases Inscritas (nombres, separar con ;)'
+            : `Clases Inscritas (nombres, separar con ;) (Opciones: ${classes.map(c => c.name).join(' | ')})`
     ];
     const instructorHeaders = [
-        'name (campo libre)',
-        'email (campo libre)',
-        'phone (campo libre)',
-        `specialties (opciones: ${specialtyOptions}; separar con ;)`,
-        'ratePerClass (número)',
-        `active (opciones: ${booleanOptions})`,
-        'hireDate (formato: YYYY-MM-DD)',
-        'notes (campo libre)'
+        'Nombre Completo',
+        'Email',
+        'Teléfono',
+        `Especialidades (opciones: ${specialtyOptions}; separar con ;)`,
+        'Tarifa por Clase (número)',
+        `Activo (opciones: ${booleanOptions})`,
+        'Fecha de Alta (formato: DD-MM-YYYY)',
+        'Observaciones'
     ];
     const classHeaders = [
-        'name (campo libre)',
-        instructors.length > 20 ? 'instructorName (campo libre)' : `instructorName (opciones: ${instructors.map(i => i.name).join(' | ')})`,
-        `category (opciones: ${classCategoryOptions})`,
-        `days (opciones: ${dayOfWeekOptions}; separar con ;)`,
-        'startTime (formato: HH:MM)',
-        'endTime (formato: HH:MM)',
-        'capacity (número)',
-        'baseRate (número)'
+        'Nombre de la Clase',
+        instructors.length > 20
+            ? 'Nombre del Profesor'
+            : `Nombre del Profesor (Opciones: ${instructors.map(i => i.name).join(' | ')})`,
+        `Categoría (opciones: ${classCategoryOptions})`,
+        `Días (opciones: ${dayOfWeekOptions}; separar con ;)`,
+        'Hora Inicio (formato: HH:MM)',
+        'Hora Fin (formato: HH:MM)',
+        'Capacidad (número)',
+        'Tarifa Base (número)'
     ];
      const paymentHeaders = [
-        students.length > 20 ? 'studentName (campo libre)' : `studentName (opciones: ${students.map(s => s.name).join(' | ')})`,
-        'amount (número)',
-        'date (formato: YYYY-MM-DD)',
-        'concept (campo libre)',
-        `paymentMethod (opciones: ${paymentMethodOptions})`,
-        'notes (campo libre)'
+        students.length > 20
+            ? 'Nombre del Alumno'
+            : `Nombre del Alumno (Opciones: ${students.map(s => s.name).join(' | ')})`,
+        'Importe (número)',
+        'Fecha (formato: DD-MM-YYYY)',
+        'Concepto',
+        `Forma de Pago (opciones: ${paymentMethodOptions})`,
+        'Observaciones'
     ];
     const costHeaders = [
-        'paymentDate (formato: YYYY-MM-DD)',
-        `category (opciones: ${costCategoryOptions})`,
-        'beneficiary (campo libre)',
-        'concept (campo libre)',
-        'amount (número)',
-        `paymentMethod (opciones: ${costPaymentMethodOptions})`,
-        `isRecurring (opciones: ${booleanOptions})`,
-        'notes (campo libre)'
+        'Fecha de Pago (formato: DD-MM-YYYY)',
+        `Categoría (opciones: ${costCategoryOptions})`,
+        'Beneficiario',
+        'Concepto',
+        'Importe (número)',
+        `Forma de Pago (opciones: ${costPaymentMethodOptions})`,
+        `Recurrente (opciones: ${booleanOptions})`,
+        'Observaciones'
     ];
 
     // --- Lógica de importación ---
@@ -194,7 +210,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
                 .map(name => classes.find(c => c.name === name)?.id)
                 .filter((id): id is string => !!id);
             return {
-                name: row[0], birthDate: row[1], phone: row[2], email: row[3],
+                name: row[0], birthDate: convertDateToISO(row[1]), phone: row[2], email: row[3],
                 monthlyFee: parseFloat(row[4]) || 0,
                 paymentMethod: row[5] as PaymentMethod,
                 iban: row[6], active: row[7].toLowerCase() === 'true', notes: row[8],
@@ -210,7 +226,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
             specialties: row[3] ? row[3].split(';').map(s => s.trim() as Specialty) : [],
             ratePerClass: parseFloat(row[4]) || 0,
             active: row[5].toLowerCase() === 'true',
-            hireDate: row[6], notes: row[7],
+            hireDate: convertDateToISO(row[6]), notes: row[7],
         }));
         await batchAddInstructors(newInstructors);
     };
@@ -237,7 +253,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
             return {
                 studentId: student.id,
                 amount: parseFloat(row[1]) || 0,
-                date: row[2], concept: row[3],
+                date: convertDateToISO(row[2]), concept: row[3],
                 paymentMethod: row[4] as PaymentMethod,
                 notes: row[5],
             };
@@ -247,7 +263,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
 
     const handleCostImport = async (data: string[][]) => {
         const newCosts: Omit<Cost, 'id'>[] = data.map(row => ({
-            paymentDate: row[0], category: row[1] as CostCategory,
+            paymentDate: convertDateToISO(row[0]), category: row[1] as CostCategory,
             beneficiary: row[2], concept: row[3],
             amount: parseFloat(row[4]) || 0,
             paymentMethod: row[5] as CostPaymentMethod,
