@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.API_KEY!,
@@ -10,9 +10,20 @@ const firebaseConfig = {
   appId: "1:958181098277:web:8af680b63c7f223fec90cc"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+let db: Firestore;
 
-// Initialize Cloud Firestore and get a reference to the service.
-// This is now eagerly initialized and exported directly.
-export const db = getFirestore(app);
+try {
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  // Initialize Cloud Firestore and get a reference to the service
+  db = getFirestore(app);
+} catch (error) {
+  console.error("Firebase initialization failed:", error);
+  // This error often means Firestore has not been enabled for the project
+  // in the Firebase console.
+  throw new Error(
+    'Failed to initialize Firestore. Please check your Firebase project settings and ensure that the Cloud Firestore API is enabled.'
+  );
+}
+
+export { db };
