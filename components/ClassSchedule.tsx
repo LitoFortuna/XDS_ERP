@@ -214,7 +214,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
   };
   
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Horario de Clases</h2>
         <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Clase</button>

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { DanceClass, Instructor, Student, DayOfWeek } from '../types';
 import Modal from './Modal';
@@ -41,7 +40,11 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
         if (!scheduleElement) return;
 
         try {
-            const canvas = await html2canvas(scheduleElement, { scale: 2 });
+            const canvas = await html2canvas(scheduleElement, {
+                scale: 2,
+                width: scheduleElement.scrollWidth,
+                height: scheduleElement.scrollHeight
+            });
             const imgData = canvas.toDataURL('image/png');
             // Use canvas dimensions for PDF to maintain aspect ratio
             const pdf = new jsPDF({
@@ -96,8 +99,8 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                     Exportar a PDF
                 </button>
             </div>
-            <div ref={scheduleRef} className="bg-gray-800 p-4 rounded-lg shadow-sm">
-                <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)', gridTemplateRows: `40px repeat(${totalRows}, 16px)` }} className="relative">
+            <div ref={scheduleRef} className="bg-gray-800 p-4 rounded-lg shadow-sm overflow-x-auto">
+                <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)', gridTemplateRows: `40px repeat(${totalRows}, 16px)` }} className="relative min-w-[700px]">
                     {/* Time labels (hourly), skipping 13h and 14h */}
                     {Array.from({ length: 15 }, (_, i) => i + 8)
                         .filter(hour => hour < 13 || hour >= 15)
