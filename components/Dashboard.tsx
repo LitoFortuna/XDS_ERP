@@ -71,28 +71,37 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     
     const totalPendingAmount = unpaidStudentsInfo.reduce((sum, info) => sum + info.totalDebt, 0);
 
-
     const classEnrollmentData = classes.map(c => ({
         name: c.name,
         Inscritos: students.filter(s => s.enrolledClassIds.includes(c.id)).length,
         Capacidad: c.capacity,
     }));
     
-    const monthlyRevenueData = payments.reduce((acc: Record<string, { month: string; revenue: number; monthIndex: number; year: number }>, p) => {
-        const date = new Date(p.date);
+    // Fix: Explicitly type the initial value for the reduce function to ensure correct type inference for monthlyData.
+    const initialMonthlyData: Record<string, { month: string; Ingresos: number; Gastos: number; monthIndex: number; year: number }> = {};
+    const monthlyData = [
+        ...payments.map(p => ({ type: 'income', date: p.date, amount: p.amount })),
+        ...costs.map(c => ({ type: 'cost', date: c.paymentDate, amount: c.amount }))
+    ].reduce((acc, item) => {
+        const date = new Date(item.date);
         const month = date.toLocaleString('es-ES', { month: 'short' });
         const year = date.getFullYear();
-        const key = `${year}-${date.getMonth()}`; // Clave única por año y mes
+        const key = `${year}-${date.getMonth()}`;
         
         if (!acc[key]) {
-            acc[key] = { month, revenue: 0, monthIndex: date.getMonth(), year: year };
+            acc[key] = { month, Ingresos: 0, Gastos: 0, monthIndex: date.getMonth(), year: year };
         }
-        acc[key].revenue += p.amount;
+
+        if (item.type === 'income') {
+            acc[key].Ingresos += item.amount;
+        } else {
+            acc[key].Gastos += item.amount;
+        }
         
         return acc;
-    }, {} as Record<string, { month: string; revenue: number; monthIndex: number; year: number }>);
+    }, initialMonthlyData);
 
-    const sortedMonthlyRevenueData = Object.values(monthlyRevenueData).sort((a: { year: number; monthIndex: number; }, b: { year: number; monthIndex: number; }) => {
+    const sortedMonthlyData = Object.values(monthlyData).sort((a, b) => {
         if (a.year !== b.year) {
             return a.year - b.year;
         }
@@ -132,6 +141,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 
     const COLORS_FINANCIAL = ['#7C00BA', '#FF4136'];
     const COLORS_STATUS = ['#00B7FF', '#4b5563'];
+    
+    const formatCurrency = (value: number) => `€${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return (
         <div className="p-4 sm:p-8 space-y-8">
@@ -172,15 +183,20 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     </ResponsiveContainer>
                 </div>
                 <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
-                    <h3 className="font-semibold mb-4 text-white">Ingresos Mensuales</h3>
+                    <h3 className="font-semibold mb-4 text-white">Ingresos vs Gastos Mensuales</h3>
                      <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={sortedMonthlyRevenueData}>
+                        <LineChart data={sortedMonthlyData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568"/>
                             <XAxis dataKey="month" tick={{ fill: '#9ca3af' }} />
-                            <YAxis tick={{ fill: '#9ca3af' }} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
+                            <YAxis tick={{ fill: '#9ca3af' }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES')}`} />
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} 
+                                cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}
+                                formatter={(value: number) => formatCurrency(value)}
+                            />
                             <Legend />
-                            <Line type="monotone" dataKey="revenue" name="Ingresos" stroke="#7C00BA" strokeWidth={2} />
+                            <Line type="monotone" dataKey="Ingresos" stroke="#7C00BA" strokeWidth={2} />
+                            <Line type="monotone" dataKey="Gastos" stroke="#FF4136" strokeWidth={2} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
@@ -195,7 +211,10 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                     <Cell key={`cell-${index}`} fill={COLORS_FINANCIAL[index % COLORS_FINANCIAL.length]} />
                                 ))}
                             </Pie>
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }}/>
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }}
+                                formatter={(value: number) => formatCurrency(value)}
+                            />
                             <Legend />
                         </PieChart>
                     </ResponsiveContainer>
