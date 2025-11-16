@@ -33,12 +33,22 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     
     const unpaidStudentsInfo = students
-        .filter(s => s.active && s.monthlyFee > 0)
+        .filter(s => s.active && s.monthlyFee > 0 && s.enrollmentDate)
         .map(student => {
             const unpaidMonths: string[] = [];
             let totalDebt = 0;
 
-            for (let monthIndex = 0; monthIndex <= currentMonthIndex; monthIndex++) {
+            const enrollmentDate = new Date(student.enrollmentDate);
+            const enrollmentYear = enrollmentDate.getFullYear();
+            const enrollmentMonth = enrollmentDate.getMonth();
+
+            if (currentYear < enrollmentYear) {
+                return { name: student.name, unpaidMonths: [], totalDebt: 0 };
+            }
+            
+            const startMonth = (currentYear === enrollmentYear) ? enrollmentMonth : 0;
+
+            for (let monthIndex = startMonth; monthIndex <= currentMonthIndex; monthIndex++) {
                 const paymentsForMonth = payments.filter(p => {
                     const paymentDate = new Date(p.date);
                     return p.studentId === student.id && paymentDate.getMonth() === monthIndex && paymentDate.getFullYear() === currentYear;

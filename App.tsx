@@ -104,6 +104,7 @@ const App: React.FC = () => {
     const addStudent = async (student: Omit<Student, 'id'>) => {
         await addStudentToDb({ 
             ...student, 
+            enrollmentDate: student.enrollmentDate || new Date().toISOString().split('T')[0],
             monthlyFee: student.monthlyFee || 19,
             paymentMethod: student.paymentMethod || 'Efectivo',
             enrolledClassIds: student.enrolledClassIds || [],

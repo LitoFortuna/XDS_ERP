@@ -205,6 +205,18 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
     const currentMonthIndex = new Date().getMonth();
 
     const getPaymentStatusForMonth = (student: Student, monthIndex: number) => {
+        if (!student.enrollmentDate) {
+             return { text: 'N/A', color: 'text-gray-600' };
+        }
+
+        const enrollmentDate = new Date(student.enrollmentDate);
+        const enrollmentYear = enrollmentDate.getFullYear();
+        const enrollmentMonth = enrollmentDate.getMonth();
+
+        if (currentYear < enrollmentYear || (currentYear === enrollmentYear && monthIndex < enrollmentMonth)) {
+            return { text: 'N/A', color: 'text-gray-600' };
+        }
+
         const paymentsForMonth = payments.filter(p => {
             const paymentDate = new Date(p.date);
             return p.studentId === student.id && paymentDate.getMonth() === monthIndex && paymentDate.getFullYear() === currentYear;

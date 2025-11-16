@@ -146,6 +146,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
     // --- Cabeceras de las plantillas con ayudas ---
     const studentHeaders = [
         'Nombre Completo',
+        'Fecha de Alta (formato: DD-MM-YYYY)',
         'Fecha de Nacimiento (formato: DD-MM-YYYY)',
         'Teléfono',
         'Email',
@@ -203,15 +204,21 @@ const DataManagement: React.FC<DataManagementProps> = ({
     // --- Lógica de importación ---
     const handleStudentImport = async (data: string[][]) => {
         const newStudents: Omit<Student, 'id'>[] = data.map(row => {
-            const classNames = row[9] ? row[9].split(';').map(s => s.trim()) : [];
+            const classNames = row[10] ? row[10].split(';').map(s => s.trim()) : [];
             const enrolledClassIds = classNames
                 .map(name => classes.find(c => c.name === name)?.id)
                 .filter((id): id is string => !!id);
             return {
-                name: row[0], birthDate: convertDateToISO(row[1]), phone: row[2], email: row[3],
-                monthlyFee: parseFloat(row[4]) || 0,
-                paymentMethod: row[5] as PaymentMethod,
-                iban: row[6], active: row[7].toLowerCase() === 'true', notes: row[8],
+                name: row[0],
+                enrollmentDate: convertDateToISO(row[1]),
+                birthDate: convertDateToISO(row[2]),
+                phone: row[3],
+                email: row[4],
+                monthlyFee: parseFloat(row[5]) || 0,
+                paymentMethod: row[6] as PaymentMethod,
+                iban: row[7],
+                active: row[8].toLowerCase() === 'true',
+                notes: row[9],
                 enrolledClassIds: enrolledClassIds,
             };
         });

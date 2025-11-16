@@ -5,6 +5,7 @@ export type CostPaymentMethod = 'Efectivo' | 'Transferencia' | 'Domiciliación' 
 export interface Student {
   id: string;
   name: string;
+  enrollmentDate: string; // YYYY-MM-DD
   birthDate: string;
   phone: string;
   email: string;

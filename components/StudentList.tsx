@@ -21,6 +21,7 @@ const StudentForm: React.FC<{
     email: student?.email || '',
     phone: student?.phone || '',
     birthDate: student?.birthDate || '',
+    enrollmentDate: student?.enrollmentDate || new Date().toISOString().split('T')[0],
     enrolledClassIds: student?.enrolledClassIds || [],
     monthlyFee: student?.monthlyFee || 19,
     paymentMethod: student?.paymentMethod || 'Efectivo' as PaymentMethod,
@@ -67,6 +68,10 @@ const StudentForm: React.FC<{
             <input type="text" name="name" value={formData.name} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
         </div>
         <div>
+            <label className="block text-sm font-medium text-gray-300">Fecha de Alta</label>
+            <input type="date" name="enrollmentDate" value={formData.enrollmentDate} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
+        </div>
+        <div>
             <label className="block text-sm font-medium text-gray-300">Fecha de Nacimiento</label>
             <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
         </div>
@@ -74,7 +79,7 @@ const StudentForm: React.FC<{
             <label className="block text-sm font-medium text-gray-300">Teléfono</label>
             <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
         </div>
-        <div>
+        <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-300">Email</label>
             <input type="email" name="email" value={formData.email} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
         </div>
@@ -180,7 +185,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
           <thead className="text-xs text-gray-300 uppercase bg-gray-700">
             <tr>
               <th scope="col" className="px-6 py-3">Nombre</th>
-              <th scope="col" className="px-6 py-3">Fecha de Nacimiento</th>
+              <th scope="col" className="px-6 py-3">Fecha de Alta</th>
               <th scope="col" className="px-6 py-3">Teléfono</th>
               <th scope="col" className="px-6 py-3">Clases Inscritas</th>
               <th scope="col" className="px-6 py-3">Cuota Mensual</th>
@@ -193,7 +198,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
             {filteredStudents.map(student => (
               <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                 <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
-                <td className="px-6 py-4">{new Date(student.birthDate).toLocaleDateString('es-ES')}</td>
+                <td className="px-6 py-4">{new Date(student.enrollmentDate).toLocaleDateString('es-ES')}</td>
                 <td className="px-6 py-4">{student.phone}</td>
                 <td className="px-6 py-4">{getEnrolledClassNames(student.enrolledClassIds)}</td>
                 <td className="px-6 py-4">€{student.monthlyFee.toFixed(2)}</td>
