@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: process.env.API_KEY!,
+  // apiKey: process.env.API_KEY!, // REMOVED: This is likely incorrect. The Gemini API key should not be used for Firebase. The SDK can often identify the project without it.
   authDomain: "xen-dance-erp.firebaseapp.com",
   projectId: "xen-dance-erp",
   storageBucket: "xen-dance-erp.firebasestorage.app",
@@ -22,7 +22,7 @@ try {
   // This error often means Firestore has not been enabled for the project
   // in the Firebase console.
   throw new Error(
-    'Failed to initialize Firestore. Please check your Firebase project settings and ensure that the Cloud Firestore API is enabled.'
+    'Failed to initialize Firestore. Please ensure your Firebase project configuration in `src/config/firebase.ts` is correct and that you have enabled the Cloud Firestore API in the Firebase Console for that project.'
   );
 }
 

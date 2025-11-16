@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Instructor, DanceClass, Specialty } from '../types';
+import { Instructor, DanceClass } from '../types';
 import Modal from './Modal';
 
 interface InstructorListProps {
@@ -10,34 +10,29 @@ interface InstructorListProps {
   deleteInstructor: (id: string) => void;
 }
 
-const availableSpecialties: Specialty[] = ['Fitness', 'Baile Moderno', 'Hip Hop', 'Pilates', 'Zumba', 'Competición', 'Contemporáneo', 'Ballet'];
-
-const InstructorForm: React.FC<{ instructor?: Instructor, onSubmit: (instructor: Omit<Instructor, 'id'> | Instructor) => void, onCancel: () => void }> = ({ instructor, onSubmit, onCancel }) => {
+const InstructorForm: React.FC<{ 
+    instructor?: Instructor, 
+    classes: DanceClass[],
+    onSubmit: (instructor: Omit<Instructor, 'id'> | Instructor) => void, 
+    onCancel: () => void 
+}> = ({ instructor, classes, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: instructor?.name || '',
     email: instructor?.email || '',
     phone: instructor?.phone || '',
-    specialties: instructor?.specialties || [],
     ratePerClass: instructor?.ratePerClass || 30,
     active: instructor?.active !== undefined ? instructor.active : true,
     hireDate: instructor?.hireDate || new Date().toISOString().split('T')[0],
     notes: instructor?.notes || '',
   });
 
+  const assignedClasses = instructor ? classes.filter(c => c.instructorId === instructor.id) : [];
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
         const { checked } = e.target as HTMLInputElement;
         setFormData(prev => ({ ...prev, [name]: checked }));
-    } else if (type === 'select-multiple') {
-        const { options } = e.target as HTMLSelectElement;
-        const selectedValues: Specialty[] = [];
-        for (let i = 0, l = options.length; i < l; i++) {
-            if (options[i].selected) {
-                selectedValues.push(options[i].value as Specialty);
-            }
-        }
-        setFormData(prev => ({ ...prev, [name]: selectedValues }));
     } else if (name === 'ratePerClass') {
         setFormData(prev => ({...prev, [name]: parseFloat(value) || 0 }));
     }
@@ -74,12 +69,20 @@ const InstructorForm: React.FC<{ instructor?: Instructor, onSubmit: (instructor:
             <label className="block text-sm font-medium text-gray-300">Teléfono</label>
             <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
         </div>
-        <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-300">Especialidad(es)</label>
-            <select multiple name="specialties" value={formData.specialties} onChange={handleChange} className="mt-1 block w-full h-24 bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
-                {availableSpecialties.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-        </div>
+        {instructor && (
+            <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-300">Clases Asignadas</label>
+                <div className="mt-1 bg-gray-900/50 rounded-md p-3 max-h-32 overflow-y-auto border border-gray-600">
+                    {assignedClasses.length > 0 ? (
+                    <ul className="list-disc list-inside text-gray-300 space-y-1">
+                        {assignedClasses.map(c => <li key={c.id}>{c.name} ({c.days.join(', ')} {c.startTime})</li>)}
+                    </ul>
+                    ) : (
+                    <p className="text-gray-400 italic">Este profesor no tiene clases asignadas.</p>
+                    )}
+                </div>
+            </div>
+        )}
         <div>
             <label className="block text-sm font-medium text-gray-300">Tarifa / Clase (€)</label>
             <input type="number" name="ratePerClass" value={formData.ratePerClass} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required min="0" />
@@ -95,7 +98,7 @@ const InstructorForm: React.FC<{ instructor?: Instructor, onSubmit: (instructor:
       </div>
       <div className="flex justify-end space-x-2 pt-4">
         <button type="button" onClick={onCancel} className="bg-gray-600 text-gray-200 px-4 py-2 rounded-md hover:bg-gray-500">Cancelar</button>
-        <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">{instructor ? 'Actualizar' : 'Añadir'} Profesor</button>
+        <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">{instructor ? 'Actualizar Profesor' : 'Añadir Profesor'}</button>
       </div>
     </form>
   );
@@ -162,7 +165,6 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
           <thead className="text-xs text-gray-300 uppercase bg-gray-700">
             <tr>
               <th scope="col" className="px-6 py-3">Nombre</th>
-              <th scope="col" className="px-6 py-3">Especialidad(es)</th>
               <th scope="col" className="px-6 py-3">Clases Asignadas</th>
               <th scope="col" className="px-6 py-3">Horas/Semana</th>
               <th scope="col" className="px-6 py-3">Tarifa/Clase</th>
@@ -180,7 +182,6 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
                     <div>{instructor.name}</div>
                     <div className="text-xs text-gray-400">{instructor.phone}</div>
                 </td>
-                <td className="px-6 py-4">{instructor.specialties.join(', ')}</td>
                 <td className="px-6 py-4 max-w-xs truncate" title={classNames}>{classNames}</td>
                 <td className="px-6 py-4">{weeklyHours.toFixed(2)}</td>
                 <td className="px-6 py-4">€{instructor.ratePerClass.toFixed(2)}</td>
@@ -200,7 +201,7 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
         </table>
       </div>
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingInstructor ? 'Editar Profesor' : 'Añadir Nuevo Profesor'}>
-        <InstructorForm instructor={editingInstructor} onSubmit={handleSubmit} onCancel={handleCloseModal} />
+        <InstructorForm instructor={editingInstructor} classes={classes} onSubmit={handleSubmit} onCancel={handleCloseModal} />
       </Modal>
     </div>
   );

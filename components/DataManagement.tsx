@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, Specialty, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod } from '../types';
+import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod } from '../types';
 
 interface DataManagementProps {
     students: Student[];
@@ -138,7 +138,6 @@ const DataManagement: React.FC<DataManagementProps> = ({
     // --- Opciones para las plantillas ---
     const paymentMethodOptions = ['Efectivo', 'Transferencia', 'Domiciliación', 'Bizum'].join(' | ');
     const costPaymentMethodOptions = ['Efectivo', 'Transferencia', 'Domiciliación', 'Tarjeta'].join(' | ');
-    const specialtyOptions = ['Fitness', 'Baile Moderno', 'Hip Hop', 'Pilates', 'Zumba', 'Competición', 'Contemporáneo', 'Ballet'].join(' | ');
     const classCategoryOptions = ['Fitness', 'Baile Moderno', 'Competición', 'Especializada'].join(' | ');
     const dayOfWeekOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'].join(' | ');
     const costCategoryOptions = ['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Marketing', 'Mantenimiento', 'Otros'].join(' | ');
@@ -163,7 +162,6 @@ const DataManagement: React.FC<DataManagementProps> = ({
         'Nombre Completo',
         'Email',
         'Teléfono',
-        `Especialidades (opciones: ${specialtyOptions}; separar con ;)`,
         'Tarifa por Clase (número)',
         `Activo (opciones: ${booleanOptions})`,
         'Fecha de Alta (formato: DD-MM-YYYY)',
@@ -222,11 +220,13 @@ const DataManagement: React.FC<DataManagementProps> = ({
 
     const handleInstructorImport = async (data: string[][]) => {
         const newInstructors: Omit<Instructor, 'id'>[] = data.map(row => ({
-            name: row[0], email: row[1], phone: row[2],
-            specialties: row[3] ? row[3].split(';').map(s => s.trim() as Specialty) : [],
-            ratePerClass: parseFloat(row[4]) || 0,
-            active: row[5].toLowerCase() === 'true',
-            hireDate: convertDateToISO(row[6]), notes: row[7],
+            name: row[0],
+            email: row[1],
+            phone: row[2],
+            ratePerClass: parseFloat(row[3]) || 0,
+            active: row[4].toLowerCase() === 'true',
+            hireDate: convertDateToISO(row[5]),
+            notes: row[6],
         }));
         await batchAddInstructors(newInstructors);
     };

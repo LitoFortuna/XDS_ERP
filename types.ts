@@ -16,14 +16,11 @@ export interface Student {
   notes?: string;
 }
 
-export type Specialty = 'Fitness' | 'Baile Moderno' | 'Hip Hop' | 'Pilates' | 'Zumba' | 'Competición' | 'Contemporáneo' | 'Ballet';
-
 export interface Instructor {
   id: string;
   name: string;
   email: string;
   phone: string;
-  specialties: Specialty[];
   ratePerClass: number;
   active: boolean;
   hireDate: string; // YYYY-MM-DD
