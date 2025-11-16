@@ -194,6 +194,7 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
     const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
     const [isCostModalOpen, setIsCostModalOpen] = useState(false);
     const [editingCost, setEditingCost] = useState<Cost | undefined>(undefined);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const totalIncome = payments.reduce((sum, p) => sum + p.amount, 0);
     const totalCosts = costs.reduce((sum, c) => sum + c.amount, 0);
@@ -260,6 +261,10 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
             deleteCost(id);
         }
     };
+    
+    const filteredStudents = students.filter(student =>
+        student.active && student.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
         <div className="p-4 sm:p-8">
@@ -285,6 +290,15 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
                         <h3 className="text-2xl font-bold">Resumen de Cobros a Alumnos</h3>
                         <button onClick={() => setIsIncomeModalOpen(true)} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Registrar Cobro</button>
                     </div>
+                    <div className="mb-4">
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre de alumno..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full max-w-sm bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                        />
+                    </div>
                      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700">
@@ -295,7 +309,7 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
                                 </tr>
                             </thead>
                             <tbody>
-                                {students.filter(s => s.active).map(student => (
+                                {filteredStudents.map(student => (
                                     <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                                         <td className="px-6 py-4 font-medium text-white whitespace-nowrap sticky left-0 bg-gray-800 z-10">{student.name}</td>
                                         <td className="px-6 py-4">€{student.monthlyFee.toFixed(2)}</td>
