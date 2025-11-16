@@ -42,6 +42,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
         try {
             const canvas = await html2canvas(scheduleElement, {
                 scale: 2,
+                backgroundColor: '#1f2937', // Match the background color for export
                 width: scheduleElement.scrollWidth,
                 height: scheduleElement.scrollHeight
             });
@@ -93,7 +94,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
     return (
         <div className="p-4 sm:p-8">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl font-bold">Horario</h2>
+                <h2 className="text-3xl font-bold">Horario Interactivo</h2>
                 <button onClick={exportToPDF} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     Exportar a PDF
@@ -133,17 +134,21 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                         <div key={day} style={{ gridColumn: dayIndex + 2, gridRow: '2 / -1', display: 'grid', gridTemplateRows: `repeat(${totalRows}, 16px)` }} className="relative">
                             {classes
                                 .filter(c => c.days.includes(day))
-                                .map(c => (
-                                    <div
-                                        key={c.id}
-                                        style={getGridPosition(c)}
-                                        className="bg-purple-200 border border-purple-400 rounded-md p-1 m-px overflow-hidden flex flex-col justify-center cursor-pointer hover:bg-purple-300 transition-colors"
-                                        onClick={() => handleOpenModal(c)}
-                                    >
-                                        <span className="font-semibold text-[10px] text-purple-900 truncate" title={c.name}>{c.name}</span>
-                                        <span className="text-[9px] text-purple-700">{c.startTime} - {c.endTime}</span>
-                                    </div>
-                                ))}
+                                .map(c => {
+                                    const enrolledCount = students.filter(s => s.enrolledClassIds.includes(c.id)).length;
+                                    return (
+                                        <div
+                                            key={c.id}
+                                            style={getGridPosition(c)}
+                                            className="bg-purple-200 border border-purple-400 rounded-md p-1 m-px overflow-hidden flex flex-col justify-center cursor-pointer hover:bg-purple-300 transition-colors"
+                                            onClick={() => handleOpenModal(c)}
+                                        >
+                                            <span className="font-semibold text-[10px] text-purple-900 truncate" title={c.name}>{c.name}</span>
+                                            <span className="text-[9px] text-purple-700">{c.startTime} - {c.endTime}</span>
+                                            <span className="text-[9px] font-bold text-purple-800 mt-1">{`${enrolledCount}/${c.capacity}`}</span>
+                                        </div>
+                                    );
+                                })}
                         </div>
                     ))}
                 </div>
