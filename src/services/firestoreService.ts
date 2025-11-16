@@ -11,7 +11,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Student, Instructor, DanceClass, Payment, Cost } from '../../types';
+import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance } from '../../types';
 
 // --- Students ---
 
@@ -190,4 +190,32 @@ export const updateCost = async (cost: Cost) => {
 export const deleteCost = async (costId: string) => {
   const costDoc = doc(db, 'costs', costId);
   await deleteDoc(costDoc);
+};
+
+// --- Nuptial Dances ---
+
+export const subscribeToNuptialDances = (callback: (dances: NuptialDance[]) => void): Unsubscribe => {
+  const q = query(collection(db, 'nuptialDances'), orderBy('weddingDate', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const dances: NuptialDance[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as NuptialDance));
+    callback(dances);
+  });
+};
+
+export const addNuptialDance = async (dance: Omit<NuptialDance, 'id'>) => {
+  await addDoc(collection(db, 'nuptialDances'), dance);
+};
+
+export const updateNuptialDance = async (dance: NuptialDance) => {
+  const { id, ...danceData } = dance;
+  const danceDoc = doc(db, 'nuptialDances', id);
+  await updateDoc(danceDoc, danceData);
+};
+
+export const deleteNuptialDance = async (danceId: string) => {
+  const danceDoc = doc(db, 'nuptialDances', danceId);
+  await deleteDoc(danceDoc);
 };

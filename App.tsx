@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Student, Instructor, DanceClass, Payment, Cost } from './types';
+import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -8,6 +8,7 @@ import ClassSchedule from './components/ClassSchedule';
 import InstructorList from './components/InstructorList';
 import Billing from './components/Billing';
 import InteractiveSchedule from './components/InteractiveSchedule';
+import NuptialDances from './components/NuptialDances';
 import DataManagement from './components/DataManagement';
 import {
     subscribeToStudents,
@@ -33,6 +34,10 @@ import {
     batchAddCosts,
     updateCost as updateCostInDb,
     deleteCost as deleteCostFromDb,
+    subscribeToNuptialDances,
+    addNuptialDance as addNuptialDanceToDb,
+    updateNuptialDance as updateNuptialDanceInDb,
+    deleteNuptialDance as deleteNuptialDanceFromDb,
 } from './src/services/firestoreService';
 
 const App: React.FC = () => {
@@ -45,6 +50,7 @@ const App: React.FC = () => {
     const [classes, setClasses] = useState<DanceClass[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [costs, setCosts] = useState<Cost[]>([]);
+    const [nuptialDances, setNuptialDances] = useState<NuptialDance[]>([]);
 
     useEffect(() => {
         const unsubscribers: (() => void)[] = [];
@@ -55,6 +61,7 @@ const App: React.FC = () => {
             classes: false,
             payments: false,
             costs: false,
+            nuptialDances: false,
         };
 
         const checkAllLoaded = () => {
@@ -82,6 +89,10 @@ const App: React.FC = () => {
         unsubscribers.push(subscribeToCosts(data => {
             setCosts(data);
             if (!loadedFlags.costs) { loadedFlags.costs = true; checkAllLoaded(); }
+        }));
+        unsubscribers.push(subscribeToNuptialDances(data => {
+            setNuptialDances(data);
+            if (!loadedFlags.nuptialDances) { loadedFlags.nuptialDances = true; checkAllLoaded(); }
         }));
 
         return () => {
@@ -164,6 +175,18 @@ const App: React.FC = () => {
         await deleteCostFromDb(costId);
     };
 
+    // Nuptial Dance Handlers
+    const addNuptialDance = async (dance: Omit<NuptialDance, 'id'>) => {
+        await addNuptialDanceToDb(dance);
+    };
+    const updateNuptialDance = async (updatedDance: NuptialDance) => {
+        await updateNuptialDanceInDb(updatedDance);
+    };
+    const deleteNuptialDance = async (danceId: string) => {
+        await deleteNuptialDanceFromDb(danceId);
+    };
+
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-900 text-gray-200">
@@ -193,6 +216,14 @@ const App: React.FC = () => {
                 return <InstructorList instructors={instructors} classes={classes} addInstructor={addInstructor} updateInstructor={updateInstructor} deleteInstructor={deleteInstructor} />;
             case View.BILLING:
                 return <Billing payments={payments} costs={costs} students={students} addPayment={addPayment} addCost={addCost} updateCost={updateCost} deleteCost={deleteCost} />;
+            case View.NUPTIAL_DANCES:
+                return <NuptialDances 
+                            nuptialDances={nuptialDances}
+                            instructors={instructors}
+                            addNuptialDance={addNuptialDance}
+                            updateNuptialDance={updateNuptialDance}
+                            deleteNuptialDance={deleteNuptialDance}
+                        />;
             case View.DATA_MANAGEMENT:
                 return <DataManagement 
                             students={students}

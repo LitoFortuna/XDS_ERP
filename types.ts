@@ -70,6 +70,30 @@ export interface Cost {
   notes?: string;
 }
 
+export interface Rehearsal {
+  id: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  status: 'Pendiente' | 'Completado' | 'Cancelado';
+}
+
+export interface NuptialDance {
+  id: string;
+  coupleName: string;
+  phone: string;
+  email: string;
+  weddingDate: string; // YYYY-MM-DD
+  song: string;
+  instructorId: string;
+  rehearsals: Rehearsal[];
+  package: string;
+  totalHours: number;
+  totalCost: number;
+  paidAmount: number;
+  notes?: string;
+}
+
 
 export enum View {
   DASHBOARD = 'DASHBOARD',
@@ -78,5 +102,6 @@ export enum View {
   INSTRUCTORS = 'INSTRUCTORS',
   BILLING = 'BILLING',
   INTERACTIVE_SCHEDULE = 'INTERACTIVE_SCHEDULE',
+  NUPTIAL_DANCES = 'NUPTIAL_DANCES',
   DATA_MANAGEMENT = 'DATA_MANAGEMENT',
 }
