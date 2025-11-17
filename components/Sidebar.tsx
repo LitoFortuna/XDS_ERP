@@ -32,7 +32,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
 
   const handleNavItemClick = (view: View) => {
     setView(view);
-    setIsOpen(false); // Close sidebar on mobile after selection
+    if (window.innerWidth < 1024) { // Only close on smaller screens
+      setIsOpen(false);
+    }
   };
 
   return (

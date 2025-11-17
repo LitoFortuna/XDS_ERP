@@ -205,19 +205,19 @@ export const subscribeToNuptialDances = (callback: (dances: NuptialDance[]) => v
   });
 };
 
-export const addTask = async (task: Omit<Task, 'id'>) => {
-    await addDoc(collection(db, 'tasks'), task);
+export const addNuptialDance = async (dance: Omit<NuptialDance, 'id'>) => {
+  await addDoc(collection(db, 'nuptialDances'), dance);
 };
 
-export const updateTask = async (task: Task) => {
-    const { id, ...taskData } = task;
-    const taskDoc = doc(db, 'tasks', id);
-    await updateDoc(taskDoc, taskData);
+export const updateNuptialDance = async (dance: NuptialDance) => {
+  const { id, ...danceData } = dance;
+  const danceDoc = doc(db, 'nuptialDances', id);
+  await updateDoc(danceDoc, danceData);
 };
 
-export const deleteTask = async (taskId: string) => {
-    const taskDoc = doc(db, 'tasks', taskId);
-    await deleteDoc(taskDoc);
+export const deleteNuptialDance = async (danceId: string) => {
+  const danceDoc = doc(db, 'nuptialDances', danceId);
+  await deleteDoc(danceDoc);
 };
 
 // --- Tasks ---
@@ -233,17 +233,17 @@ export const subscribeToTasks = (callback: (tasks: Task[]) => void): Unsubscribe
   });
 };
 
-export const addNuptialDance = async (dance: Omit<NuptialDance, 'id'>) => {
-  await addDoc(collection(db, 'nuptialDances'), dance);
+export const addTask = async (task: Omit<Task, 'id'>) => {
+    await addDoc(collection(db, 'tasks'), task);
 };
 
-export const updateNuptialDance = async (dance: NuptialDance) => {
-  const { id, ...danceData } = dance;
-  const danceDoc = doc(db, 'nuptialDances', id);
-  await updateDoc(danceDoc, danceData);
+export const updateTask = async (task: Task) => {
+    const { id, ...taskData } = task;
+    const taskDoc = doc(db, 'tasks', id);
+    await updateDoc(taskDoc, taskData);
 };
 
-export const deleteNuptialDance = async (danceId: string) => {
-  const danceDoc = doc(db, 'nuptialDances', danceId);
-  await deleteDoc(danceDoc);
+export const deleteTask = async (taskId: string) => {
+    const taskDoc = doc(db, 'tasks', taskId);
+    await deleteDoc(taskDoc);
 };
