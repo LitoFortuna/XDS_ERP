@@ -179,7 +179,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
                             <XAxis dataKey="name" tick={{ fill: '#9ca3af' }} />
                             <YAxis tick={{ fill: '#9ca3af' }} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#e5e7eb' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
                             <Legend />
                             <Bar dataKey="Inscritos" fill="#7C00BA" />
                             <Bar dataKey="Capacidad" fill="#00B7FF" />
@@ -194,7 +194,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <XAxis dataKey="month" tick={{ fill: '#9ca3af' }} />
                             <YAxis tick={{ fill: '#9ca3af' }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES')}`} />
                             <Tooltip 
-                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} 
+                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#e5e7eb' }} 
                                 cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}
                                 formatter={(value: number) => formatCurrency(value)}
                             />
@@ -216,7 +216,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                 ))}
                             </Pie>
                             <Tooltip 
-                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }}
+                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#e5e7eb' }}
                                 formatter={(value: number) => formatCurrency(value)}
                             />
                             <Legend />
@@ -232,7 +232,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                     <Cell key={`cell-${index}`} fill={COLORS_STATUS[index % COLORS_STATUS.length]} />
                                 ))}
                             </Pie>
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }}/>
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#e5e7eb' }}/>
                             <Legend />
                         </PieChart>
                     </ResponsiveContainer>
@@ -244,7 +244,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
                             <XAxis type="number" tick={{ fill: '#9ca3af' }} />
                             <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af' }} width={100} interval={0} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#e5e7eb' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
                             <Legend />
                             <Bar dataKey="Alumnos" fill="#7C00BA" />
                         </BarChart>
