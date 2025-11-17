@@ -69,6 +69,8 @@ const TaskForm: React.FC<{
 };
 
 const TaskCard: React.FC<{ task: Task; index: number; onEdit: (task: Task) => void; onDelete: (id: string) => void; }> = ({ task, index, onEdit, onDelete }) => {
+    const isCompleted = task.status === 'Completada';
+
     return (
         <Draggable draggableId={task.id} index={index}>
             {(provided, snapshot) => (
@@ -76,11 +78,11 @@ const TaskCard: React.FC<{ task: Task; index: number; onEdit: (task: Task) => vo
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className={`bg-gray-800 p-3 rounded-md shadow-sm mb-3 border-l-4 ${snapshot.isDragging ? 'shadow-lg ring-2 ring-purple-500' : ''} border-purple-500 cursor-pointer group`}
+                    className={`bg-gray-800 p-3 rounded-md shadow-sm mb-3 border-l-4 ${snapshot.isDragging ? 'shadow-lg ring-2 ring-purple-500' : ''} ${isCompleted ? 'border-green-500 opacity-70' : 'border-purple-500'} cursor-pointer group transition-all duration-300 ease-in-out`}
                     onClick={() => onEdit(task)}
                 >
                     <div className="flex justify-between items-start">
-                        <h4 className="font-semibold text-white">{task.title}</h4>
+                        <h4 className={`font-semibold text-white transition-all duration-300 ${isCompleted ? 'line-through' : ''}`}>{task.title}</h4>
                         <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
                            <TrashIcon className="w-4 h-4" />
                         </button>
@@ -160,7 +162,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, addTask, updateTask, delet
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`flex-grow min-h-[200px] rounded-md transition-colors ${snapshot.isDraggingOver ? 'bg-gray-700/50' : ''}`}
+                    className={`flex-grow min-h-[200px] rounded-md transition-colors duration-300 ease-in-out ${snapshot.isDraggingOver ? 'bg-gray-700/50' : ''}`}
                   >
                     {columns[status].map((task, index) => (
                       <TaskCard key={task.id} task={task} index={index} onEdit={handleOpenModal} onDelete={handleDelete} />
