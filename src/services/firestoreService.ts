@@ -12,7 +12,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance, Task } from '../../types';
+import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance } from '../../types';
 
 // --- Students ---
 
@@ -219,39 +219,4 @@ export const updateNuptialDance = async (dance: NuptialDance) => {
 export const deleteNuptialDance = async (danceId: string) => {
   const danceDoc = doc(db, 'nuptialDances', danceId);
   await deleteDoc(danceDoc);
-};
-
-// --- Tasks ---
-
-export const subscribeToTasks = (callback: (tasks: Task[]) => void): Unsubscribe => {
-  const q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (snapshot) => {
-    const tasks: Task[] = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toMillis() || Date.now()
-      } as Task;
-    });
-    callback(tasks);
-  });
-};
-
-export const addTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
-  await addDoc(collection(db, 'tasks'), {
-    ...task,
-    createdAt: serverTimestamp(),
-  });
-};
-
-export const updateTask = async (task: Task) => {
-  const { id, ...taskData } = task;
-  const taskDoc = doc(db, 'tasks', id);
-  await updateDoc(taskDoc, taskData);
-};
-
-export const deleteTask = async (taskId: string) => {
-  const taskDoc = doc(db, 'tasks', taskId);
-  await deleteDoc(taskDoc);
 };
