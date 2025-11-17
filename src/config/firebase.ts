@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  // apiKey: process.env.API_KEY!, // REMOVED: This is likely incorrect. The Gemini API key should not be used for Firebase. The SDK can often identify the project without it.
+  apiKey: process.env.API_KEY!,
   authDomain: "xen-dance-erp.firebaseapp.com",
   projectId: "xen-dance-erp",
   storageBucket: "xen-dance-erp.firebasestorage.app",
