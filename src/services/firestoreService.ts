@@ -246,7 +246,7 @@ export const addTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
 };
 
 export const updateTask = async (task: Task) => {
-  const { id, createdAt, ...taskData } = task; // Exclude createdAt from the update
+  const { id, ...taskData } = task;
   const taskDoc = doc(db, 'tasks', id);
   await updateDoc(taskDoc, taskData);
 };
