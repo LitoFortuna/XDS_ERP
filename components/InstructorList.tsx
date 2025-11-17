@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Instructor, DanceClass } from '../types';
 import Modal from './Modal';
 
@@ -9,6 +9,10 @@ interface InstructorListProps {
   updateInstructor: (instructor: Instructor) => void;
   deleteInstructor: (id: string) => void;
 }
+
+type SortKey = keyof Instructor | 'weeklyHours';
+type SortDirection = 'asc' | 'desc';
+
 
 const InstructorForm: React.FC<{ 
     instructor?: Instructor, 
@@ -107,6 +111,67 @@ const InstructorForm: React.FC<{
 const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, addInstructor, updateInstructor, deleteInstructor }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState<Instructor | undefined>(undefined);
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
+
+  const calculateClassDurationMinutes = (startTime: string, endTime: string): number => {
+    if (!startTime || !endTime) return 0;
+    const start = new Date(`1970-01-01T${startTime}:00`);
+    const end = new Date(`1970-01-01T${endTime}:00`);
+    const diff = end.getTime() - start.getTime();
+    return diff > 0 ? diff / (1000 * 60) : 0;
+  };
+  
+  const getInstructorWeeklyHours = (instructorId: string) => {
+    const assignedClasses = classes.filter(c => c.instructorId === instructorId);
+    return assignedClasses.reduce((totalMinutes, c) => {
+        const duration = calculateClassDurationMinutes(c.startTime, c.endTime);
+        return totalMinutes + (duration * c.days.length);
+    }, 0) / 60;
+  };
+
+  const sortedInstructors = useMemo(() => {
+    let sortableInstructors = [...instructors];
+    sortableInstructors.sort((a, b) => {
+        const key = sortConfig.key;
+        let aValue: any;
+        let bValue: any;
+        
+        if (key === 'weeklyHours') {
+            aValue = getInstructorWeeklyHours(a.id);
+            bValue = getInstructorWeeklyHours(b.id);
+        } else {
+            aValue = a[key as keyof Instructor];
+            bValue = b[key as keyof Instructor];
+        }
+
+        if (typeof aValue === 'string') {
+            aValue = aValue.toLowerCase();
+            bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) {
+            return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+            return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+    });
+    return sortableInstructors;
+  }, [instructors, classes, sortConfig]);
+  
+  const requestSort = (key: SortKey) => {
+    let direction: SortDirection = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+        direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const getSortIndicator = (key: SortKey) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === 'asc' ? '▲' : '▼';
+  };
 
   const handleOpenModal = (instructor?: Instructor) => {
     setEditingInstructor(instructor);
@@ -132,25 +197,11 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
         deleteInstructor(id);
     }
   };
-  
-  const calculateClassDurationMinutes = (startTime: string, endTime: string): number => {
-    if (!startTime || !endTime) return 0;
-    const start = new Date(`1970-01-01T${startTime}:00`);
-    const end = new Date(`1970-01-01T${endTime}:00`);
-    const diff = end.getTime() - start.getTime();
-    return diff > 0 ? diff / (1000 * 60) : 0;
-  };
 
   const getInstructorInfo = (instructorId: string) => {
     const assignedClasses = classes.filter(c => c.instructorId === instructorId);
-    
-    const weeklyHours = assignedClasses.reduce((totalMinutes, c) => {
-        const duration = calculateClassDurationMinutes(c.startTime, c.endTime);
-        return totalMinutes + (duration * c.days.length);
-    }, 0) / 60;
-
+    const weeklyHours = getInstructorWeeklyHours(instructorId);
     const classNames = assignedClasses.map(c => c.name).join(', ') || 'Ninguna';
-
     return { weeklyHours, classNames };
   };
 
@@ -178,7 +229,7 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
         'Horas/Semana', 'Tarifa/Clase (€)', 'Fecha de Alta', 'Estado', 'Observaciones'
     ];
 
-    const dataToExport = instructors.map(instructor => {
+    const dataToExport = sortedInstructors.map(instructor => {
         const { weeklyHours, classNames } = getInstructorInfo(instructor.id);
         return [
             instructor.name,
@@ -200,6 +251,12 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
 
     downloadCSV(csvContent, 'profesores.csv');
   };
+  
+  const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode; }> = ({ sortKey, children }) => (
+    <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600" onClick={() => requestSort(sortKey)}>
+      {children} {getSortIndicator(sortKey)}
+    </th>
+  );
 
   return (
     <div className="p-4 sm:p-8">
@@ -217,17 +274,17 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs text-gray-300 uppercase bg-gray-700">
             <tr>
-              <th scope="col" className="px-6 py-3">Nombre</th>
+              <SortableHeader sortKey="name">Nombre</SortableHeader>
               <th scope="col" className="px-6 py-3">Clases Asignadas</th>
-              <th scope="col" className="px-6 py-3">Horas/Semana</th>
-              <th scope="col" className="px-6 py-3">Tarifa/Clase</th>
-              <th scope="col" className="px-6 py-3">Fecha de Alta</th>
-              <th scope="col" className="px-6 py-3">Estado</th>
+              <SortableHeader sortKey="weeklyHours">Horas/Semana</SortableHeader>
+              <SortableHeader sortKey="ratePerClass">Tarifa/Clase</SortableHeader>
+              <SortableHeader sortKey="hireDate">Fecha de Alta</SortableHeader>
+              <SortableHeader sortKey="active">Estado</SortableHeader>
               <th scope="col" className="px-6 py-3">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {instructors.map(instructor => {
+            {sortedInstructors.map(instructor => {
               const { weeklyHours, classNames } = getInstructorInfo(instructor.id);
               return (
               <tr key={instructor.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">

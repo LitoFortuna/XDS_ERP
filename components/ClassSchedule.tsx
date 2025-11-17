@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory } from '../types';
 import Modal from './Modal';
 
@@ -10,6 +10,9 @@ interface ClassScheduleProps {
   updateClass: (danceClass: DanceClass) => void;
   deleteClass: (id: string) => void;
 }
+
+type SortKey = keyof DanceClass | 'instructorName' | 'occupancy';
+type SortDirection = 'asc' | 'desc';
 
 const addMinutesToTime = (time: string, minutes: number): string => {
     if (!time) return '';
@@ -149,6 +152,56 @@ export const ClassForm: React.FC<{
 const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, students, addClass, updateClass, deleteClass }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<DanceClass | undefined>(undefined);
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
+
+  const getInstructorName = (id: string) => instructors.find(i => i.id === id)?.name || 'Desconocido';
+
+  const sortedClasses = useMemo(() => {
+    let sortableClasses = [...classes];
+    sortableClasses.sort((a, b) => {
+        const key = sortConfig.key;
+        let aValue: any;
+        let bValue: any;
+
+        if (key === 'instructorName') {
+            aValue = getInstructorName(a.instructorId);
+            bValue = getInstructorName(b.instructorId);
+        } else if (key === 'occupancy') {
+            aValue = students.filter(s => s.enrolledClassIds.includes(a.id)).length;
+            bValue = students.filter(s => s.enrolledClassIds.includes(b.id)).length;
+        } else {
+            aValue = a[key as keyof DanceClass];
+            bValue = b[key as keyof DanceClass];
+        }
+
+        if (typeof aValue === 'string') {
+            aValue = aValue.toLowerCase();
+            bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) {
+            return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+            return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+    });
+    return sortableClasses;
+  }, [classes, instructors, students, sortConfig]);
+  
+  const requestSort = (key: SortKey) => {
+    let direction: SortDirection = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+        direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const getSortIndicator = (key: SortKey) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === 'asc' ? '▲' : '▼';
+  };
 
   const handleOpenModal = (danceClass?: DanceClass) => {
     setEditingClass(danceClass);
@@ -184,8 +237,6 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
       deleteClass(classId);
     }
   };
-  
-  const getInstructorName = (id: string) => instructors.find(i => i.id === id)?.name || 'Desconocido';
   
   const OccupancyStatus = ({ danceClass }: { danceClass: DanceClass }) => {
     const enrolledCount = students.filter(s => s.enrolledClassIds.includes(danceClass.id)).length;
@@ -237,7 +288,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
       'Profesor', 'Alumnos Inscritos', 'Capacidad', 'Tarifa Base (€)'
     ];
 
-    const dataToExport = [...classes].sort((a,b) => a.name.localeCompare(b.name)).map(c => {
+    const dataToExport = sortedClasses.map(c => {
         const enrolledCount = students.filter(s => s.enrolledClassIds.includes(c.id)).length;
         return [
             c.name,
@@ -260,6 +311,12 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
     downloadCSV(csvContent, 'clases.csv');
   };
   
+  const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode; }> = ({ sortKey, children }) => (
+    <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600" onClick={() => requestSort(sortKey)}>
+      {children} {getSortIndicator(sortKey)}
+    </th>
+  );
+  
   return (
     <div className="p-4 sm:p-8">
       <div className="flex justify-between items-center mb-6">
@@ -276,18 +333,18 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs text-gray-300 uppercase bg-gray-700">
             <tr>
-              <th scope="col" className="px-6 py-3">Nombre de la clase</th>
-              <th scope="col" className="px-6 py-3">Categoría</th>
+              <SortableHeader sortKey="name">Nombre de la clase</SortableHeader>
+              <SortableHeader sortKey="category">Categoría</SortableHeader>
               <th scope="col" className="px-6 py-3">Día(s)</th>
-              <th scope="col" className="px-6 py-3">Hora inicio</th>
-              <th scope="col" className="px-6 py-3">Profesor</th>
-              <th scope="col" className="px-6 py-3">Ocupación</th>
-              <th scope="col" className="px-6 py-3">Tarifa Base</th>
+              <SortableHeader sortKey="startTime">Hora inicio</SortableHeader>
+              <SortableHeader sortKey="instructorName">Profesor</SortableHeader>
+              <SortableHeader sortKey="occupancy">Ocupación</SortableHeader>
+              <SortableHeader sortKey="baseRate">Tarifa Base</SortableHeader>
               <th scope="col" className="px-6 py-3">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {[...classes].sort((a,b) => a.name.localeCompare(b.name)).map(c => (
+            {sortedClasses.map(c => (
               <tr key={c.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                 <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{c.name}</td>
                 <td className="px-6 py-4">{c.category}</td>

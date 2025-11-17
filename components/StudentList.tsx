@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Student, DanceClass, PaymentMethod } from '../types';
 import Modal from './Modal';
 
@@ -9,6 +9,9 @@ interface StudentListProps {
   updateStudent: (student: Student) => void;
   deleteStudent: (id: string) => void;
 }
+
+type SortKey = keyof Student | 'enrolledClasses';
+type SortDirection = 'asc' | 'desc';
 
 const StudentForm: React.FC<{ 
     student?: Student, 
@@ -127,6 +130,57 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
+
+  const getEnrolledClassNames = (classIds: string[]): string => {
+    if (!classIds || classIds.length === 0) return 'Ninguna';
+    return classIds
+        .map(id => classes.find(c => c.id === id)?.name)
+        .filter(Boolean)
+        .join(', ');
+  };
+  
+  const sortedAndFilteredStudents = useMemo(() => {
+    let sortableStudents = [...students].filter(student =>
+      student.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    sortableStudents.sort((a, b) => {
+      const key = sortConfig.key;
+      let aValue: any = key === 'enrolledClasses' ? getEnrolledClassNames(a.enrolledClassIds) : a[key as keyof Student];
+      let bValue: any = key === 'enrolledClasses' ? getEnrolledClassNames(b.enrolledClassIds) : b[key as keyof Student];
+
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    return sortableStudents;
+  }, [students, searchQuery, sortConfig, classes]);
+
+
+  const requestSort = (key: SortKey) => {
+    let direction: SortDirection = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const getSortIndicator = (key: SortKey) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === 'asc' ? '▲' : '▼';
+  };
 
   const handleOpenModal = (student?: Student) => {
     setEditingStudent(student);
@@ -147,23 +201,16 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
     handleCloseModal();
   };
   
-  const handleDelete = (student: Student) => {
-    if (window.confirm(`¿Estás seguro de que quieres eliminar a ${student.name}? Esta acción no se puede deshacer.`)) {
-      deleteStudent(student.id);
+  const handleDeleteRequest = (student: Student) => {
+    setStudentToDelete(student);
+  };
+
+  const confirmDelete = () => {
+    if (studentToDelete) {
+      deleteStudent(studentToDelete.id);
+      setStudentToDelete(null);
     }
   };
-
-  const getEnrolledClassNames = (classIds: string[]): string => {
-    if (!classIds || classIds.length === 0) return 'Ninguna';
-    return classIds
-        .map(id => classes.find(c => c.id === id)?.name)
-        .filter(Boolean)
-        .join(', ');
-  };
-
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const sanitizeCSVCell = (cellData: any): string => {
     const cellString = String(cellData ?? '');
@@ -189,7 +236,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
       'Clases Inscritas', 'Cuota Mensual (€)', 'Forma de Pago', 'IBAN', 'Activo', 'Observaciones'
     ];
     
-    const dataToExport = filteredStudents.map(student => ([
+    const dataToExport = sortedAndFilteredStudents.map(student => ([
       student.name,
       new Date(student.enrollmentDate).toLocaleDateString('es-ES'),
       new Date(student.birthDate).toLocaleDateString('es-ES'),
@@ -210,6 +257,13 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
 
     downloadCSV(csvContent, 'alumnos.csv');
   };
+  
+  const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode; }> = ({ sortKey, children }) => (
+    <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600" onClick={() => requestSort(sortKey)}>
+      {children} {getSortIndicator(sortKey)}
+    </th>
+  );
+
 
   return (
     <div className="p-4 sm:p-8">
@@ -236,18 +290,18 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs text-gray-300 uppercase bg-gray-700">
             <tr>
-              <th scope="col" className="px-6 py-3">Nombre</th>
-              <th scope="col" className="px-6 py-3">Fecha de Alta</th>
+              <SortableHeader sortKey="name">Nombre</SortableHeader>
+              <SortableHeader sortKey="enrollmentDate">Fecha de Alta</SortableHeader>
               <th scope="col" className="px-6 py-3">Teléfono</th>
-              <th scope="col" className="px-6 py-3">Clases Inscritas</th>
-              <th scope="col" className="px-6 py-3">Cuota Mensual</th>
-              <th scope="col" className="px-6 py-3">Forma de Pago</th>
-              <th scope="col" className="px-6 py-3">Estado</th>
+              <SortableHeader sortKey="enrolledClasses">Clases Inscritas</SortableHeader>
+              <SortableHeader sortKey="monthlyFee">Cuota Mensual</SortableHeader>
+              <SortableHeader sortKey="paymentMethod">Forma de Pago</SortableHeader>
+              <SortableHeader sortKey="active">Estado</SortableHeader>
               <th scope="col" className="px-6 py-3">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {filteredStudents.map(student => (
+            {sortedAndFilteredStudents.map(student => (
               <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                 <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
                 <td className="px-6 py-4">{new Date(student.enrollmentDate).toLocaleDateString('es-ES')}</td>
@@ -262,7 +316,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button onClick={() => handleOpenModal(student)} className="font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
-                  <button onClick={() => handleDelete(student)} className="ml-4 font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
+                  <button onClick={() => handleDeleteRequest(student)} className="ml-4 font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
                 </td>
               </tr>
             ))}
@@ -271,6 +325,24 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
       </div>
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingStudent ? 'Editar Alumno' : 'Añadir Nuevo Alumno'}>
         <StudentForm student={editingStudent} classes={classes} onSubmit={handleSubmit} onCancel={handleCloseModal} />
+      </Modal>
+      <Modal isOpen={!!studentToDelete} onClose={() => setStudentToDelete(null)} title="Confirmar Eliminación">
+        {studentToDelete && (
+          <div>
+            <p className="text-gray-300">
+              ¿Estás seguro de que quieres eliminar a <span className="font-bold text-white">{studentToDelete.name}</span>?
+            </p>
+            <p className="text-sm text-yellow-400 mt-2">Esta acción no se puede deshacer y se eliminarán todos los datos asociados.</p>
+            <div className="flex justify-end space-x-2 mt-6">
+              <button onClick={() => setStudentToDelete(null)} className="bg-gray-600 text-gray-200 px-4 py-2 rounded-md hover:bg-gray-500">
+                Cancelar
+              </button>
+              <button onClick={confirmDelete} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">
+                Eliminar Alumno
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

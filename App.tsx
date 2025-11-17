@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance } from './types';
+import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, Task } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -10,6 +10,7 @@ import Billing from './components/Billing';
 import InteractiveSchedule from './components/InteractiveSchedule';
 import NuptialDances from './components/NuptialDances';
 import DataManagement from './components/DataManagement';
+import Tasks from './components/Tasks';
 import {
     subscribeToStudents,
     addStudent as addStudentToDb,
@@ -38,6 +39,10 @@ import {
     addNuptialDance as addNuptialDanceToDb,
     updateNuptialDance as updateNuptialDanceInDb,
     deleteNuptialDance as deleteNuptialDanceFromDb,
+    subscribeToTasks,
+    addTask as addTaskToDb,
+    updateTask as updateTaskInDb,
+    deleteTask as deleteTaskFromDb,
 } from './src/services/firestoreService';
 
 const App: React.FC = () => {
@@ -51,49 +56,43 @@ const App: React.FC = () => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [costs, setCosts] = useState<Cost[]>([]);
     const [nuptialDances, setNuptialDances] = useState<NuptialDance[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
 
     useEffect(() => {
         const unsubscribers: (() => void)[] = [];
         
-        let loadedFlags = {
-            students: false,
-            instructors: false,
-            classes: false,
-            payments: false,
-            costs: false,
-            nuptialDances: false,
+        const subscriptions = {
+            students: false, instructors: false, classes: false,
+            payments: false, costs: false, nuptialDances: false, tasks: false,
         };
 
         const checkAllLoaded = () => {
-            if (Object.values(loadedFlags).every(flag => flag)) {
+            if (Object.values(subscriptions).every(flag => flag)) {
                 setLoading(false);
             }
         };
 
-        unsubscribers.push(subscribeToStudents(data => {
-            setStudents(data);
-            if (!loadedFlags.students) { loadedFlags.students = true; checkAllLoaded(); }
-        }));
-        unsubscribers.push(subscribeToInstructors(data => {
-            setInstructors(data);
-            if (!loadedFlags.instructors) { loadedFlags.instructors = true; checkAllLoaded(); }
-        }));
-        unsubscribers.push(subscribeToClasses(data => {
-            setClasses(data);
-            if (!loadedFlags.classes) { loadedFlags.classes = true; checkAllLoaded(); }
-        }));
-        unsubscribers.push(subscribeToPayments(data => {
-            setPayments(data);
-            if (!loadedFlags.payments) { loadedFlags.payments = true; checkAllLoaded(); }
-        }));
-        unsubscribers.push(subscribeToCosts(data => {
-            setCosts(data);
-            if (!loadedFlags.costs) { loadedFlags.costs = true; checkAllLoaded(); }
-        }));
-        unsubscribers.push(subscribeToNuptialDances(data => {
-            setNuptialDances(data);
-            if (!loadedFlags.nuptialDances) { loadedFlags.nuptialDances = true; checkAllLoaded(); }
-        }));
+        const createSubscriber = <T,>(
+            subscribeFn: (callback: (data: T[]) => void) => () => void,
+            setter: React.Dispatch<React.SetStateAction<T[]>>,
+            key: keyof typeof subscriptions
+        ) => {
+            return subscribeFn(data => {
+                setter(data);
+                if (!subscriptions[key]) {
+                    subscriptions[key] = true;
+                    checkAllLoaded();
+                }
+            });
+        };
+
+        unsubscribers.push(createSubscriber(subscribeToStudents, setStudents, 'students'));
+        unsubscribers.push(createSubscriber(subscribeToInstructors, setInstructors, 'instructors'));
+        unsubscribers.push(createSubscriber(subscribeToClasses, setClasses, 'classes'));
+        unsubscribers.push(createSubscriber(subscribeToPayments, setPayments, 'payments'));
+        unsubscribers.push(createSubscriber(subscribeToCosts, setCosts, 'costs'));
+        unsubscribers.push(createSubscriber(subscribeToNuptialDances, setNuptialDances, 'nuptialDances'));
+        unsubscribers.push(createSubscriber(subscribeToTasks, setTasks, 'tasks'));
 
         return () => {
           unsubscribers.forEach(unsub => unsub());
@@ -145,9 +144,7 @@ const App: React.FC = () => {
         await updateClassInDb(updatedClass);
     };
     const deleteClass = async (classId: string) => {
-        // Un-enroll students from the deleted class
         const studentsToUpdate = students.filter(s => s.enrolledClassIds?.includes(classId));
-        
         const updatePromises = studentsToUpdate.map(student => {
             const updatedStudent = {
                 ...student,
@@ -155,7 +152,6 @@ const App: React.FC = () => {
             };
             return updateStudentInDb(updatedStudent);
         });
-
         await Promise.all(updatePromises);
         await deleteClassFromDb(classId);
     };
@@ -186,6 +182,11 @@ const App: React.FC = () => {
     const deleteNuptialDance = async (danceId: string) => {
         await deleteNuptialDanceFromDb(danceId);
     };
+    
+    // Task Handlers
+    const addTask = async (task: Omit<Task, 'id' | 'createdAt'>) => await addTaskToDb(task);
+    const updateTask = async (task: Task) => await updateTaskInDb(task);
+    const deleteTask = async (taskId: string) => await deleteTaskFromDb(taskId);
 
 
     if (loading) {
@@ -206,7 +207,7 @@ const App: React.FC = () => {
     const renderView = () => {
         switch (currentView) {
             case View.DASHBOARD:
-                return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} costs={costs} />;
+                return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} costs={costs} setView={setCurrentView} />;
             case View.STUDENTS:
                 return <StudentList students={students} classes={classes} addStudent={addStudent} updateStudent={updateStudent} deleteStudent={deleteStudent} />;
             case View.CLASSES:
@@ -225,6 +226,8 @@ const App: React.FC = () => {
                             updateNuptialDance={updateNuptialDance}
                             deleteNuptialDance={deleteNuptialDance}
                         />;
+            case View.TASKS:
+                return <Tasks tasks={tasks} addTask={addTask} updateTask={updateTask} deleteTask={deleteTask} />;
             case View.DATA_MANAGEMENT:
                 return <DataManagement 
                             students={students}
@@ -237,7 +240,7 @@ const App: React.FC = () => {
                             batchAddCosts={batchAddCosts}
                         />;
             default:
-                return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} costs={costs} />;
+                return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} costs={costs} setView={setCurrentView} />;
         }
     };
 

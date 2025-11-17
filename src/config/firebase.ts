@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, Firestore, FirestoreError } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.API_KEY!,
@@ -13,17 +13,41 @@ const firebaseConfig = {
 let db: Firestore;
 
 try {
-  // Initialize Firebase
+  if (!firebaseConfig.apiKey) {
+    throw new Error("La variable de entorno API_KEY de Firebase no está configurada. Por favor, asegúrate de que esté disponible.");
+  }
   const app = initializeApp(firebaseConfig);
-  // Initialize Cloud Firestore and get a reference to the service
   db = getFirestore(app);
-} catch (error) {
-  console.error("Firebase initialization failed:", error);
-  // This error often means Firestore has not been enabled for the project
-  // in the Firebase console.
-  throw new Error(
-    'Failed to initialize Firestore. Please ensure your Firebase project configuration in `src/config/firebase.ts` is correct and that you have enabled the Cloud Firestore API in the Firebase Console for that project.'
-  );
+} catch (error: any) {
+  let friendlyMessage = 'Error al inicializar Firebase. Revisa la consola para más detalles.';
+  
+  if (error instanceof Error) {
+      if (error.message.includes("API key not valid")) {
+          friendlyMessage = 'Error de Firebase: La API Key proporcionada no es válida. Revisa tu configuración.';
+      } else if (error.message.includes("project not found")) {
+          friendlyMessage = 'Error de Firebase: Proyecto no encontrado. Verifica que el `projectId` en tu configuración sea correcto.';
+      }
+  }
+
+  if (error.code === 'failed-precondition' || (error instanceof Error && error.message.toLowerCase().includes('firestore'))) {
+      friendlyMessage = 'Error de Firestore: No se pudo conectar. Asegúrate de que la API de Cloud Firestore esté habilitada en la Consola de Firebase para este proyecto.';
+  }
+
+  console.error("FALLO EN LA INICIALIZACIÓN DE FIREBASE:", error);
+  
+  // Display the error in the UI
+  const rootElement = document.getElementById('root');
+  if (rootElement) {
+    rootElement.innerHTML = `
+      <div style="padding: 2rem; text-align: center; color: #fecaca; background-color: #1f2937; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        <h1 style="font-size: 1.5rem; font-weight: bold; color: #f87171;">Error de Conexión</h1>
+        <p style="margin-top: 1rem; color: #fca5a5;">${friendlyMessage}</p>
+        <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #9ca3af;">Por favor, contacta al soporte técnico si el problema persiste.</p>
+      </div>
+    `;
+  }
+
+  throw new Error(friendlyMessage);
 }
 
 export { db };
