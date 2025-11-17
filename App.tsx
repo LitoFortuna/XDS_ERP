@@ -59,43 +59,25 @@ const App: React.FC = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
 
     useEffect(() => {
-        const unsubscribers: (() => void)[] = [];
-        
-        const subscriptions = {
-            students: false, instructors: false, classes: false,
-            payments: false, costs: false, nuptialDances: false, tasks: false,
-        };
+        const unsubscribers = [
+            subscribeToStudents(setStudents),
+            subscribeToInstructors(setInstructors),
+            subscribeToClasses(setClasses),
+            subscribeToPayments(setPayments),
+            subscribeToCosts(setCosts),
+            subscribeToNuptialDances(setNuptialDances),
+            subscribeToTasks(setTasks),
+        ];
 
-        const checkAllLoaded = () => {
-            if (Object.values(subscriptions).every(flag => flag)) {
-                setLoading(false);
-            }
-        };
-
-        const createSubscriber = <T,>(
-            subscribeFn: (callback: (data: T[]) => void) => () => void,
-            setter: React.Dispatch<React.SetStateAction<T[]>>,
-            key: keyof typeof subscriptions
-        ) => {
-            return subscribeFn(data => {
-                setter(data);
-                if (!subscriptions[key]) {
-                    subscriptions[key] = true;
-                    checkAllLoaded();
-                }
-            });
-        };
-
-        unsubscribers.push(createSubscriber(subscribeToStudents, setStudents, 'students'));
-        unsubscribers.push(createSubscriber(subscribeToInstructors, setInstructors, 'instructors'));
-        unsubscribers.push(createSubscriber(subscribeToClasses, setClasses, 'classes'));
-        unsubscribers.push(createSubscriber(subscribeToPayments, setPayments, 'payments'));
-        unsubscribers.push(createSubscriber(subscribeToCosts, setCosts, 'costs'));
-        unsubscribers.push(createSubscriber(subscribeToNuptialDances, setNuptialDances, 'nuptialDances'));
-        unsubscribers.push(createSubscriber(subscribeToTasks, setTasks, 'tasks'));
+        // Set a timeout to hide the loader. This is a simpler, albeit less precise,
+        // way to handle initial loading and avoids getting stuck if one subscription fails.
+        const timer = setTimeout(() => {
+            setLoading(false);
+        }, 2500);
 
         return () => {
           unsubscribers.forEach(unsub => unsub());
+          clearTimeout(timer);
         };
     }, []);
 
