@@ -1,5 +1,5 @@
 {
-  "name": "xen-dance-space-erp",
+  "name": "copy-of-xen-dance-space-erp",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -15,8 +15,7 @@
     "recharts": "^3.3.0",
     "jspdf": "^2.5.1",
     "html2canvas": "^1.4.1",
-    "firebase": "^10.7.1",
-    "react-beautiful-dnd": "^13.1.1"
+    "firebase": "^10.7.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

@@ -28,6 +28,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const totalCosts = costs.reduce((acc, c) => acc + c.amount, 0);
 
     // --- Logic for Unpaid Students ---
+    // Fix: Corrected typo in new Date() constructor.
     const currentYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth();
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -43,7 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             const enrollmentMonth = enrollmentDate.getMonth();
 
             if (currentYear < enrollmentYear) {
-                return { name: student.name, unpaidMonths: [], totalDebt: 0 };
+                return { name: student.name, phone: student.phone, unpaidMonths: [], totalDebt: 0 };
             }
             
             const startMonth = (currentYear === enrollmentYear) ? enrollmentMonth : 0;
@@ -63,6 +64,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 
             return {
                 name: student.name,
+                phone: student.phone,
                 unpaidMonths,
                 totalDebt,
             };
@@ -70,43 +72,24 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         .filter(info => info.totalDebt > 0);
     
     const totalPendingAmount = unpaidStudentsInfo.reduce((sum, info) => sum + info.totalDebt, 0);
+    
+    const handleWhatsAppReminder = (info: { name: string; phone: string; totalDebt: number; unpaidMonths: string[] }) => {
+        if (!info.phone) {
+            alert(`El alumno ${info.name} no tiene un número de teléfono registrado.`);
+            return;
+        }
 
-    // --- Logic for Upcoming Birthdays ---
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to the beginning of the day
+        const sanitizedPhone = `34${info.phone.replace(/[\s-()]/g, '')}`;
+        const monthsString = info.unpaidMonths.join(', ');
+        const debtString = info.totalDebt.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
-    const sevenDaysFromNow = new Date(today);
-    sevenDaysFromNow.setDate(today.getDate() + 7);
+        const message = `¡Hola ${info.name}! Te escribimos desde Xen Dance Space para recordarte que tienes un pago pendiente de ${debtString} correspondiente a los meses de ${monthsString}. Puedes realizar el pago por los medios habituales. ¡Muchas gracias!`;
+        
+        const encodedMessage = encodeURIComponent(message);
+        const whatsappUrl = `https://wa.me/${sanitizedPhone}?text=${encodedMessage}`;
 
-    const upcomingBirthdays = students
-        .map(student => {
-            if (!student.birthDate) return null;
-            
-            const birthDate = new Date(student.birthDate);
-            const studentBirthdayThisYear = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
-            studentBirthdayThisYear.setHours(0, 0, 0, 0);
-
-            // If birthday has already passed this year, check for next year
-            if (studentBirthdayThisYear < today) {
-                studentBirthdayThisYear.setFullYear(today.getFullYear() + 1);
-            }
-            
-            const age = studentBirthdayThisYear.getFullYear() - birthDate.getFullYear();
-
-            return {
-                ...student,
-                nextBirthday: studentBirthdayThisYear,
-                age,
-            }
-        })
-        .filter((student): student is Student & { nextBirthday: Date; age: number } => {
-            if (!student) return false;
-            return student.nextBirthday >= today && student.nextBirthday < sevenDaysFromNow;
-        })
-        .sort((a, b) => {
-            return a.nextBirthday.getTime() - b.nextBirthday.getTime();
-        });
-
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    };
 
     const classEnrollmentData = classes.map(c => ({
         name: c.name,
@@ -288,72 +271,49 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     </ResponsiveContainer>
                 </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
-                    <h3 className="font-semibold mb-4 text-white">Alumnos con Pagos Pendientes ({currentYear})</h3>
-                    <div className="overflow-x-auto max-h-96">
-                        <table className="w-full text-sm text-left text-gray-400">
-                            <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3">Alumno</th>
-                                    <th scope="col" className="px-6 py-3">Meses Pendientes</th>
-                                    <th scope="col" className="px-6 py-3 text-right">Total Adeudado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {unpaidStudentsInfo.length > 0 ? (
-                                    unpaidStudentsInfo.map((info, index) => (
-                                        <tr key={index} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
-                                            <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{info.name}</td>
-                                            <td className="px-6 py-4">{info.unpaidMonths.join(', ')}</td>
-                                            <td className="px-6 py-4 text-right font-bold text-red-400">€{info.totalDebt.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
-                                            ¡Genial! No hay pagos pendientes.
+             <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
+                <h3 className="font-semibold mb-4 text-white">Alumnos con Pagos Pendientes ({currentYear})</h3>
+                <div className="overflow-x-auto max-h-96">
+                    <table className="w-full text-sm text-left text-gray-400">
+                        <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
+                            <tr>
+                                <th scope="col" className="px-6 py-3">Alumno</th>
+                                <th scope="col" className="px-6 py-3">Meses Pendientes</th>
+                                <th scope="col" className="px-6 py-3 text-right">Total Adeudado</th>
+                                <th scope="col" className="px-6 py-3 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {unpaidStudentsInfo.length > 0 ? (
+                                unpaidStudentsInfo.map((info, index) => (
+                                    <tr key={index} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
+                                        <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{info.name}</td>
+                                        <td className="px-6 py-4">{info.unpaidMonths.join(', ')}</td>
+                                        <td className="px-6 py-4 text-right font-bold text-red-400">€{info.totalDebt.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <button 
+                                                onClick={() => handleWhatsAppReminder(info)}
+                                                className="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs hover:bg-green-700 flex items-center justify-center mx-auto transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                                                title={info.phone ? "Enviar recordatorio por WhatsApp" : "No hay teléfono registrado"}
+                                                disabled={!info.phone}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-whatsapp mr-1.5" viewBox="0 0 16 16">
+                                                    <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+                                                </svg>
+                                                <span>Recordar</span>
+                                            </button>
                                         </td>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
-                    <h3 className="font-semibold mb-4 text-white">Próximos Cumpleaños (7 días)</h3>
-                    <div className="overflow-x-auto max-h-96">
-                        <table className="w-full text-sm text-left text-gray-400">
-                            <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
+                                ))
+                            ) : (
                                 <tr>
-                                    <th scope="col" className="px-6 py-3">Alumno</th>
-                                    <th scope="col" className="px-6 py-3">Fecha</th>
-                                    <th scope="col" className="px-6 py-3 text-right">Años</th>
+                                    <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                                        ¡Genial! No hay pagos pendientes.
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {upcomingBirthdays.length > 0 ? (
-                                    upcomingBirthdays.map((student) => (
-                                        <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
-                                            <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
-                                            <td className="px-6 py-4">
-                                                {new Date(student.birthDate).toLocaleDateString('es-ES', { month: 'long', day: 'numeric' })}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-bold text-purple-300">
-                                                {student.age} años
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
-                                            No hay cumpleaños próximos esta semana.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
