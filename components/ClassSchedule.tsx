@@ -212,12 +212,65 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
         </div>
     );
   };
+
+  const sanitizeCSVCell = (cellData: any): string => {
+    const cellString = String(cellData ?? '');
+    if (/[";\n\r]/.test(cellString)) {
+      return `"${cellString.replace(/"/g, '""')}"`;
+    }
+    return cellString;
+  };
+
+  const downloadCSV = (csvContent: string, filename: string) => {
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportCSV = () => {
+    const headers = [
+      'Nombre de la clase', 'Categoría', 'Día(s)', 'Hora inicio', 'Hora fin',
+      'Profesor', 'Alumnos Inscritos', 'Capacidad', 'Tarifa Base (€)'
+    ];
+
+    const dataToExport = [...classes].sort((a,b) => a.name.localeCompare(b.name)).map(c => {
+        const enrolledCount = students.filter(s => s.enrolledClassIds.includes(c.id)).length;
+        return [
+            c.name,
+            c.category,
+            c.days.join(', '),
+            c.startTime,
+            c.endTime,
+            getInstructorName(c.instructorId),
+            enrolledCount,
+            c.capacity,
+            c.baseRate.toFixed(2)
+        ];
+    });
+
+    const csvContent = [
+      headers.map(sanitizeCSVCell).join(';'),
+      ...dataToExport.map(row => row.map(sanitizeCSVCell).join(';'))
+    ].join('\n');
+
+    downloadCSV(csvContent, 'clases.csv');
+  };
   
   return (
     <div className="p-4 sm:p-8">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Horario de Clases</h2>
-        <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Clase</button>
+        <div className="flex items-center gap-4">
+            <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Exportar a CSV
+            </button>
+            <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Clase</button>
+        </div>
       </div>
        <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-400">

@@ -165,11 +165,63 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
     student.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const sanitizeCSVCell = (cellData: any): string => {
+    const cellString = String(cellData ?? '');
+    if (/[";\n\r]/.test(cellString)) {
+      return `"${cellString.replace(/"/g, '""')}"`;
+    }
+    return cellString;
+  };
+
+  const downloadCSV = (csvContent: string, filename: string) => {
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportCSV = () => {
+    const headers = [
+      'Nombre', 'Fecha de Alta', 'Fecha de Nacimiento', 'Teléfono', 'Email', 
+      'Clases Inscritas', 'Cuota Mensual (€)', 'Forma de Pago', 'IBAN', 'Activo', 'Observaciones'
+    ];
+    
+    const dataToExport = filteredStudents.map(student => ([
+      student.name,
+      new Date(student.enrollmentDate).toLocaleDateString('es-ES'),
+      new Date(student.birthDate).toLocaleDateString('es-ES'),
+      student.phone,
+      student.email,
+      getEnrolledClassNames(student.enrolledClassIds),
+      student.monthlyFee.toFixed(2),
+      student.paymentMethod,
+      student.iban || '',
+      student.active ? 'Sí' : 'No',
+      student.notes || ''
+    ]));
+
+    const csvContent = [
+      headers.map(sanitizeCSVCell).join(';'),
+      ...dataToExport.map(row => row.map(sanitizeCSVCell).join(';'))
+    ].join('\n');
+
+    downloadCSV(csvContent, 'alumnos.csv');
+  };
+
   return (
     <div className="p-4 sm:p-8">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Alumnos</h2>
-        <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Alumno</button>
+        <div className="flex items-center gap-4">
+            <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Exportar a CSV
+            </button>
+            <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Alumno</button>
+        </div>
       </div>
       <div className="mb-4">
         <input

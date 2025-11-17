@@ -265,6 +265,72 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
     const filteredStudents = students.filter(student =>
         student.active && student.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
+    
+    // --- CSV Export Logic ---
+    const sanitizeCSVCell = (cellData: any): string => {
+        const cellString = String(cellData ?? '');
+        if (/[";\n\r]/.test(cellString)) {
+            return `"${cellString.replace(/"/g, '""')}"`;
+        }
+        return cellString;
+    };
+
+    const downloadCSV = (csvContent: string, filename: string) => {
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportCSV = () => {
+        if (activeTab === 'income') {
+            const headers = ['Alumno', 'Cuota Mensual (€)', ...months];
+            const dataToExport = filteredStudents.map(student => {
+                const rowData = [
+                    student.name,
+                    student.monthlyFee.toFixed(2).replace('.', ',')
+                ];
+                months.forEach((_, index) => {
+                    const { text } = getPaymentStatusForMonth(student, index);
+                    rowData.push(text);
+                });
+                return rowData;
+            });
+
+            const csvContent = [
+                headers.map(sanitizeCSVCell).join(';'),
+                ...dataToExport.map(row => row.map(sanitizeCSVCell).join(';'))
+            ].join('\n');
+            
+            downloadCSV(csvContent, `resumen_cobros_${currentYear}.csv`);
+
+        } else { // activeTab === 'costs'
+            const headers = [
+                'Fecha', 'Categoría', 'Beneficiario', 'Concepto', 'Importe (€)', 
+                'Forma de Pago', 'Recurrente', 'Observaciones'
+            ];
+            const dataToExport = costs.map(cost => ([
+                new Date(cost.paymentDate).toLocaleDateString('es-ES'),
+                cost.category,
+                cost.beneficiary,
+                cost.concept,
+                cost.amount.toFixed(2).replace('.', ','),
+                cost.paymentMethod,
+                cost.isRecurring ? 'Sí' : 'No',
+                cost.notes || ''
+            ]));
+            
+            const csvContent = [
+                headers.map(sanitizeCSVCell).join(';'),
+                ...dataToExport.map(row => row.map(sanitizeCSVCell).join(';'))
+            ].join('\n');
+            
+            downloadCSV(csvContent, 'registro_costes.csv');
+        }
+    };
 
     return (
         <div className="p-4 sm:p-8">
@@ -287,8 +353,14 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
             {activeTab === 'income' && (
                 <div>
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-2xl font-bold">Resumen de Cobros a Alumnos</h3>
-                        <button onClick={() => setIsIncomeModalOpen(true)} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Registrar Cobro</button>
+                        <h3 className="text-2xl font-bold">Resumen de Cobros a Alumnos ({currentYear})</h3>
+                        <div className="flex items-center gap-4">
+                            <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                Exportar a CSV
+                            </button>
+                            <button onClick={() => setIsIncomeModalOpen(true)} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Registrar Cobro</button>
+                        </div>
                     </div>
                     <div className="mb-4">
                         <input
@@ -335,7 +407,13 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
                  <div>
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-2xl font-bold">Registro de Gastos del Negocio</h3>
-                        <button onClick={() => handleOpenCostModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Registrar Coste</button>
+                         <div className="flex items-center gap-4">
+                             <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                Exportar a CSV
+                            </button>
+                            <button onClick={() => handleOpenCostModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Registrar Coste</button>
+                         </div>
                     </div>
                      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
