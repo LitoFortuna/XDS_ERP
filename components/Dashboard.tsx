@@ -181,10 +181,10 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         return { name: student.name, birthday: thisYearBirthday, age };
       })
       .filter(b => {
-        // Filter for birthdays within the next 2 months
-        const twoMonthsFromNow = new Date(today);
-        twoMonthsFromNow.setMonth(today.getMonth() + 2);
-        return b.birthday < twoMonthsFromNow;
+        // Filter for birthdays within the next 7 days
+        const sevenDaysFromNow = new Date(today);
+        sevenDaysFromNow.setDate(today.getDate() + 7);
+        return b.birthday >= today && b.birthday <= sevenDaysFromNow;
       })
       .sort((a, b) => a.birthday.getTime() - b.birthday.getTime());
 
@@ -370,7 +370,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             </ul>
                         ) : (
                              <div className="flex items-center justify-center h-full">
-                                <p className="text-center text-gray-500 py-4">No hay cumpleaños próximos en los siguientes dos meses.</p>
+                                <p className="text-center text-gray-500 py-4">No hay cumpleaños en los próximos 7 días.</p>
                             </div>
                         )}
                     </div>
