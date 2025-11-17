@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, Task } from './types';
+import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -9,7 +9,6 @@ import InstructorList from './components/InstructorList';
 import Billing from './components/Billing';
 import InteractiveSchedule from './components/InteractiveSchedule';
 import NuptialDances from './components/NuptialDances';
-import TaskBoard from './components/TaskBoard';
 import DataManagement from './components/DataManagement';
 import {
     subscribeToStudents,
@@ -39,10 +38,6 @@ import {
     addNuptialDance as addNuptialDanceToDb,
     updateNuptialDance as updateNuptialDanceInDb,
     deleteNuptialDance as deleteNuptialDanceFromDb,
-    subscribeToTasks,
-    addTask as addTaskToDb,
-    updateTask as updateTaskInDb,
-    deleteTask as deleteTaskFromDb,
 } from './src/services/firestoreService';
 
 const App: React.FC = () => {
@@ -56,7 +51,6 @@ const App: React.FC = () => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [costs, setCosts] = useState<Cost[]>([]);
     const [nuptialDances, setNuptialDances] = useState<NuptialDance[]>([]);
-    const [tasks, setTasks] = useState<Task[]>([]);
 
     useEffect(() => {
         const unsubscribers: (() => void)[] = [];
@@ -68,7 +62,6 @@ const App: React.FC = () => {
             payments: false,
             costs: false,
             nuptialDances: false,
-            tasks: false,
         };
 
         const checkAllLoaded = () => {
@@ -100,10 +93,6 @@ const App: React.FC = () => {
         unsubscribers.push(subscribeToNuptialDances(data => {
             setNuptialDances(data);
             if (!loadedFlags.nuptialDances) { loadedFlags.nuptialDances = true; checkAllLoaded(); }
-        }));
-        unsubscribers.push(subscribeToTasks(data => {
-            setTasks(data);
-            if (!loadedFlags.tasks) { loadedFlags.tasks = true; checkAllLoaded(); }
         }));
 
         return () => {
@@ -198,17 +187,6 @@ const App: React.FC = () => {
         await deleteNuptialDanceFromDb(danceId);
     };
 
-    // Task Handlers
-    const addTask = async (task: Omit<Task, 'id'>) => {
-        await addTaskToDb(task);
-    };
-    const updateTask = async (updatedTask: Task) => {
-        await updateTaskInDb(updatedTask);
-    };
-    const deleteTask = async (taskId: string) => {
-        await deleteTaskFromDb(taskId);
-    };
-
 
     if (loading) {
         return (
@@ -247,8 +225,6 @@ const App: React.FC = () => {
                             updateNuptialDance={updateNuptialDance}
                             deleteNuptialDance={deleteNuptialDance}
                         />;
-            case View.TASKS:
-                return <TaskBoard tasks={tasks} addTask={addTask} updateTask={updateTask} deleteTask={deleteTask} />;
             case View.DATA_MANAGEMENT:
                 return <DataManagement 
                             students={students}
