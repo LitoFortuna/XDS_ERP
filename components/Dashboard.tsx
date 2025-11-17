@@ -334,4 +334,30 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <tbody>
                                 {upcomingBirthdays.length > 0 ? (
                                     upcomingBirthdays.map((student) => (
-                                        <tr key
+                                        <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
+                                            <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
+                                            <td className="px-6 py-4">
+                                                {new Date(student.birthDate).toLocaleDateString('es-ES', { month: 'long', day: 'numeric' })}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-bold text-purple-300">
+                                                {student.age} años
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
+                                            No hay cumpleaños próximos esta semana.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Dashboard;
