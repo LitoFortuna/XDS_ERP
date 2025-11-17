@@ -376,7 +376,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                             </div>
                                         </div>
                                         <span className="text-sm font-semibold text-purple-300 capitalize">
-                                            {new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(b.birthday)}
+                                            {new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(b.birthday)}
                                         </span>
                                     </li>
                                 ))}
