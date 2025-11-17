@@ -92,6 +92,17 @@ export interface NuptialDance {
   notes?: string;
 }
 
+export type TaskStatus = 'Pendiente' | 'En Proceso' | 'Completada';
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  assignedTo?: string;
+  dueDate?: string; // YYYY-MM-DD
+  status: TaskStatus;
+  createdAt: string; // ISO String
+}
 
 export enum View {
   DASHBOARD = 'DASHBOARD',
@@ -101,5 +112,6 @@ export enum View {
   BILLING = 'BILLING',
   INTERACTIVE_SCHEDULE = 'INTERACTIVE_SCHEDULE',
   NUPTIAL_DANCES = 'NUPTIAL_DANCES',
+  TASKS = 'TASKS',
   DATA_MANAGEMENT = 'DATA_MANAGEMENT',
 }
