@@ -60,45 +60,42 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const unsubscribers: (() => void)[] = [];
-        const loadedPromises: Promise<void>[] = [];
+        
+        const subscriptions = {
+            students: false, instructors: false, classes: false,
+            payments: false, costs: false, nuptialDances: false, tasks: false,
+        };
+
+        const checkAllLoaded = () => {
+            if (Object.values(subscriptions).every(flag => flag)) {
+                setLoading(false);
+            }
+        };
 
         const createSubscriber = <T,>(
             subscribeFn: (callback: (data: T[]) => void) => () => void,
-            setter: React.Dispatch<React.SetStateAction<T[]>>
+            setter: React.Dispatch<React.SetStateAction<T[]>>,
+            key: keyof typeof subscriptions
         ) => {
-            const promise = new Promise<void>((resolve) => {
-                let isInitialLoad = true;
-                const unsub = subscribeFn((data) => {
-                    setter(data);
-                    if (isInitialLoad) {
-                        isInitialLoad = false;
-                        resolve();
-                    }
-                });
-                unsubscribers.push(unsub);
+            return subscribeFn(data => {
+                setter(data);
+                if (!subscriptions[key]) {
+                    subscriptions[key] = true;
+                    checkAllLoaded();
+                }
             });
-            loadedPromises.push(promise);
         };
 
-        // Create all subscribers and their initial load promises
-        createSubscriber(subscribeToStudents, setStudents);
-        createSubscriber(subscribeToInstructors, setInstructors);
-        createSubscriber(subscribeToClasses, setClasses);
-        createSubscriber(subscribeToPayments, setPayments);
-        createSubscriber(subscribeToCosts, setCosts);
-        createSubscriber(subscribeToNuptialDances, setNuptialDances);
-        createSubscriber(subscribeToTasks, setTasks);
+        unsubscribers.push(createSubscriber(subscribeToStudents, setStudents, 'students'));
+        unsubscribers.push(createSubscriber(subscribeToInstructors, setInstructors, 'instructors'));
+        unsubscribers.push(createSubscriber(subscribeToClasses, setClasses, 'classes'));
+        unsubscribers.push(createSubscriber(subscribeToPayments, setPayments, 'payments'));
+        unsubscribers.push(createSubscriber(subscribeToCosts, setCosts, 'costs'));
+        unsubscribers.push(createSubscriber(subscribeToNuptialDances, setNuptialDances, 'nuptialDances'));
+        unsubscribers.push(createSubscriber(subscribeToTasks, setTasks, 'tasks'));
 
-        // Wait for all initial loads to complete
-        Promise.all(loadedPromises)
-            .catch(error => console.error("Error loading initial data:", error))
-            .finally(() => {
-                setLoading(false);
-            });
-
-        // Cleanup function
         return () => {
-            unsubscribers.forEach(unsub => unsub());
+          unsubscribers.forEach(unsub => unsub());
         };
     }, []);
 
