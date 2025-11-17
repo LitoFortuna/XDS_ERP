@@ -79,8 +79,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     sevenDaysFromNow.setDate(today.getDate() + 7);
 
     const upcomingBirthdays = students
-        .filter(student => {
-            if (!student.birthDate) return false;
+        .map(student => {
+            if (!student.birthDate) return null;
             
             const birthDate = new Date(student.birthDate);
             const studentBirthdayThisYear = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
@@ -90,19 +90,21 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             if (studentBirthdayThisYear < today) {
                 studentBirthdayThisYear.setFullYear(today.getFullYear() + 1);
             }
+            
+            const age = studentBirthdayThisYear.getFullYear() - birthDate.getFullYear();
 
-            return studentBirthdayThisYear >= today && studentBirthdayThisYear < sevenDaysFromNow;
+            return {
+                ...student,
+                nextBirthday: studentBirthdayThisYear,
+                age,
+            }
+        })
+        .filter((student): student is Student & { nextBirthday: Date; age: number } => {
+            if (!student) return false;
+            return student.nextBirthday >= today && student.nextBirthday < sevenDaysFromNow;
         })
         .sort((a, b) => {
-            const birthDateA = new Date(a.birthDate);
-            const birthDateB = new Date(b.birthDate);
-            const nextBirthdayA = new Date(today.getFullYear(), birthDateA.getMonth(), birthDateA.getDate());
-            if (nextBirthdayA < today) nextBirthdayA.setFullYear(today.getFullYear() + 1);
-            
-            const nextBirthdayB = new Date(today.getFullYear(), birthDateB.getMonth(), birthDateB.getDate());
-            if (nextBirthdayB < today) nextBirthdayB.setFullYear(today.getFullYear() + 1);
-
-            return nextBirthdayA.getTime() - nextBirthdayB.getTime();
+            return a.nextBirthday.getTime() - b.nextBirthday.getTime();
         });
 
 
@@ -325,33 +327,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
                                 <tr>
                                     <th scope="col" className="px-6 py-3">Alumno</th>
-                                    <th scope="col" className="px-6 py-3 text-right">Fecha de Cumpleaños</th>
+                                    <th scope="col" className="px-6 py-3">Fecha</th>
+                                    <th scope="col" className="px-6 py-3 text-right">Años</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {upcomingBirthdays.length > 0 ? (
                                     upcomingBirthdays.map((student) => (
-                                        <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
-                                            <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
-                                            <td className="px-6 py-4 text-right">
-                                                {new Date(student.birthDate).toLocaleDateString('es-ES', { month: 'long', day: 'numeric' })}
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={2} className="px-6 py-4 text-center text-gray-500">
-                                            No hay cumpleaños próximos esta semana.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default Dashboard;
+                                        <tr key
