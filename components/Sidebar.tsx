@@ -8,6 +8,7 @@ import { CalendarIcon } from './icons/CalendarIcon';
 import { CreditCardIcon } from './icons/CreditCardIcon';
 import { DatabaseIcon } from './icons/DatabaseIcon';
 import { HeartIcon } from './icons/HeartIcon';
+import { ClipboardListIcon } from './icons/ClipboardListIcon';
 
 interface SidebarProps {
   currentView: View;
@@ -24,6 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
     { view: View.INSTRUCTORS, label: 'Profesores', icon: IdentificationIcon },
     { view: View.INTERACTIVE_SCHEDULE, label: 'Horario', icon: CalendarIcon },
     { view: View.NUPTIAL_DANCES, label: 'Bailes Nupciales', icon: HeartIcon },
+    { view: View.TASKS, label: 'Tareas', icon: ClipboardListIcon },
     { view: View.BILLING, label: 'Facturación', icon: CreditCardIcon },
     { view: View.DATA_MANAGEMENT, label: 'Gestión de Datos', icon: DatabaseIcon },
   ];
