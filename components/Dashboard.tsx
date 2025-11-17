@@ -28,7 +28,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const totalCosts = costs.reduce((acc, c) => acc + c.amount, 0);
 
     // --- Logic for Unpaid Students ---
-    // Fix: Corrected typo in new Date() constructor.
     const currentYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth();
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -97,10 +96,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         Capacidad: c.capacity,
     }));
     
-    // Fix: Defined a type for monthly data points to ensure type safety.
     type MonthlyData = { month: string; Ingresos: number; Gastos: number; monthIndex: number; year: number };
 
-    // Fix: Explicitly type the initial value for the reduce function to ensure correct type inference for monthlyData.
     const initialMonthlyData: Record<string, MonthlyData> = {};
     const monthlyData = [
         ...payments.map(p => ({ type: 'income', date: p.date, amount: p.amount })),
@@ -124,7 +121,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         return acc;
     }, initialMonthlyData);
 
-    // Fix: Explicitly type sort function arguments to prevent them from being inferred as 'unknown'.
     const sortedMonthlyData = Object.values(monthlyData).sort((a: MonthlyData, b: MonthlyData) => {
         if (a.year !== b.year) {
             return a.year - b.year;
@@ -162,6 +158,36 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
       name,
       Alumnos: value,
     }));
+    
+    // --- Logic for Upcoming Birthdays ---
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize for accurate date comparisons
+
+    const upcomingBirthdays = students
+      .filter(student => student.active && student.birthDate)
+      .map(student => {
+        const birthDate = new Date(student.birthDate);
+        const thisYearBirthday = new Date(birthDate.getTime());
+        thisYearBirthday.setFullYear(today.getFullYear());
+        thisYearBirthday.setHours(0,0,0,0);
+
+        // If birthday has already passed this year, check for next year's
+        if (thisYearBirthday < today) {
+          thisYearBirthday.setFullYear(today.getFullYear() + 1);
+        }
+
+        const age = thisYearBirthday.getFullYear() - birthDate.getFullYear();
+
+        return { name: student.name, birthday: thisYearBirthday, age };
+      })
+      .filter(b => {
+        // Filter for birthdays within the next 2 months
+        const twoMonthsFromNow = new Date(today);
+        twoMonthsFromNow.setMonth(today.getMonth() + 2);
+        return b.birthday < twoMonthsFromNow;
+      })
+      .sort((a, b) => a.birthday.getTime() - b.birthday.getTime());
+
 
     const COLORS_FINANCIAL = ['#7C00BA', '#FF4136'];
     const COLORS_STATUS = ['#00B7FF', '#4b5563'];
@@ -271,49 +297,83 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     </ResponsiveContainer>
                 </div>
             </div>
-             <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
-                <h3 className="font-semibold mb-4 text-white">Alumnos con Pagos Pendientes ({currentYear})</h3>
-                <div className="overflow-x-auto max-h-96">
-                    <table className="w-full text-sm text-left text-gray-400">
-                        <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
-                            <tr>
-                                <th scope="col" className="px-6 py-3">Alumno</th>
-                                <th scope="col" className="px-6 py-3">Meses Pendientes</th>
-                                <th scope="col" className="px-6 py-3 text-right">Total Adeudado</th>
-                                <th scope="col" className="px-6 py-3 text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {unpaidStudentsInfo.length > 0 ? (
-                                unpaidStudentsInfo.map((info, index) => (
-                                    <tr key={index} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
-                                        <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{info.name}</td>
-                                        <td className="px-6 py-4">{info.unpaidMonths.join(', ')}</td>
-                                        <td className="px-6 py-4 text-right font-bold text-red-400">€{info.totalDebt.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <button 
-                                                onClick={() => handleWhatsAppReminder(info)}
-                                                className="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs hover:bg-green-700 flex items-center justify-center mx-auto transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
-                                                title={info.phone ? "Enviar recordatorio por WhatsApp" : "No hay teléfono registrado"}
-                                                disabled={!info.phone}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-whatsapp mr-1.5" viewBox="0 0 16 16">
-                                                    <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
-                                                </svg>
-                                                <span>Recordar</span>
-                                            </button>
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
+                    <h3 className="font-semibold mb-4 text-white">Alumnos con Pagos Pendientes ({currentYear})</h3>
+                    <div className="overflow-x-auto max-h-96">
+                        <table className="w-full text-sm text-left text-gray-400">
+                            <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
+                                <tr>
+                                    <th scope="col" className="px-6 py-3">Alumno</th>
+                                    <th scope="col" className="px-6 py-3">Meses Pendientes</th>
+                                    <th scope="col" className="px-6 py-3 text-right">Total Adeudado</th>
+                                    <th scope="col" className="px-6 py-3 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {unpaidStudentsInfo.length > 0 ? (
+                                    unpaidStudentsInfo.map((info, index) => (
+                                        <tr key={index} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
+                                            <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{info.name}</td>
+                                            <td className="px-6 py-4">{info.unpaidMonths.join(', ')}</td>
+                                            <td className="px-6 py-4 text-right font-bold text-red-400">€{info.totalDebt.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button 
+                                                    onClick={() => handleWhatsAppReminder(info)}
+                                                    className="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs hover:bg-green-700 flex items-center justify-center mx-auto transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                                                    title={info.phone ? "Enviar recordatorio por WhatsApp" : "No hay teléfono registrado"}
+                                                    disabled={!info.phone}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-whatsapp mr-1.5" viewBox="0 0 16 16">
+                                                        <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+                                                    </svg>
+                                                    <span>Recordar</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                                            ¡Genial! No hay pagos pendientes.
                                         </td>
                                     </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                                        ¡Genial! No hay pagos pendientes.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div className="bg-gray-800 p-6 rounded-lg shadow-sm flex flex-col">
+                    <h3 className="font-semibold mb-4 text-white">Próximos Cumpleaños</h3>
+                    <div className="overflow-y-auto max-h-96 flex-grow">
+                        {upcomingBirthdays.length > 0 ? (
+                            <ul className="space-y-3">
+                                {upcomingBirthdays.map((b, index) => (
+                                    <li key={index} className="flex items-center justify-between p-2 bg-gray-700/50 rounded-md">
+                                        <div className="flex items-center">
+                                            <div className="bg-purple-500/20 text-purple-400 rounded-full p-2 mr-3">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v1a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                                                    <path fillRule="evenodd" d="M2 13.5V7h16v6.5a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 012 13.5zM4 11h1v1H4v-1zm2 0h1v1H6v-1zm2 0h1v1H8v-1zm2 0h1v1h-1v-1zm2 0h1v1h-1v-1zm2 0h1v1h-1v-1z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-white">{b.name}</p>
+                                                <p className="text-xs text-gray-400">Cumple {b.age} años</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-sm font-semibold text-purple-300">
+                                            {new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(b.birthday)}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                             <div className="flex items-center justify-center h-full">
+                                <p className="text-center text-gray-500 py-4">No hay cumpleaños próximos en los siguientes dos meses.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
