@@ -77,8 +77,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         Capacidad: c.capacity,
     }));
     
+    // Fix: Defined a type for monthly data points to ensure type safety.
+    type MonthlyData = { month: string; Ingresos: number; Gastos: number; monthIndex: number; year: number };
+
     // Fix: Explicitly type the initial value for the reduce function to ensure correct type inference for monthlyData.
-    const initialMonthlyData: Record<string, { month: string; Ingresos: number; Gastos: number; monthIndex: number; year: number }> = {};
+    const initialMonthlyData: Record<string, MonthlyData> = {};
     const monthlyData = [
         ...payments.map(p => ({ type: 'income', date: p.date, amount: p.amount })),
         ...costs.map(c => ({ type: 'cost', date: c.paymentDate, amount: c.amount }))
@@ -101,7 +104,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         return acc;
     }, initialMonthlyData);
 
-    const sortedMonthlyData = Object.values(monthlyData).sort((a, b) => {
+    // Fix: Explicitly type sort function arguments to prevent them from being inferred as 'unknown'.
+    const sortedMonthlyData = Object.values(monthlyData).sort((a: MonthlyData, b: MonthlyData) => {
         if (a.year !== b.year) {
             return a.year - b.year;
         }

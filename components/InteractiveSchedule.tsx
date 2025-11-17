@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { DanceClass, Instructor, Student, DayOfWeek } from '../types';
 import Modal from './Modal';
@@ -65,6 +66,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
     const daysOfWeek: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
     const timeToMinutes = (time: string) => {
+        if (!time) return 0;
         const [hours, minutes] = time.split(':').map(Number);
         return hours * 60 + minutes;
     };
@@ -136,16 +138,20 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                                 .filter(c => c.days.includes(day))
                                 .map(c => {
                                     const enrolledCount = students.filter(s => s.enrolledClassIds.includes(c.id)).length;
+                                    const duration = timeToMinutes(c.endTime) - timeToMinutes(c.startTime);
+                                    const isLongClass = duration >= 60;
                                     return (
                                         <div
                                             key={c.id}
                                             style={getGridPosition(c)}
-                                            className="bg-purple-200 border border-purple-400 rounded-md p-1 m-px overflow-hidden flex flex-col justify-center cursor-pointer hover:bg-purple-300 transition-colors"
+                                            className={`bg-purple-200 border border-purple-400 rounded-md m-px overflow-hidden flex flex-col justify-center cursor-pointer hover:bg-purple-300 transition-colors ${isLongClass ? 'p-1' : 'py-0.5 px-1'}`}
                                             onClick={() => handleOpenModal(c)}
                                         >
                                             <span className="font-semibold text-[10px] text-purple-900 truncate" title={c.name}>{c.name}</span>
-                                            <span className="text-[9px] text-purple-700">{c.startTime} - {c.endTime}</span>
-                                            <span className="text-[9px] font-bold text-purple-800 mt-1">{`${enrolledCount}/${c.capacity}`}</span>
+                                            {isLongClass && (
+                                                <span className="text-[9px] text-purple-700">{c.startTime} - {c.endTime}</span>
+                                            )}
+                                            <span className={`text-[9px] font-bold text-purple-800 ${isLongClass ? 'mt-1' : ''}`}>{`${enrolledCount}/${c.capacity}`}</span>
                                         </div>
                                     );
                                 })}
