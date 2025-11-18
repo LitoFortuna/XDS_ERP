@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { NuptialDance, Instructor, Rehearsal } from '../types';
 import Modal from './Modal';
@@ -209,51 +208,31 @@ const RehearsalsModal: React.FC<{
     );
 };
 
-const getStartOfWeek = (date: Date): Date => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-    return new Date(d.setDate(diff));
-};
-
 
 // --- COMPONENTE PRINCIPAL ---
 const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructors, addNuptialDance, updateNuptialDance, deleteNuptialDance }) => {
   const [isMainModalOpen, setIsMainModalOpen] = useState(false);
   const [isRehearsalModalOpen, setIsRehearsalModalOpen] = useState(false);
   const [selectedDance, setSelectedDance] = useState<NuptialDance | undefined>(undefined);
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
-    const start = getStartOfWeek(new Date());
-    start.setHours(0, 0, 0, 0);
-    return start;
-  });
 
-  const handlePreviousWeek = () => {
-    setCurrentWeekStart(prev => new Date(prev.getTime() - 7 * 24 * 60 * 60 * 1000));
-  };
+  const getInstructorName = (id: string) => instructors.find(i => i.id === id)?.name || 'N/A';
 
-  const handleNextWeek = () => {
-    setCurrentWeekStart(prev => new Date(prev.getTime() + 7 * 24 * 60 * 60 * 1000));
-  };
-  
-  const weeklyRehearsals = useMemo(() => {
-    const weekEnd = new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
-    weekEnd.setHours(23, 59, 59, 999);
+  const upcomingRehearsals = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    return nuptialDances.flatMap(dance => 
-        (dance.rehearsals || [])
-            .filter(r => {
-                const rehearsalDate = new Date(r.date + 'T00:00:00'); // Use T00:00 to avoid timezone issues
-                return r.status === 'Pendiente' && rehearsalDate >= currentWeekStart && rehearsalDate <= weekEnd;
-            })
-            .map(rehearsal => ({
-                ...rehearsal,
-                coupleName: dance.coupleName,
-                danceId: dance.id,
-                dayOfWeek: new Date(rehearsal.date + 'T00:00:00').getDay()
-            }))
-    );
-  }, [nuptialDances, currentWeekStart]);
+    return nuptialDances
+        .flatMap(dance => 
+            (dance.rehearsals || [])
+                .filter(r => r.status === 'Pendiente' && new Date(r.date + 'T00:00:00') >= today)
+                .map(rehearsal => ({
+                    ...rehearsal,
+                    coupleName: dance.coupleName,
+                    instructorName: getInstructorName(dance.instructorId)
+                }))
+        )
+        .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+  }, [nuptialDances, instructors]);
   
   const handleOpenMainModal = (dance?: NuptialDance) => {
     setSelectedDance(dance);
@@ -295,8 +274,6 @@ const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructor
     }
   };
   
-  const getInstructorName = (id: string) => instructors.find(i => i.id === id)?.name || 'N/A';
-  
   const getRehearsalProgress = (dance: NuptialDance) => {
         if (!dance.rehearsals) return { completedHours: 0, nextRehearsal: 'No hay próximos' };
         
@@ -320,15 +297,6 @@ const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructor
         return { completedHours, nextRehearsal };
     };
 
-    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    const timeSlots = Array.from({ length: (22 - 9) }, (_, i) => `${(i + 9).toString().padStart(2, '0')}:00`);
-
-    const timeToMinutes = (time: string) => {
-      const [hours, minutes] = time.split(':').map(Number);
-      return hours * 60 + minutes;
-    };
-
-
   return (
     <div className="p-4 sm:p-8">
       <div className="flex justify-between items-center mb-6">
@@ -336,62 +304,33 @@ const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructor
         <button onClick={() => handleOpenMainModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Baile Nupcial</button>
       </div>
 
-       <div className="bg-gray-800 rounded-lg shadow-sm p-4 mb-8">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-white">Calendario Semanal de Ensayos</h3>
-                <div className="flex items-center gap-4">
-                    <button onClick={handlePreviousWeek} className="p-1 rounded-full hover:bg-gray-700">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <span className="font-semibold text-purple-300">
-                        {currentWeekStart.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} - {new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
-                    <button onClick={handleNextWeek} className="p-1 rounded-full hover:bg-gray-700">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                </div>
-            </div>
-            <div className="overflow-x-auto">
-                <div className="grid min-w-[900px]" style={{ gridTemplateColumns: '60px repeat(7, 1fr)'}}>
-                    <div className="sticky left-0 bg-gray-800 z-10"></div>
-                    {days.map(day => <div key={day} className="text-center font-bold text-white p-2 border-b border-gray-700">{day}</div>)}
-
-                    <div className="col-start-1 col-end-9 row-start-2 row-end-auto grid" style={{ gridTemplateColumns: '60px repeat(7, 1fr)', gridTemplateRows: `repeat(${timeSlots.length * 2}, 20px)` }}>
-                        {timeSlots.map((time, index) => (
-                            <div key={time} className="text-xs text-right pr-2 text-gray-400 -mt-2 sticky left-0 bg-gray-800 z-10" style={{ gridRow: index * 2 + 1 }}>
-                                {time}
+       <div className="mb-8">
+            <h3 className="text-xl font-bold text-white mb-4">Próximos Ensayos</h3>
+            {upcomingRehearsals.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {upcomingRehearsals.map(rehearsal => (
+                        <div key={rehearsal.id} className="bg-gray-800 p-4 rounded-lg shadow-sm flex items-center">
+                            <div className="bg-purple-500/20 text-purple-400 rounded-full p-3 mr-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
                             </div>
-                        ))}
-                        
-                        {days.map((_, dayIndex) => (
-                            <div key={dayIndex} className="relative border-l border-gray-700" style={{ gridColumn: dayIndex + 2, gridRow: `1 / span ${timeSlots.length * 2}`}}>
-                                {Array.from({length: timeSlots.length * 2}).map((_, i) => (
-                                    <div key={i} className={`h-5 border-t border-gray-700 ${i % 2 !== 0 ? 'opacity-50' : ''}`}></div>
-                                ))}
+                            <div>
+                                <p className="font-bold text-white">{rehearsal.coupleName}</p>
+                                <p className="text-sm text-purple-300 font-semibold">{rehearsal.startTime} - {rehearsal.endTime}</p>
+                                <p className="text-xs text-gray-400 capitalize">
+                                    {new Date(rehearsal.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">Profesor: {rehearsal.instructorName}</p>
                             </div>
-                        ))}
-                        
-                        {weeklyRehearsals.map(rehearsal => {
-                            const startMinutes = timeToMinutes(rehearsal.startTime) - timeToMinutes('09:00');
-                            const endMinutes = timeToMinutes(rehearsal.endTime) - timeToMinutes('09:00');
-                            const top = (startMinutes / 30) * 20; // 20px per 30-min slot
-                            const height = ((endMinutes - startMinutes) / 30) * 20;
-                            const dayColumn = (rehearsal.dayOfWeek === 0 ? 7 : rehearsal.dayOfWeek); // Sunday is 0, make it 7
-                            
-                            if (top < 0 || height <= 0) return null;
-
-                            return (
-                                <div key={rehearsal.id} className="absolute left-1 right-1 z-10" style={{ gridColumn: dayColumn + 1, top: `${top}px` }}>
-                                    <div className="bg-purple-600/80 border border-purple-400 rounded-md p-1 text-white overflow-hidden" style={{ height: `${height}px`}}>
-                                        <p className="text-[10px] font-bold truncate">{rehearsal.coupleName}</p>
-                                        <p className="text-[9px]">{rehearsal.startTime} - {rehearsal.endTime}</p>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                        </div>
+                    ))}
                 </div>
-            </div>
+            ) : (
+                <div className="bg-gray-800 p-6 rounded-lg text-center">
+                    <p className="text-gray-400">No hay ensayos programados.</p>
+                </div>
+            )}
         </div>
 
 
