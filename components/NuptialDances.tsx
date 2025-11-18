@@ -381,7 +381,7 @@ const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructor
                             if (top < 0 || height <= 0) return null;
 
                             return (
-                                <div key={rehearsal.id} className="absolute w-full px-1 z-10" style={{ gridColumn: dayColumn + 1, top: `${top}px` }}>
+                                <div key={rehearsal.id} className="absolute left-1 right-1 z-10" style={{ gridColumn: dayColumn + 1, top: `${top}px` }}>
                                     <div className="bg-purple-600/80 border border-purple-400 rounded-md p-1 text-white overflow-hidden" style={{ height: `${height}px`}}>
                                         <p className="text-[10px] font-bold truncate">{rehearsal.coupleName}</p>
                                         <p className="text-[9px]">{rehearsal.startTime} - {rehearsal.endTime}</p>
