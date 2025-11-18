@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod } from '../types';
+import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem } from '../types';
 
 interface DataManagementProps {
     students: Student[];
     instructors: Instructor[];
     classes: DanceClass[];
+    merchandiseItems: MerchandiseItem[];
     batchAddStudents: (students: Omit<Student, 'id'>[]) => Promise<void>;
     batchAddInstructors: (instructors: Omit<Instructor, 'id'>[]) => Promise<void>;
     batchAddClasses: (classes: Omit<DanceClass, 'id'>[]) => Promise<void>;
     batchAddPayments: (payments: Omit<Payment, 'id'>[]) => Promise<void>;
     batchAddCosts: (costs: Omit<Cost, 'id'>[]) => Promise<void>;
+    batchAddMerchandiseItems: (items: Omit<MerchandiseItem, 'id'>[]) => Promise<void>;
 }
 
 const ImporterSection: React.FC<{
@@ -124,7 +126,7 @@ const ImporterSection: React.FC<{
 
 
 const DataManagement: React.FC<DataManagementProps> = ({ 
-    students, instructors, classes, batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts
+    students, instructors, classes, merchandiseItems, batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems
 }) => {
     
     const convertDateToISO = (dateStr: string): string => {
@@ -199,6 +201,16 @@ const DataManagement: React.FC<DataManagementProps> = ({
         `Forma de Pago (opciones: ${costPaymentMethodOptions})`,
         `Recurrente (opciones: ${booleanOptions})`,
         'Observaciones'
+    ];
+    const merchandiseHeaders = [
+        'Nombre',
+        'Categoría',
+        'Talla',
+        'Precio Compra (€)',
+        'Precio Venta (€)',
+        'Stock Inicial (número)',
+        'URL Imagen (opcional)',
+        'Observaciones',
     ];
 
     // --- Lógica de importación ---
@@ -280,6 +292,20 @@ const DataManagement: React.FC<DataManagementProps> = ({
         await batchAddCosts(newCosts);
     };
 
+    const handleMerchandiseImport = async (data: string[][]) => {
+        const newItems: Omit<MerchandiseItem, 'id'>[] = data.map(row => ({
+            name: row[0],
+            category: row[1],
+            size: row[2],
+            purchasePrice: parseFloat(row[3]) || 0,
+            salePrice: parseFloat(row[4]) || 0,
+            stock: parseInt(row[5], 10) || 0,
+            imageUrl: row[6],
+            notes: row[7],
+        }));
+        await batchAddMerchandiseItems(newItems);
+    };
+
     return (
         <div className="p-4 sm:p-8 space-y-8">
             <h2 className="text-3xl font-bold">Gestión de Datos</h2>
@@ -289,6 +315,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
                 <ImporterSection title="Clases" templateHeaders={classHeaders} onImport={handleClassImport} />
                 <ImporterSection title="Ingresos (Cobros)" templateHeaders={paymentHeaders} onImport={handlePaymentImport} />
                 <ImporterSection title="Costes (Gastos)" templateHeaders={costHeaders} onImport={handleCostImport} />
+                <ImporterSection title="Merchandising" templateHeaders={merchandiseHeaders} onImport={handleMerchandiseImport} />
             </div>
         </div>
     );

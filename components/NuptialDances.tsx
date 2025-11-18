@@ -119,11 +119,13 @@ const RehearsalsModal: React.FC<{
     const handleAddRehearsal = (e: React.FormEvent) => {
         e.preventDefault();
         if (newRehearsal.date && newRehearsal.startTime && newRehearsal.endTime) {
-            setRehearsals(prev => [...prev, {
+            // Fix: Explicitly type the new rehearsal object to prevent type widening of 'status'.
+            const rehearsalToAdd: Rehearsal = {
                 ...newRehearsal,
                 id: Date.now().toString(),
                 status: 'Pendiente'
-            }].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)));
+            };
+            setRehearsals(prev => [...prev, rehearsalToAdd].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)));
             setNewRehearsal({ date: '', startTime: '', endTime: '' });
         }
     };

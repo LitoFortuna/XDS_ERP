@@ -92,12 +92,38 @@ export interface NuptialDance {
   notes?: string;
 }
 
+export interface MerchandiseItem {
+  id: string;
+  name: string;
+  category: string;
+  size?: string;
+  purchasePrice: number;
+  salePrice: number;
+  stock: number;
+  imageUrl?: string;
+  notes?: string;
+}
+
+export interface MerchandiseSale {
+  id: string;
+  itemId: string;
+  itemName: string; // Denormalized for easier display
+  studentId?: string; // Optional
+  quantity: number;
+  totalAmount: number;
+  saleDate: string; // YYYY-MM-DD
+  paymentMethod: PaymentMethod;
+  notes?: string;
+}
+
+
 export enum View {
   DASHBOARD = 'DASHBOARD',
   STUDENTS = 'STUDENTS',
   CLASSES = 'CLASSES',
   INSTRUCTORS = 'INSTRUCTORS',
   BILLING = 'BILLING',
+  MERCHANDISING = 'MERCHANDISING',
   INTERACTIVE_SCHEDULE = 'INTERACTIVE_SCHEDULE',
   NUPTIAL_DANCES = 'NUPTIAL_DANCES',
   DATA_MANAGEMENT = 'DATA_MANAGEMENT',

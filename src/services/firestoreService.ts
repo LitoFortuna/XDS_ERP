@@ -12,7 +12,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance } from '../../types';
+import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale } from '../../types';
 
 // --- Students ---
 
@@ -219,4 +219,64 @@ export const updateNuptialDance = async (dance: NuptialDance) => {
 export const deleteNuptialDance = async (danceId: string) => {
   const danceDoc = doc(db, 'nuptialDances', danceId);
   await deleteDoc(danceDoc);
+};
+
+// --- Merchandise Items ---
+
+export const subscribeToMerchandiseItems = (callback: (items: MerchandiseItem[]) => void): Unsubscribe => {
+  const q = query(collection(db, 'merchandiseItems'), orderBy('name'));
+  return onSnapshot(q, (snapshot) => {
+    const items: MerchandiseItem[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as MerchandiseItem));
+    callback(items);
+  });
+};
+
+export const addMerchandiseItem = async (item: Omit<MerchandiseItem, 'id'>) => {
+  await addDoc(collection(db, 'merchandiseItems'), item);
+};
+
+export const batchAddMerchandiseItems = async (items: Omit<MerchandiseItem, 'id'>[]) => {
+  const batch = writeBatch(db);
+  const itemsCollection = collection(db, 'merchandiseItems');
+  items.forEach(item => {
+    const docRef = doc(itemsCollection);
+    batch.set(docRef, item);
+  });
+  await batch.commit();
+};
+
+export const updateMerchandiseItem = async (item: MerchandiseItem) => {
+  const { id, ...itemData } = item;
+  const itemDoc = doc(db, 'merchandiseItems', id);
+  await updateDoc(itemDoc, itemData);
+};
+
+export const deleteMerchandiseItem = async (itemId: string) => {
+  const itemDoc = doc(db, 'merchandiseItems', itemId);
+  await deleteDoc(itemDoc);
+};
+
+// --- Merchandise Sales ---
+
+export const subscribeToMerchandiseSales = (callback: (sales: MerchandiseSale[]) => void): Unsubscribe => {
+  const q = query(collection(db, 'merchandiseSales'), orderBy('saleDate', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const sales: MerchandiseSale[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as MerchandiseSale));
+    callback(sales);
+  });
+};
+
+export const addMerchandiseSale = async (sale: Omit<MerchandiseSale, 'id'>) => {
+  await addDoc(collection(db, 'merchandiseSales'), sale);
+};
+
+export const deleteMerchandiseSale = async (saleId: string) => {
+  const saleDoc = doc(db, 'merchandiseSales', saleId);
+  await deleteDoc(saleDoc);
 };

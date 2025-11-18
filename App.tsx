@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance } from './types';
+import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -10,6 +10,7 @@ import Billing from './components/Billing';
 import InteractiveSchedule from './components/InteractiveSchedule';
 import NuptialDances from './components/NuptialDances';
 import DataManagement from './components/DataManagement';
+import Merchandising from './components/Merchandising';
 import {
     subscribeToStudents,
     addStudent as addStudentToDb,
@@ -38,6 +39,14 @@ import {
     addNuptialDance as addNuptialDanceToDb,
     updateNuptialDance as updateNuptialDanceInDb,
     deleteNuptialDance as deleteNuptialDanceFromDb,
+    subscribeToMerchandiseItems,
+    addMerchandiseItem as addMerchandiseItemToDb,
+    updateMerchandiseItem as updateMerchandiseItemInDb,
+    deleteMerchandiseItem as deleteMerchandiseItemFromDb,
+    batchAddMerchandiseItems,
+    subscribeToMerchandiseSales,
+    addMerchandiseSale as addMerchandiseSaleToDb,
+    deleteMerchandiseSale as deleteMerchandiseSaleFromDb,
 } from './src/services/firestoreService';
 
 const App: React.FC = () => {
@@ -51,6 +60,8 @@ const App: React.FC = () => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [costs, setCosts] = useState<Cost[]>([]);
     const [nuptialDances, setNuptialDances] = useState<NuptialDance[]>([]);
+    const [merchandiseItems, setMerchandiseItems] = useState<MerchandiseItem[]>([]);
+    const [merchandiseSales, setMerchandiseSales] = useState<MerchandiseSale[]>([]);
 
     useEffect(() => {
         const unsubscribers = [
@@ -60,6 +71,8 @@ const App: React.FC = () => {
             subscribeToPayments(setPayments),
             subscribeToCosts(setCosts),
             subscribeToNuptialDances(setNuptialDances),
+            subscribeToMerchandiseItems(setMerchandiseItems),
+            subscribeToMerchandiseSales(setMerchandiseSales),
         ];
 
         // Set a timeout to hide the loader. This is a simpler, albeit less precise,
@@ -158,11 +171,39 @@ const App: React.FC = () => {
         await deleteNuptialDanceFromDb(danceId);
     };
 
+    // Merchandise Handlers
+    const addMerchandiseItem = async (item: Omit<MerchandiseItem, 'id'>) => {
+        await addMerchandiseItemToDb(item);
+    };
+    const updateMerchandiseItem = async (item: MerchandiseItem) => {
+        await updateMerchandiseItemInDb(item);
+    };
+    const deleteMerchandiseItem = async (itemId: string) => {
+        await deleteMerchandiseItemFromDb(itemId);
+    };
+    const addMerchandiseSale = async (sale: Omit<MerchandiseSale, 'id'>) => {
+        const itemSold = merchandiseItems.find(item => item.id === sale.itemId);
+        if (!itemSold || itemSold.stock < sale.quantity) {
+            alert('No hay suficiente stock para realizar esta venta.');
+            return;
+        }
+        await addMerchandiseSaleToDb(sale);
+        await updateMerchandiseItemInDb({ ...itemSold, stock: itemSold.stock - sale.quantity });
+    };
+    const deleteMerchandiseSale = async (sale: MerchandiseSale) => {
+        await deleteMerchandiseSaleFromDb(sale.id);
+        const itemSold = merchandiseItems.find(item => item.id === sale.itemId);
+        if (itemSold) {
+             await updateMerchandiseItemInDb({ ...itemSold, stock: itemSold.stock + sale.quantity });
+        }
+    };
+
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-900 text-gray-200">
                 <div className="text-center">
-                    <svg className="mx-auto h-12 w-12 text-purple-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="mx-auto h-12 w-12 text-purple-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="http://www.w3.org/2000/svg">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -187,6 +228,17 @@ const App: React.FC = () => {
                 return <InstructorList instructors={instructors} classes={classes} addInstructor={addInstructor} updateInstructor={updateInstructor} deleteInstructor={deleteInstructor} />;
             case View.BILLING:
                 return <Billing payments={payments} costs={costs} students={students} addPayment={addPayment} addCost={addCost} updateCost={updateCost} deleteCost={deleteCost} />;
+            case View.MERCHANDISING:
+                return <Merchandising 
+                            items={merchandiseItems}
+                            sales={merchandiseSales}
+                            students={students}
+                            addItem={addMerchandiseItem}
+                            updateItem={updateMerchandiseItem}
+                            deleteItem={deleteMerchandiseItem}
+                            addSale={addMerchandiseSale}
+                            deleteSale={deleteMerchandiseSale}
+                        />;
             case View.NUPTIAL_DANCES:
                 return <NuptialDances 
                             nuptialDances={nuptialDances}
@@ -200,11 +252,13 @@ const App: React.FC = () => {
                             students={students}
                             instructors={instructors}
                             classes={classes}
+                            merchandiseItems={merchandiseItems}
                             batchAddStudents={batchAddStudents} 
                             batchAddInstructors={batchAddInstructors}
                             batchAddClasses={batchAddClasses}
                             batchAddPayments={batchAddPayments}
                             batchAddCosts={batchAddCosts}
+                            batchAddMerchandiseItems={batchAddMerchandiseItems}
                         />;
             default:
                 return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} costs={costs} setView={setCurrentView} />;
