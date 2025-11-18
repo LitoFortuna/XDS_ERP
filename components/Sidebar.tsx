@@ -6,6 +6,7 @@ import { BookIcon } from './icons/BookIcon';
 import { IdentificationIcon } from './icons/IdentificationIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { CreditCardIcon } from './icons/CreditCardIcon';
+import { DocumentTextIcon } from './icons/DocumentTextIcon';
 import { DatabaseIcon } from './icons/DatabaseIcon';
 import { HeartIcon } from './icons/HeartIcon';
 import { ShoppingBagIcon } from './icons/ShoppingBagIcon';
@@ -26,6 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
     { view: View.INTERACTIVE_SCHEDULE, label: 'Horario', icon: CalendarIcon },
     { view: View.NUPTIAL_DANCES, label: 'Bailes Nupciales', icon: HeartIcon },
     { view: View.BILLING, label: 'Facturación', icon: CreditCardIcon },
+    { view: View.QUARTERLY_INVOICING, label: 'Facturas Trim.', icon: DocumentTextIcon },
     { view: View.MERCHANDISING, label: 'Merchandising', icon: ShoppingBagIcon },
     { view: View.DATA_MANAGEMENT, label: 'Gestión de Datos', icon: DatabaseIcon },
   ];
