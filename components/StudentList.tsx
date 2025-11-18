@@ -151,11 +151,12 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
       let aValue: any = key === 'enrolledClasses' ? getEnrolledClassNames(a.enrolledClassIds) : a[key as keyof Student];
       let bValue: any = key === 'enrolledClasses' ? getEnrolledClassNames(b.enrolledClassIds) : b[key as keyof Student];
 
-      if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const comparison = aValue.localeCompare(bValue, 'es', { sensitivity: 'base' });
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
       }
-
+      
+      // Fallback for non-string types
       if (aValue < bValue) {
         return sortConfig.direction === 'asc' ? -1 : 1;
       }

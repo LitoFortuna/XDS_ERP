@@ -81,7 +81,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 totalDebt,
             };
         })
-        .filter(info => info.totalDebt > 0);
+        .filter(info => info.totalDebt > 0)
+        .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
     
     const totalPendingAmount = unpaidStudentsInfo.reduce((sum, info) => sum + info.totalDebt, 0);
     

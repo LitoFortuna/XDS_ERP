@@ -174,11 +174,12 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
             bValue = b[key as keyof DanceClass];
         }
 
-        if (typeof aValue === 'string') {
-            aValue = aValue.toLowerCase();
-            bValue = bValue.toLowerCase();
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+            const comparison = aValue.localeCompare(bValue, 'es', { sensitivity: 'base' });
+            return sortConfig.direction === 'asc' ? comparison : -comparison;
         }
-
+        
+        // Fallback for non-string types
         if (aValue < bValue) {
             return sortConfig.direction === 'asc' ? -1 : 1;
         }

@@ -262,9 +262,9 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
         }
     };
     
-    const filteredStudents = students.filter(student =>
-        student.active && student.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredStudents = students
+        .filter(student => student.active && student.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
     
     // --- CSV Export Logic ---
     const sanitizeCSVCell = (cellData: any): string => {

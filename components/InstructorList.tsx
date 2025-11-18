@@ -144,11 +144,12 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
             bValue = b[key as keyof Instructor];
         }
 
-        if (typeof aValue === 'string') {
-            aValue = aValue.toLowerCase();
-            bValue = bValue.toLowerCase();
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+            const comparison = aValue.localeCompare(bValue, 'es', { sensitivity: 'base' });
+            return sortConfig.direction === 'asc' ? comparison : -comparison;
         }
 
+        // Fallback for non-string types
         if (aValue < bValue) {
             return sortConfig.direction === 'asc' ? -1 : 1;
         }
