@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { NuptialDance, Instructor, Rehearsal } from '../types';
 import Modal from './Modal';
 
@@ -32,6 +32,10 @@ const NuptialDanceForm: React.FC<{
     paidAmount: dance?.paidAmount || 0,
     notes: dance?.notes || '',
   });
+
+  const sortedInstructors = useMemo(() =>
+    [...instructors].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+  [instructors]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -75,7 +79,7 @@ const NuptialDanceForm: React.FC<{
             <label className="block text-sm font-medium text-gray-300">Profesor</label>
             <select name="instructorId" value={formData.instructorId} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
                 <option value="" disabled>Selecciona un profesor</option>
-                {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                {sortedInstructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
             </select>
         </div>
         <div>

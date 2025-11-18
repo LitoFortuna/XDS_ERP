@@ -99,6 +99,12 @@ const SaleForm: React.FC<{
         notes: '',
     });
     
+    const sortedStudents = useMemo(() => 
+        [...students]
+            .filter(s => s.active)
+            .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+    [students]);
+
     const totalAmount = item.salePrice * formData.quantity;
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -137,7 +143,7 @@ const SaleForm: React.FC<{
                     <label className="block text-sm font-medium text-gray-300">Comprador (opcional)</label>
                      <select name="studentId" value={formData.studentId} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500">
                         <option value="">Venta anónima</option>
-                        {students.filter(s => s.active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {sortedStudents.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                 </div>
                 <div>

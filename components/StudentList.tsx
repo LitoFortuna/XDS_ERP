@@ -33,6 +33,10 @@ const StudentForm: React.FC<{
     notes: student?.notes || '',
   });
 
+  const sortedClasses = useMemo(() => 
+    [...classes].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+  [classes]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
@@ -89,7 +93,7 @@ const StudentForm: React.FC<{
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-300">Clases Inscritas</label>
           <select multiple name="enrolledClassIds" value={formData.enrolledClassIds} onChange={handleChange} className="mt-1 block w-full h-32 bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500">
-            {classes.map(c => <option key={c.id} value={c.id}>{c.name} ({c.days.join(', ')} {c.startTime})</option>)}
+            {sortedClasses.map(c => <option key={c.id} value={c.id}>{c.name} ({c.days.join(', ')} {c.startTime})</option>)}
           </select>
         </div>
         <div>

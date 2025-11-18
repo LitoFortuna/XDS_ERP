@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod } from '../types';
 import Modal from './Modal';
 
@@ -46,6 +46,13 @@ const PaymentForm: React.FC<{
         onSubmit(formData);
     };
 
+    const sortedStudents = useMemo(() => 
+        [...students]
+            .filter(s => s.active)
+            .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+    [students]);
+
+
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -57,7 +64,7 @@ const PaymentForm: React.FC<{
                     <label className="block text-sm font-medium text-gray-300">Alumno</label>
                     <select name="studentId" value={formData.studentId} onChange={handleStudentChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
                         <option value="" disabled>Selecciona un alumno...</option>
-                        {students.filter(s => s.active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {sortedStudents.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                 </div>
                 <div className="md:col-span-2">
