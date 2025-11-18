@@ -219,7 +219,7 @@ const App: React.FC = () => {
             case View.DASHBOARD:
                 return <Dashboard students={students} classes={classes} instructors={instructors} payments={payments} costs={costs} setView={setCurrentView} />;
             case View.STUDENTS:
-                return <StudentList students={students} classes={classes} addStudent={addStudent} updateStudent={updateStudent} deleteStudent={deleteStudent} />;
+                return <StudentList students={students} classes={classes} merchandiseSales={merchandiseSales} addStudent={addStudent} updateStudent={updateStudent} deleteStudent={deleteStudent} />;
             case View.CLASSES:
                 return <ClassSchedule classes={classes} instructors={instructors} students={students} addClass={addClass} updateClass={updateClass} deleteClass={deleteClass} />;
             case View.INTERACTIVE_SCHEDULE:

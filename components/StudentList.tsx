@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Student, DanceClass, PaymentMethod } from '../types';
+import { Student, DanceClass, PaymentMethod, MerchandiseSale } from '../types';
 import Modal from './Modal';
 
 interface StudentListProps {
   students: Student[];
   classes: DanceClass[];
+  merchandiseSales: MerchandiseSale[];
   addStudent: (student: Omit<Student, 'id'>) => void;
   updateStudent: (student: Student) => void;
   deleteStudent: (id: string) => void;
@@ -16,9 +17,10 @@ type SortDirection = 'asc' | 'desc';
 const StudentForm: React.FC<{ 
     student?: Student, 
     classes: DanceClass[],
+    merchandiseSales: MerchandiseSale[],
     onSubmit: (student: Omit<Student, 'id'> | Student) => void, 
     onCancel: () => void 
-}> = ({ student, classes, onSubmit, onCancel }) => {
+}> = ({ student, classes, merchandiseSales, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: student?.name || '',
     email: student?.email || '',
@@ -36,6 +38,13 @@ const StudentForm: React.FC<{
   const sortedClasses = useMemo(() => 
     [...classes].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
   [classes]);
+
+  const studentSalesHistory = useMemo(() => {
+    if (!student) return [];
+    return merchandiseSales
+        .filter(sale => sale.studentId === student.id)
+        .sort((a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime());
+  }, [student, merchandiseSales]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -122,6 +131,30 @@ const StudentForm: React.FC<{
             <label htmlFor="active" className="ml-2 block text-sm text-gray-200">Activo</label>
         </div>
       </div>
+      
+      {student && (
+        <div>
+          <h4 className="text-lg font-medium text-gray-200 mb-2 mt-4 border-t border-gray-700 pt-4">Historial de Compras</h4>
+          <div className="bg-gray-900/50 rounded-md p-3 max-h-40 overflow-y-auto border border-gray-600">
+            {studentSalesHistory.length > 0 ? (
+              <ul className="space-y-2">
+                {studentSalesHistory.map(sale => (
+                  <li key={sale.id} className="text-sm p-2 bg-gray-700/50 rounded-md flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-white">{sale.itemName} (x{sale.quantity})</p>
+                      <p className="text-xs text-gray-400">{new Date(sale.saleDate).toLocaleDateString('es-ES')}</p>
+                    </div>
+                    <span className="font-bold text-green-300">€{sale.totalAmount.toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-400 italic text-center py-2">Este alumno no ha realizado ninguna compra.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-end space-x-2 pt-4">
         <button type="button" onClick={onCancel} className="bg-gray-600 text-gray-200 px-4 py-2 rounded-md hover:bg-gray-500">Cancelar</button>
         <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">{student ? 'Actualizar' : 'Añadir'} Alumno</button>
@@ -130,7 +163,7 @@ const StudentForm: React.FC<{
   );
 };
 
-const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent, updateStudent, deleteStudent }) => {
+const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandiseSales, addStudent, updateStudent, deleteStudent }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
@@ -329,7 +362,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, addStudent
         </table>
       </div>
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingStudent ? 'Editar Alumno' : 'Añadir Nuevo Alumno'}>
-        <StudentForm student={editingStudent} classes={classes} onSubmit={handleSubmit} onCancel={handleCloseModal} />
+        <StudentForm student={editingStudent} classes={classes} merchandiseSales={merchandiseSales} onSubmit={handleSubmit} onCancel={handleCloseModal} />
       </Modal>
       <Modal isOpen={!!studentToDelete} onClose={() => setStudentToDelete(null)} title="Confirmar Eliminación">
         {studentToDelete && (
