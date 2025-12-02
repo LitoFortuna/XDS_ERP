@@ -16,9 +16,10 @@ interface SidebarProps {
   setView: (view: View) => void;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
+  onLogout: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOpen }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOpen, onLogout }) => {
   const navItems = [
     { view: View.DASHBOARD, label: 'Dashboard', icon: DashboardIcon },
     { view: View.STUDENTS, label: 'Alumnos', icon: UsersIcon },
@@ -50,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
         <div className="h-16 flex items-center justify-center border-b border-gray-700 px-4">
            <h1 className="text-2xl font-bold text-white tracking-wider">Xen Dance Space</h1>
         </div>
-        <nav className="flex-1 px-2 py-4">
+        <nav className="flex-1 px-2 py-4 overflow-y-auto">
           <ul>
             {navItems.map((item) => (
               <li key={item.view}>
@@ -69,7 +70,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
             ))}
           </ul>
         </nav>
-        <div className="p-4 border-t border-gray-700">
+        
+        <div className="p-4 border-t border-gray-700 space-y-4">
+          <button 
+            onClick={onLogout}
+            className="w-full flex items-center px-4 py-2 rounded-md text-sm font-medium text-red-400 hover:bg-gray-700 hover:text-red-300 transition-colors duration-150"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Cerrar Sesión
+          </button>
           <p className="text-xs text-center text-gray-400">Xen Dance Space | 2026</p>
         </div>
       </aside>
