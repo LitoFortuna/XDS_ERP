@@ -1,7 +1,24 @@
-import { GoogleGenAI } from "@google/genai";
+// Función segura para obtener respuesta llamando al proxy de Vercel
+export async function obtenerRespuestaGemini(promptUsuario: string) {
+  try {
+    const response = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: promptUsuario,
+        modelName: "gemini-2.5-flash" // Usamos el modelo más reciente recomendado
+      }),
+    });
 
-// Fix: API key must be obtained exclusively from the environment variable `process.env.API_KEY`.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    if (!response.ok) throw new Error('Error en la petición al proxy');
 
-// La función para generar descripciones de clases ya no es necesaria con el nuevo diseño.
-// Se puede añadir nueva funcionalidad de IA aquí en el futuro.
+    const data = await response.json();
+    return data.text; // Aquí tienes tu respuesta de la IA
+
+  } catch (error) {
+    console.error("Error:", error);
+    return "Hubo un error al conectar con el servidor.";
+  }
+}
