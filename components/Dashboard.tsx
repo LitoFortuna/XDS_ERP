@@ -2,8 +2,6 @@
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance } from '../types';
-import { obtenerRespuestaGemini } from '../services/geminiService';
-import { SparklesIcon } from './icons/SparklesIcon';
 
 interface DashboardProps {
   students: Student[];
@@ -40,10 +38,6 @@ const StatCard: React.FC<{ title: string; value: string | number; children: Reac
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, setView }) => {
-    const [aiInsights, setAiInsights] = useState<string | null>(null);
-    const [loadingInsights, setLoadingInsights] = useState(false);
-    const [insightError, setInsightError] = useState(false);
-
     const totalStudents = students.length;
     
     // Revenue Calculation: Regular Payments + Nuptial Dance Payments
@@ -224,38 +218,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
       })
       .sort((a, b) => a.birthday.getTime() - b.birthday.getTime());
 
-    // --- AI Insights Generator ---
-    const generateDashboardInsights = async () => {
-        setLoadingInsights(true);
-        setInsightError(false);
-        const topClasses = classEnrollmentData.slice(0, 3).map(c => `${c.name} (${c.Inscritos} alumnos)`);
-        const lowClasses = classEnrollmentData.filter(c => c.Inscritos < 3).map(c => c.name);
-        
-        const summary = `
-            Actúa como un experto consultor de negocios para la escuela "Xen Dance Space". Analiza los siguientes datos actuales:
-            - Alumnos Totales: ${totalStudents} (Activos: ${activeStudentsCount}, Inactivos: ${students.length - activeStudentsCount}).
-            - Finanzas Globales: Ingresos ${totalRevenue}€ vs Costes ${totalCosts}€.
-            - Deuda Pendiente de alumnos: ${totalPendingAmount}€.
-            - Clases más populares: ${topClasses.join(', ')}.
-            - Clases con baja ocupación (<3): ${lowClasses.length > 0 ? lowClasses.join(', ') : 'Ninguna'}.
-            
-            Basado en esto, dame:
-            1. Un breve análisis del estado de salud del negocio.
-            2. 3 Acciones concretas y breves para mejorar la retención o los ingresos este mes.
-            Usa un tono profesional pero motivador. Formato limpio con puntos.
-        `;
-
-        const response = await obtenerRespuestaGemini(summary);
-        
-        if (response.startsWith("Hubo un error") || response.startsWith("Error:")) {
-            setInsightError(true);
-        }
-        
-        setAiInsights(response);
-        setLoadingInsights(false);
-    };
-
-
     const COLORS_FINANCIAL = ['#7C00BA', '#FF4136'];
     const COLORS_STATUS = ['#00B7FF', '#4b5563'];
     
@@ -282,52 +244,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </StatCard>
-            </div>
-
-            {/* --- AI INSIGHTS SECTION --- */}
-            <div className="bg-gradient-to-r from-purple-900/40 to-gray-800 p-6 rounded-lg border border-purple-500/30 relative overflow-hidden">
-                <div className="flex items-start justify-between mb-4 relative z-10">
-                    <div className="flex items-center gap-3">
-                         <div className="p-2 bg-purple-600 rounded-lg shadow-lg shadow-purple-500/20">
-                            <SparklesIcon className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-white">Xen AI Insights</h3>
-                            <p className="text-sm text-purple-200">Análisis inteligente de tu negocio</p>
-                        </div>
-                    </div>
-                    {!aiInsights && !loadingInsights && (
-                         <button 
-                            onClick={generateDashboardInsights}
-                            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-md font-medium text-sm transition-all shadow-lg hover:shadow-purple-500/25 flex items-center gap-2"
-                        >
-                            <SparklesIcon className="w-4 h-4" />
-                            Generar Análisis
-                        </button>
-                    )}
-                </div>
-
-                {loadingInsights && (
-                    <div className="space-y-3 animate-pulse">
-                        <div className="h-4 bg-purple-500/20 rounded w-3/4"></div>
-                        <div className="h-4 bg-purple-500/20 rounded w-1/2"></div>
-                        <div className="h-4 bg-purple-500/20 rounded w-5/6"></div>
-                    </div>
-                )}
-
-                {aiInsights && (
-                    <div className={`prose prose-invert prose-sm max-w-none ${insightError ? 'text-red-300' : 'text-gray-200'}`}>
-                        <div className="whitespace-pre-wrap">{aiInsights}</div>
-                        <div className="mt-4 flex justify-end">
-                            <button 
-                                onClick={generateDashboardInsights}
-                                className="text-xs text-purple-400 hover:text-purple-300 underline"
-                            >
-                                Actualizar análisis
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* --- CLASS STATS ROW (Split into Top 5 and Bottom 5) --- */}
