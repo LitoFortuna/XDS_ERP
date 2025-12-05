@@ -42,6 +42,7 @@ const StatCard: React.FC<{ title: string; value: string | number; children: Reac
 const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, setView }) => {
     const [aiInsights, setAiInsights] = useState<string | null>(null);
     const [loadingInsights, setLoadingInsights] = useState(false);
+    const [insightError, setInsightError] = useState(false);
 
     const totalStudents = students.length;
     
@@ -125,6 +126,12 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         }))
         .sort((a, b) => b.Inscritos - a.Inscritos); // Ordenar por mayor número de inscritos
     
+    // Split into Top 5 and Bottom 5
+    const top5Classes = classEnrollmentData.slice(0, 5);
+    // Sort ascending for bottom 5 to show the least enrolled at the top (or simply take the tail)
+    // Here we take the original sorted list (descending), reverse it to get ascending (0, 1, 2...), and take first 5.
+    const bottom5Classes = [...classEnrollmentData].sort((a, b) => a.Inscritos - b.Inscritos).slice(0, 5);
+
     type MonthlyData = { month: string; Ingresos: number; Gastos: number; monthIndex: number; year: number };
 
     const initialMonthlyData: Record<string, MonthlyData> = {};
@@ -220,6 +227,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     // --- AI Insights Generator ---
     const generateDashboardInsights = async () => {
         setLoadingInsights(true);
+        setInsightError(false);
         const topClasses = classEnrollmentData.slice(0, 3).map(c => `${c.name} (${c.Inscritos} alumnos)`);
         const lowClasses = classEnrollmentData.filter(c => c.Inscritos < 3).map(c => c.name);
         
@@ -238,6 +246,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         `;
 
         const response = await obtenerRespuestaGemini(summary);
+        
+        if (response.startsWith("Hubo un error") || response.startsWith("Error:")) {
+            setInsightError(true);
+        }
+        
         setAiInsights(response);
         setLoadingInsights(false);
     };
@@ -303,7 +316,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 )}
 
                 {aiInsights && (
-                    <div className="prose prose-invert prose-sm max-w-none text-gray-200">
+                    <div className={`prose prose-invert prose-sm max-w-none ${insightError ? 'text-red-300' : 'text-gray-200'}`}>
                         <div className="whitespace-pre-wrap">{aiInsights}</div>
                         <div className="mt-4 flex justify-end">
                             <button 
@@ -317,23 +330,23 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 )}
             </div>
 
-
+            {/* --- CLASS STATS ROW (Split into Top 5 and Bottom 5) --- */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
-                    <h3 className="font-semibold mb-4 text-white">Inscripciones por Clase</h3>
-                    <div style={{ width: '100%', height: 400 }}>
+                    <h3 className="font-semibold mb-4 text-white">Top 5: Mayor Ocupación</h3>
+                    <div style={{ width: '100%', height: 300 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart 
-                                data={classEnrollmentData} 
+                                data={top5Classes} 
                                 layout="vertical"
                                 margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
                             >
                                 <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" horizontal={false} vertical={true} />
-                                <XAxis type="number" tick={{ fill: '#white' }} />
+                                <XAxis type="number" tick={{ fill: 'white' }} />
                                 <YAxis 
                                     type="category" 
                                     dataKey="name" 
-                                    tick={{ fill: '#white', fontSize: 12 }} 
+                                    tick={{ fill: 'white', fontSize: 11 }} 
                                     width={140}
                                 />
                                 <Tooltip 
@@ -347,25 +360,60 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         </ResponsiveContainer>
                     </div>
                 </div>
+
                 <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
-                    <h3 className="font-semibold mb-4 text-white">Ingresos vs Gastos Mensuales</h3>
-                     <ResponsiveContainer width="100%" height={400}>
+                    <h3 className="font-semibold mb-4 text-white">Top 5: Menor Ocupación (Atención)</h3>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart 
+                                data={bottom5Classes} 
+                                layout="vertical"
+                                margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" horizontal={false} vertical={true} />
+                                <XAxis type="number" tick={{ fill: 'white' }} />
+                                <YAxis 
+                                    type="category" 
+                                    dataKey="name" 
+                                    tick={{ fill: 'white', fontSize: 11 }} 
+                                    width={140}
+                                />
+                                <Tooltip 
+                                    contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF' }} 
+                                    cursor={{ fill: 'rgba(255, 65, 54, 0.1)' }}
+                                />
+                                <Legend />
+                                {/* Changed Inscritos color to Red for attention */}
+                                <Bar dataKey="Inscritos" fill="#FF4136" radius={[0, 4, 4, 0]} barSize={20} />
+                                <Bar dataKey="Capacidad" fill="#00B7FF" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
+            {/* --- FINANCIAL CHART (Full Width) --- */}
+            <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
+                <h3 className="font-semibold mb-4 text-white">Ingresos vs Gastos Mensuales</h3>
+                <div style={{ width: '100%', height: 400 }}>
+                    <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={sortedMonthlyData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568"/>
-                            <XAxis dataKey="month" tick={{ fill: '#white' }} />
-                            <YAxis tick={{ fill: '#white' }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES')}`} />
+                            <XAxis dataKey="month" tick={{ fill: 'white' }} />
+                            <YAxis tick={{ fill: 'white' }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES')}`} />
                             <Tooltip 
                                 contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF' }} 
                                 cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}
                                 formatter={(value: number) => formatCurrency(value)}
                             />
                             <Legend />
-                            <Line type="monotone" dataKey="Ingresos" stroke="#7C00BA" strokeWidth={2} />
-                            <Line type="monotone" dataKey="Gastos" stroke="#FF4136" strokeWidth={2} />
+                            <Line type="monotone" dataKey="Ingresos" stroke="#7C00BA" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
+                            <Line type="monotone" dataKey="Gastos" stroke="#FF4136" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
             </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
                     <h3 className="font-semibold mb-4 text-white">Resumen Financiero</h3>
@@ -403,8 +451,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={classPopularityData} layout="vertical">
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-                            <XAxis type="number" tick={{ fill: '#white' }} />
-                            <YAxis type="category" dataKey="name" tick={{ fill: '#white' }} width={100} interval={0} />
+                            <XAxis type="number" tick={{ fill: 'white' }} />
+                            <YAxis type="category" dataKey="name" tick={{ fill: 'white' }} width={100} interval={0} />
                             <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
                             <Legend />
                             <Bar dataKey="Alumnos" fill="#7C00BA" />
