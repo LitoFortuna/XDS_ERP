@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Student, DanceClass, Instructor, Payment, Cost, View } from '../types';
+import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance } from '../types';
 
 interface DashboardProps {
   students: Student[];
@@ -8,6 +8,7 @@ interface DashboardProps {
   instructors: Instructor[];
   payments: Payment[];
   costs: Cost[];
+  nuptialDances: NuptialDance[];
   setView: (view: View) => void;
 }
 
@@ -35,9 +36,14 @@ const StatCard: React.FC<{ title: string; value: string | number; children: Reac
     return <div className="w-full">{cardContent}</div>;
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, setView }) => {
+const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, setView }) => {
     const totalStudents = students.length;
-    const totalRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
+    
+    // Revenue Calculation: Regular Payments + Nuptial Dance Payments
+    const totalRegularRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
+    const totalNuptialRevenue = nuptialDances.reduce((acc, d) => acc + (d.paidAmount || 0), 0);
+    const totalRevenue = totalRegularRevenue + totalNuptialRevenue;
+
     const totalCosts = costs.reduce((acc, c) => acc + c.amount, 0);
 
     // --- Logic for Unpaid Students ---
@@ -104,11 +110,14 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     };
 
-    const classEnrollmentData = classes.map(c => ({
-        name: c.name,
-        Inscritos: students.filter(s => s.enrolledClassIds.includes(c.id)).length,
-        Capacidad: c.capacity,
-    }));
+    // Modificado: Datos ordenados para el gráfico horizontal
+    const classEnrollmentData = classes
+        .map(c => ({
+            name: c.name,
+            Inscritos: students.filter(s => s.enrolledClassIds.includes(c.id)).length,
+            Capacidad: c.capacity,
+        }))
+        .sort((a, b) => b.Inscritos - a.Inscritos); // Ordenar por mayor número de inscritos
     
     type MonthlyData = { month: string; Ingresos: number; Gastos: number; monthIndex: number; year: number };
 
@@ -234,21 +243,35 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
                     <h3 className="font-semibold mb-4 text-white">Inscripciones por Clase</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={classEnrollmentData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-                            <XAxis dataKey="name" tick={{ fill: '#9ca3af' }} />
-                            <YAxis tick={{ fill: '#9ca3af' }} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
-                            <Legend />
-                            <Bar dataKey="Inscritos" fill="#7C00BA" />
-                            <Bar dataKey="Capacidad" fill="#00B7FF" />
-                        </BarChart>
-                    </ResponsiveContainer>
+                    <div style={{ width: '100%', height: 400 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart 
+                                data={classEnrollmentData} 
+                                layout="vertical"
+                                margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" horizontal={false} vertical={true} />
+                                <XAxis type="number" tick={{ fill: '#9ca3af' }} />
+                                <YAxis 
+                                    type="category" 
+                                    dataKey="name" 
+                                    tick={{ fill: '#9ca3af', fontSize: 12 }} 
+                                    width={140}
+                                />
+                                <Tooltip 
+                                    contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF' }} 
+                                    cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}
+                                />
+                                <Legend />
+                                <Bar dataKey="Inscritos" fill="#7C00BA" radius={[0, 4, 4, 0]} barSize={20} />
+                                <Bar dataKey="Capacidad" fill="#00B7FF" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
                 <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
                     <h3 className="font-semibold mb-4 text-white">Ingresos vs Gastos Mensuales</h3>
-                     <ResponsiveContainer width="100%" height={300}>
+                     <ResponsiveContainer width="100%" height={400}>
                         <LineChart data={sortedMonthlyData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568"/>
                             <XAxis dataKey="month" tick={{ fill: '#9ca3af' }} />
