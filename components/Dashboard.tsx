@@ -185,8 +185,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const ageGroups = {
         'Infantil (3-11)': 0,
         'Junior (12-17)': 0,
-        'Adultos (18-40)': 0,
-        'Senior (40+)': 0
+        'Adultos (18-60)': 0,
+        'Senior (60+)': 0
     };
 
     students.forEach(s => {
@@ -195,8 +195,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             const age = new Date().getFullYear() - birthDate.getFullYear();
             if (age <= 11) ageGroups['Infantil (3-11)']++;
             else if (age <= 17) ageGroups['Junior (12-17)']++;
-            else if (age <= 40) ageGroups['Adultos (18-40)']++;
-            else ageGroups['Senior (40+)']++;
+            else if (age <= 60) ageGroups['Adultos (18-60)']++;
+            else ageGroups['Senior (60+)']++;
         }
     });
 
