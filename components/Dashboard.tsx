@@ -1,6 +1,9 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance } from '../types';
+import { obtenerRespuestaGemini } from '../services/geminiService';
+import { SparklesIcon } from './icons/SparklesIcon';
 
 interface DashboardProps {
   students: Student[];
@@ -37,6 +40,9 @@ const StatCard: React.FC<{ title: string; value: string | number; children: Reac
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, setView }) => {
+    const [aiInsights, setAiInsights] = useState<string | null>(null);
+    const [loadingInsights, setLoadingInsights] = useState(false);
+
     const totalStudents = students.length;
     
     // Revenue Calculation: Regular Payments + Nuptial Dance Payments
@@ -211,6 +217,31 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
       })
       .sort((a, b) => a.birthday.getTime() - b.birthday.getTime());
 
+    // --- AI Insights Generator ---
+    const generateDashboardInsights = async () => {
+        setLoadingInsights(true);
+        const topClasses = classEnrollmentData.slice(0, 3).map(c => `${c.name} (${c.Inscritos} alumnos)`);
+        const lowClasses = classEnrollmentData.filter(c => c.Inscritos < 3).map(c => c.name);
+        
+        const summary = `
+            Actúa como un experto consultor de negocios para la escuela "Xen Dance Space". Analiza los siguientes datos actuales:
+            - Alumnos Totales: ${totalStudents} (Activos: ${activeStudentsCount}, Inactivos: ${students.length - activeStudentsCount}).
+            - Finanzas Globales: Ingresos ${totalRevenue}€ vs Costes ${totalCosts}€.
+            - Deuda Pendiente de alumnos: ${totalPendingAmount}€.
+            - Clases más populares: ${topClasses.join(', ')}.
+            - Clases con baja ocupación (<3): ${lowClasses.length > 0 ? lowClasses.join(', ') : 'Ninguna'}.
+            
+            Basado en esto, dame:
+            1. Un breve análisis del estado de salud del negocio.
+            2. 3 Acciones concretas y breves para mejorar la retención o los ingresos este mes.
+            Usa un tono profesional pero motivador. Formato limpio con puntos.
+        `;
+
+        const response = await obtenerRespuestaGemini(summary);
+        setAiInsights(response);
+        setLoadingInsights(false);
+    };
+
 
     const COLORS_FINANCIAL = ['#7C00BA', '#FF4136'];
     const COLORS_STATUS = ['#00B7FF', '#4b5563'];
@@ -240,6 +271,53 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 </StatCard>
             </div>
 
+            {/* --- AI INSIGHTS SECTION --- */}
+            <div className="bg-gradient-to-r from-purple-900/40 to-gray-800 p-6 rounded-lg border border-purple-500/30 relative overflow-hidden">
+                <div className="flex items-start justify-between mb-4 relative z-10">
+                    <div className="flex items-center gap-3">
+                         <div className="p-2 bg-purple-600 rounded-lg shadow-lg shadow-purple-500/20">
+                            <SparklesIcon className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-white">Xen AI Insights</h3>
+                            <p className="text-sm text-purple-200">Análisis inteligente de tu negocio</p>
+                        </div>
+                    </div>
+                    {!aiInsights && !loadingInsights && (
+                         <button 
+                            onClick={generateDashboardInsights}
+                            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-md font-medium text-sm transition-all shadow-lg hover:shadow-purple-500/25 flex items-center gap-2"
+                        >
+                            <SparklesIcon className="w-4 h-4" />
+                            Generar Análisis
+                        </button>
+                    )}
+                </div>
+
+                {loadingInsights && (
+                    <div className="space-y-3 animate-pulse">
+                        <div className="h-4 bg-purple-500/20 rounded w-3/4"></div>
+                        <div className="h-4 bg-purple-500/20 rounded w-1/2"></div>
+                        <div className="h-4 bg-purple-500/20 rounded w-5/6"></div>
+                    </div>
+                )}
+
+                {aiInsights && (
+                    <div className="prose prose-invert prose-sm max-w-none text-gray-200">
+                        <div className="whitespace-pre-wrap">{aiInsights}</div>
+                        <div className="mt-4 flex justify-end">
+                            <button 
+                                onClick={generateDashboardInsights}
+                                className="text-xs text-purple-400 hover:text-purple-300 underline"
+                            >
+                                Actualizar análisis
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
                     <h3 className="font-semibold mb-4 text-white">Inscripciones por Clase</h3>
@@ -251,11 +329,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                 margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
                             >
                                 <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" horizontal={false} vertical={true} />
-                                <XAxis type="number" tick={{ fill: '#9ca3af' }} />
+                                <XAxis type="number" tick={{ fill: '#white' }} />
                                 <YAxis 
                                     type="category" 
                                     dataKey="name" 
-                                    tick={{ fill: '#9ca3af', fontSize: 12 }} 
+                                    tick={{ fill: '#white', fontSize: 12 }} 
                                     width={140}
                                 />
                                 <Tooltip 
@@ -274,8 +352,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                      <ResponsiveContainer width="100%" height={400}>
                         <LineChart data={sortedMonthlyData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568"/>
-                            <XAxis dataKey="month" tick={{ fill: '#9ca3af' }} />
-                            <YAxis tick={{ fill: '#9ca3af' }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES')}`} />
+                            <XAxis dataKey="month" tick={{ fill: '#white' }} />
+                            <YAxis tick={{ fill: '#white' }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES')}`} />
                             <Tooltip 
                                 contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF' }} 
                                 cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}
@@ -325,8 +403,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={classPopularityData} layout="vertical">
                             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-                            <XAxis type="number" tick={{ fill: '#9ca3af' }} />
-                            <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af' }} width={100} interval={0} />
+                            <XAxis type="number" tick={{ fill: '#white' }} />
+                            <YAxis type="category" dataKey="name" tick={{ fill: '#white' }} width={100} interval={0} />
                             <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF' }} cursor={{ fill: 'rgba(124, 0, 186, 0.1)' }}/>
                             <Legend />
                             <Bar dataKey="Alumnos" fill="#7C00BA" />
