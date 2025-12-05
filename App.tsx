@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale } from './types';
 import Sidebar from './components/Sidebar';
@@ -185,7 +186,31 @@ const App: React.FC = () => {
 
     // Nuptial Dance Handlers
     const addNuptialDance = async (dance: Omit<NuptialDance, 'id'>) => {
+        // 1. Añadir el baile nupcial
         await addNuptialDanceToDb(dance);
+
+        // 2. Comprobar si ya existe un alumno con ese nombre (la pareja)
+        // Normalizamos a minúsculas para comparar
+        const existingStudent = students.find(s => 
+            s.name.trim().toLowerCase() === dance.coupleName.trim().toLowerCase()
+        );
+
+        // 3. Si no existe, lo creamos automáticamente como alumno
+        // Esto permite seleccionarlos en el apartado de Facturación
+        if (!existingStudent) {
+            await addStudentToDb({
+                name: dance.coupleName,
+                email: dance.email,
+                phone: dance.phone,
+                enrollmentDate: new Date().toISOString().split('T')[0],
+                birthDate: '', // No aplica, pero requerido por tipo
+                enrolledClassIds: [],
+                monthlyFee: 0, // Pagan por paquete, no cuota mensual recurrente
+                paymentMethod: 'Efectivo',
+                active: true,
+                notes: `Pareja Baile Nupcial. Fecha Boda: ${new Date(dance.weddingDate).toLocaleDateString('es-ES')}`
+            });
+        }
     };
     const updateNuptialDance = async (updatedDance: NuptialDance) => {
         await updateNuptialDanceInDb(updatedDance);
