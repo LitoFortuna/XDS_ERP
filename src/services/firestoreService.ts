@@ -1,3 +1,4 @@
+
 import {
   collection,
   addDoc,
@@ -143,6 +144,17 @@ export const subscribeToPayments = (callback: (payments: Payment[]) => void): Un
 
 export const addPayment = async (payment: Omit<Payment, 'id'>) => {
   await addDoc(collection(db, 'payments'), payment);
+};
+
+export const updatePayment = async (payment: Payment) => {
+  const { id, ...paymentData } = payment;
+  const paymentDoc = doc(db, 'payments', id);
+  await updateDoc(paymentDoc, paymentData);
+};
+
+export const deletePayment = async (paymentId: string) => {
+  const paymentDoc = doc(db, 'payments', paymentId);
+  await deleteDoc(paymentDoc);
 };
 
 export const batchAddPayments = async (payments: Omit<Payment, 'id'>[]) => {

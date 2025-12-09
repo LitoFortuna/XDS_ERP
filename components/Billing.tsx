@@ -3,13 +3,228 @@ import React, { useState, useMemo } from 'react';
 import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod } from '../types';
 import Modal from './Modal';
 
+// --- COMPONENTE MODAL DE GESTIÓN MENSUAL ---
+interface MonthlyDetailModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    student: Student;
+    monthIndex: number;
+    year: number;
+    payments: Payment[];
+    onUpdateStudent: (student: Student) => void;
+    onAddPayment: (payment: Omit<Payment, 'id'>) => void;
+    onUpdatePayment: (payment: Payment) => void;
+    onDeletePayment: (id: string) => void;
+}
+
+const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
+    isOpen, onClose, student, monthIndex, year, payments, onUpdateStudent, onAddPayment, onUpdatePayment, onDeletePayment
+}) => {
+    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const monthName = months[monthIndex];
+    
+    // State for expected fee editing
+    const [expectedFee, setExpectedFee] = useState(student.monthlyFee);
+    const [isFeeDirty, setIsFeeDirty] = useState(false);
+
+    // State for new payment
+    const [newPayment, setNewPayment] = useState({
+        amount: 0,
+        date: `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`, // Default to 1st of selected month
+        method: student.paymentMethod as PaymentMethod,
+        concept: `Cuota ${monthName}`
+    });
+
+    // State for editing existing payment
+    const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+    const [editPaymentData, setEditPaymentData] = useState<Partial<Payment>>({});
+
+    // Calculations
+    const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
+    const remaining = expectedFee - totalPaid;
+
+    // Reset new payment amount when modal opens or expected fee changes
+    React.useEffect(() => {
+        if (isOpen) {
+            const currentTotalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
+             setNewPayment(prev => ({
+                ...prev,
+                amount: Math.max(0, student.monthlyFee - currentTotalPaid)
+            }));
+            setExpectedFee(student.monthlyFee);
+        }
+    }, [isOpen, student.monthlyFee, payments]);
+
+    if (!isOpen) return null;
+
+    const handleSaveFee = () => {
+        onUpdateStudent({ ...student, monthlyFee: expectedFee });
+        setIsFeeDirty(false);
+    };
+
+    const handleAddPaymentSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onAddPayment({
+            studentId: student.id,
+            amount: newPayment.amount,
+            date: newPayment.date,
+            paymentMethod: newPayment.method,
+            concept: newPayment.concept,
+            notes: ''
+        });
+        // Reset form slightly but keep context
+        setNewPayment(prev => ({ ...prev, amount: 0 }));
+    };
+
+    const startEditPayment = (payment: Payment) => {
+        setEditingPaymentId(payment.id);
+        setEditPaymentData(payment);
+    };
+
+    const saveEditPayment = () => {
+        if (editingPaymentId && editPaymentData) {
+            onUpdatePayment(editPaymentData as Payment);
+            setEditingPaymentId(null);
+        }
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Gestión: ${student.name} - ${monthName} ${year}`}>
+            <div className="space-y-6">
+                
+                {/* 1. EXPECTED AMOUNT (Cuota Mensual del Alumno) */}
+                <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
+                    <h4 className="text-sm font-semibold text-gray-300 mb-2 uppercase tracking-wide">Importe Esperado (Cuota Global)</h4>
+                    <div className="flex items-end gap-4">
+                        <div className="flex-1">
+                            <label className="block text-xs text-gray-400 mb-1">Cuota Mensual Actual</label>
+                            <input 
+                                type="number" 
+                                value={expectedFee}
+                                onChange={(e) => {
+                                    setExpectedFee(parseFloat(e.target.value) || 0);
+                                    setIsFeeDirty(true);
+                                }}
+                                className="block w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500 font-mono text-lg"
+                            />
+                        </div>
+                        <button 
+                            onClick={handleSaveFee}
+                            disabled={!isFeeDirty}
+                            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed h-[42px]"
+                        >
+                            Actualizar Cuota
+                        </button>
+                    </div>
+                    <p className="text-xs text-yellow-500 mt-2">
+                        ⚠️ Nota: Cambiar este valor actualizará la cuota mensual general del alumno para todos los meses.
+                    </p>
+                </div>
+
+                {/* 2. PAID AMOUNT (Lista de Pagos) */}
+                <div>
+                    <h4 className="text-sm font-semibold text-gray-300 mb-2 uppercase tracking-wide flex justify-between items-center">
+                        <span>Pagos Realizados</span>
+                        <span className={`text-lg font-bold ${totalPaid >= expectedFee ? 'text-green-400' : 'text-orange-400'}`}>
+                            Total: €{totalPaid.toFixed(2)}
+                        </span>
+                    </h4>
+                    
+                    <div className="bg-gray-900/50 rounded-lg border border-gray-700 overflow-hidden">
+                        {payments.length > 0 ? (
+                            <table className="w-full text-sm text-left text-gray-400">
+                                <thead className="bg-gray-800 text-xs text-gray-300 uppercase">
+                                    <tr>
+                                        <th className="px-4 py-2">Fecha</th>
+                                        <th className="px-4 py-2">Método</th>
+                                        <th className="px-4 py-2">Importe</th>
+                                        <th className="px-4 py-2 text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-800">
+                                    {payments.map(payment => (
+                                        <tr key={payment.id} className="hover:bg-gray-800/50">
+                                            {editingPaymentId === payment.id ? (
+                                                // EDIT MODE ROW
+                                                <>
+                                                    <td className="px-2 py-2">
+                                                        <input type="date" value={editPaymentData.date} onChange={e => setEditPaymentData({...editPaymentData, date: e.target.value})} className="w-full bg-gray-700 border-gray-600 rounded text-xs px-2 py-1 text-white" />
+                                                    </td>
+                                                    <td className="px-2 py-2">
+                                                         <select value={editPaymentData.paymentMethod} onChange={e => setEditPaymentData({...editPaymentData, paymentMethod: e.target.value as PaymentMethod})} className="w-full bg-gray-700 border-gray-600 rounded text-xs px-2 py-1 text-white">
+                                                            <option>Efectivo</option><option>Transferencia</option><option>Domiciliación</option><option>Bizum</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-2 py-2">
+                                                        <input type="number" value={editPaymentData.amount} onChange={e => setEditPaymentData({...editPaymentData, amount: parseFloat(e.target.value)})} className="w-24 bg-gray-700 border-gray-600 rounded text-xs px-2 py-1 text-white" />
+                                                    </td>
+                                                    <td className="px-2 py-2 text-right space-x-1">
+                                                        <button onClick={saveEditPayment} className="text-green-400 hover:text-green-300 text-xs">Guardar</button>
+                                                        <button onClick={() => setEditingPaymentId(null)} className="text-gray-400 hover:text-gray-300 text-xs">Cancelar</button>
+                                                    </td>
+                                                </>
+                                            ) : (
+                                                // VIEW MODE ROW
+                                                <>
+                                                    <td className="px-4 py-3">{new Date(payment.date).toLocaleDateString()}</td>
+                                                    <td className="px-4 py-3">{payment.paymentMethod}</td>
+                                                    <td className="px-4 py-3 text-white font-medium">€{payment.amount.toFixed(2)}</td>
+                                                    <td className="px-4 py-3 text-right space-x-2">
+                                                        <button onClick={() => startEditPayment(payment)} className="text-purple-400 hover:text-purple-300 text-xs">Editar</button>
+                                                        <button onClick={() => { if(window.confirm('¿Borrar pago?')) onDeletePayment(payment.id) }} className="text-red-400 hover:text-red-300 text-xs">Borrar</button>
+                                                    </td>
+                                                </>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <p className="p-4 text-center text-gray-500 italic">No hay pagos registrados para este mes.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* 3. ADD NEW PAYMENT */}
+                <div className="bg-gray-700/30 p-4 rounded-lg border border-gray-600 border-dashed">
+                    <h4 className="text-sm font-semibold text-gray-300 mb-3 uppercase tracking-wide">Registrar Nuevo Pago</h4>
+                    <form onSubmit={handleAddPaymentSubmit} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                        <div className="sm:col-span-1">
+                             <label className="block text-xs text-gray-400 mb-1">Fecha</label>
+                             <input type="date" value={newPayment.date} onChange={e => setNewPayment({...newPayment, date: e.target.value})} className="w-full bg-gray-800 border-gray-600 rounded-md text-sm px-3 py-2 text-white focus:ring-purple-500" required />
+                        </div>
+                        <div className="sm:col-span-1">
+                             <label className="block text-xs text-gray-400 mb-1">Importe (€)</label>
+                             <input type="number" step="0.01" value={newPayment.amount} onChange={e => setNewPayment({...newPayment, amount: parseFloat(e.target.value)})} className="w-full bg-gray-800 border-gray-600 rounded-md text-sm px-3 py-2 text-white focus:ring-purple-500" required />
+                        </div>
+                        <div className="sm:col-span-1">
+                             <label className="block text-xs text-gray-400 mb-1">Método</label>
+                             <select value={newPayment.method} onChange={e => setNewPayment({...newPayment, method: e.target.value as PaymentMethod})} className="w-full bg-gray-800 border-gray-600 rounded-md text-sm px-3 py-2 text-white focus:ring-purple-500">
+                                <option>Efectivo</option><option>Transferencia</option><option>Domiciliación</option><option>Bizum</option>
+                             </select>
+                        </div>
+                        <div className="sm:col-span-1">
+                            <button type="submit" className="w-full bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 text-sm font-medium">
+                                + Añadir
+                            </button>
+                        </div>
+                    </form>
+                    {remaining > 0 && (
+                        <p className="text-xs text-gray-400 mt-2 text-right">Faltan <span className="text-orange-400 font-bold">€{remaining.toFixed(2)}</span> para completar la cuota.</p>
+                    )}
+                </div>
+
+            </div>
+        </Modal>
+    );
+};
+
 // --- FORMULARIO DE COBROS (INGRESOS) ---
 const PaymentForm: React.FC<{
     students: Student[];
     onSubmit: (payment: Omit<Payment, 'id'>) => void;
     onCancel: () => void;
 }> = ({ students, onSubmit, onCancel }) => {
-    // ... (El resto del formulario de cobro se mantiene igual)
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split('T')[0],
         studentId: '',
@@ -193,18 +408,28 @@ interface BillingProps {
     costs: Cost[];
     students: Student[];
     addPayment: (payment: Omit<Payment, 'id'>) => void;
+    updatePayment: (payment: Payment) => void;
+    deletePayment: (id: string) => void;
     addCost: (cost: Omit<Cost, 'id'>) => void;
     updateCost: (cost: Cost) => void;
     deleteCost: (id: string) => void;
+    updateStudent: (student: Student) => void;
 }
 
-const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment, addCost, updateCost, deleteCost }) => {
+const Billing: React.FC<BillingProps> = ({ 
+    payments, costs, students, 
+    addPayment, updatePayment, deletePayment, 
+    addCost, updateCost, deleteCost, updateStudent 
+}) => {
     const [activeTab, setActiveTab] = useState<'income' | 'costs'>('income');
     const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
     const [isCostModalOpen, setIsCostModalOpen] = useState(false);
     const [editingCost, setEditingCost] = useState<Cost | undefined>(undefined);
     const [costToDuplicate, setCostToDuplicate] = useState<Partial<Cost> | undefined>(undefined);
     const [searchQuery, setSearchQuery] = useState('');
+    
+    // State for Monthly Detail Modal
+    const [selectedMonthCell, setSelectedMonthCell] = useState<{ studentId: string, monthIndex: number, year: number } | null>(null);
 
     const totalIncome = payments.reduce((sum, p) => sum + p.amount, 0);
     const totalCosts = costs.reduce((sum, c) => sum + c.amount, 0);
@@ -224,7 +449,7 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
 
             // Si el año actual es posterior al de baja, o es el mismo año y el mes es posterior al de baja
             if (currentYear > deactivationYear || (currentYear === deactivationYear && monthIndex > deactivationMonth)) {
-                return { text: '-', color: 'text-gray-500' };
+                return { text: '-', color: 'text-gray-600 hover:bg-gray-700 cursor-pointer opacity-50' };
             }
         }
 
@@ -246,16 +471,17 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
         });
         const totalPaid = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
 
+        const baseClasses = "cursor-pointer transition-colors hover:brightness-110";
         if (totalPaid >= student.monthlyFee) {
-            return { text: `€${totalPaid.toFixed(2)}`, color: 'bg-green-500/20 text-green-300' };
+            return { text: `€${totalPaid.toFixed(2)}`, color: `${baseClasses} bg-green-500/20 text-green-300` };
         }
         if (totalPaid > 0) {
-            return { text: `€${totalPaid.toFixed(2)}`, color: 'bg-orange-500/20 text-orange-300' };
+            return { text: `€${totalPaid.toFixed(2)}`, color: `${baseClasses} bg-orange-500/20 text-orange-300` };
         }
         if (monthIndex < currentMonthIndex) {
-            return { text: 'Impagado', color: 'bg-red-500/20 text-red-300' };
+            return { text: 'Impagado', color: `${baseClasses} bg-red-500/20 text-red-300` };
         }
-        return { text: '-', color: 'text-gray-500' };
+        return { text: '-', color: `${baseClasses} text-gray-500 hover:bg-gray-700` };
     };
     
     // --- Handlers para modales de Costes ---
@@ -295,21 +521,21 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
         }
     };
     
-    // Mostramos también a los inactivos si tienen pagos en el año actual o fueron activos durante el año,
-    // pero para simplificar la vista, mantendremos el filtro de activos O búsqueda explícita.
-    // Sin embargo, el requisito dice "al poner fecha de baja... no se esperarán más ingresos".
-    // Esto implica que el alumno podría seguir apareciendo en la lista si queremos ver su histórico del año.
-    // Para cumplir con la UX de "Facturación", a veces queremos ver el histórico. 
-    // Modificaré el filtro para mostrar a todos (activos e inactivos) pero ordenados, 
-    // o mantener solo activos. Dado que el usuario "desmarca activo", normalmente desaparecen de la lista por defecto.
-    // Si queremos verlos, tendríamos que quitar el filtro `.filter(s => s.active)`.
-    // PERO, para no romper la funcionalidad actual de "solo activos", lo dejaré así. 
-    // Si el usuario quiere ver un alumno de baja, debe buscarlo por nombre o reactivarlo temporalmente (o cambiar la lógica de filtrado).
-    // Asumiré que si se da de baja, desaparece de la lista principal de facturación "pendiente".
-    
     const filteredStudents = students
         .filter(student => (student.active || searchQuery !== '') && student.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+
+    // Prepare data for Monthly Detail Modal
+    const selectedStudent = selectedMonthCell ? students.find(s => s.id === selectedMonthCell.studentId) : null;
+    const selectedMonthPayments = useMemo(() => {
+        if (!selectedMonthCell) return [];
+        return payments.filter(p => {
+            const d = new Date(p.date);
+            return p.studentId === selectedMonthCell.studentId && 
+                   d.getMonth() === selectedMonthCell.monthIndex && 
+                   d.getFullYear() === selectedMonthCell.year;
+        });
+    }, [selectedMonthCell, payments]);
     
     // --- CSV Export Logic ---
     const sanitizeCSVCell = (cellData: any): string => {
@@ -415,7 +641,7 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full max-w-sm bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                         />
-                         <p className="text-xs text-gray-500 mt-2">Mostrando alumnos activos. Usa la búsqueda para encontrar alumnos inactivos.</p>
+                         <p className="text-xs text-gray-500 mt-2">Haz clic en cualquier celda mensual para ver detalles, editar importe esperado o gestionar pagos.</p>
                     </div>
                      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
@@ -437,7 +663,11 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
                                         {months.map((_, index) => {
                                             const { text, color } = getPaymentStatusForMonth(student, index);
                                             return (
-                                                <td key={index} className="px-6 py-4 text-center">
+                                                <td 
+                                                    key={index} 
+                                                    className="px-6 py-4 text-center cursor-pointer"
+                                                    onClick={() => setSelectedMonthCell({ studentId: student.id, monthIndex: index, year: currentYear })}
+                                                >
                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${color}`}>
                                                         {text}
                                                     </span>
@@ -504,6 +734,22 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
              <Modal isOpen={isCostModalOpen} onClose={handleCloseCostModal} title={editingCost ? 'Editar Coste' : 'Registrar Nuevo Coste'}>
                 <CostForm cost={editingCost} initialValues={costToDuplicate} onSubmit={handleCostSubmit} onCancel={handleCloseCostModal} />
             </Modal>
+
+            {/* Monthly Detail Modal */}
+            {selectedStudent && selectedMonthCell && (
+                <MonthlyDetailModal 
+                    isOpen={!!selectedMonthCell}
+                    onClose={() => setSelectedMonthCell(null)}
+                    student={selectedStudent}
+                    monthIndex={selectedMonthCell.monthIndex}
+                    year={selectedMonthCell.year}
+                    payments={selectedMonthPayments}
+                    onUpdateStudent={updateStudent}
+                    onAddPayment={addPayment}
+                    onUpdatePayment={updatePayment}
+                    onDeletePayment={deletePayment}
+                />
+            )}
         </div>
     );
 };

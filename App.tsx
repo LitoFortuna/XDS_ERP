@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale } from './types';
 import Sidebar from './components/Sidebar';
@@ -33,6 +34,8 @@ import {
     batchAddClasses,
     subscribeToPayments,
     addPayment as addPaymentToDb,
+    updatePayment as updatePaymentInDb,
+    deletePayment as deletePaymentFromDb,
     batchAddPayments,
     subscribeToCosts,
     addCost as addCostToDb,
@@ -171,6 +174,12 @@ const App: React.FC = () => {
     const addPayment = async (payment: Omit<Payment, 'id'>) => {
         await addPaymentToDb(payment);
     };
+    const updatePayment = async (payment: Payment) => {
+        await updatePaymentInDb(payment);
+    };
+    const deletePayment = async (paymentId: string) => {
+        await deletePaymentFromDb(paymentId);
+    };
 
     // Cost Handlers
     const addCost = async (cost: Omit<Cost, 'id'>) => {
@@ -287,7 +296,18 @@ const App: React.FC = () => {
             case View.INSTRUCTORS:
                 return <InstructorList instructors={instructors} classes={classes} addInstructor={addInstructor} updateInstructor={updateInstructor} deleteInstructor={deleteInstructor} />;
             case View.BILLING:
-                return <Billing payments={payments} costs={costs} students={students} addPayment={addPayment} addCost={addCost} updateCost={updateCost} deleteCost={deleteCost} />;
+                return <Billing 
+                    payments={payments} 
+                    costs={costs} 
+                    students={students} 
+                    addPayment={addPayment} 
+                    updatePayment={updatePayment}
+                    deletePayment={deletePayment}
+                    addCost={addCost} 
+                    updateCost={updateCost} 
+                    deleteCost={deleteCost} 
+                    updateStudent={updateStudent}
+                />;
             case View.QUARTERLY_INVOICING:
                 return <QuarterlyInvoicing 
                             payments={payments}
