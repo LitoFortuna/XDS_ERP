@@ -1,7 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance } from '../types';
+import Modal from './Modal';
+import { PaymentForm } from './Billing';
 
 interface DashboardProps {
   students: Student[];
@@ -11,6 +13,7 @@ interface DashboardProps {
   costs: Cost[];
   nuptialDances: NuptialDance[];
   setView: (view: View) => void;
+  addPayment: (payment: Omit<Payment, 'id'>) => void;
 }
 
 const StatCard: React.FC<{ title: string; value: string | number; subtext?: string; color?: string; children: React.ReactNode; onClick?: () => void; }> = ({ title, value, subtext, color = "purple", children, onClick }) => {
@@ -58,7 +61,7 @@ const StatCard: React.FC<{ title: string; value: string | number; subtext?: stri
     return <div className="w-full h-full">{cardContent}</div>;
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, setView }) => {
+const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, setView, addPayment }) => {
     const totalStudents = students.length;
     
     // Revenue Calculation
@@ -66,6 +69,10 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const totalNuptialRevenue = nuptialDances.reduce((acc, d) => acc + (d.paidAmount || 0), 0);
     const totalRevenue = totalRegularRevenue + totalNuptialRevenue;
     const totalCosts = costs.reduce((acc, c) => acc + c.amount, 0);
+
+    // Payment Modal State
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [paymentModalData, setPaymentModalData] = useState<Partial<Omit<Payment, 'id'>> | undefined>(undefined);
 
     // --- KPIs Calculations ---
     
@@ -92,7 +99,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const unpaidStudentsInfo = students
         .filter(s => s.active && s.monthlyFee > 0 && s.enrollmentDate)
         .map(student => {
-            const unpaidMonths: string[] = [];
+            const unpaidMonths: { name: string; amount: number; monthIndex: number }[] = [];
             let totalDebt = 0;
 
             const enrollmentDate = new Date(student.enrollmentDate);
@@ -100,7 +107,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             const enrollmentMonth = enrollmentDate.getMonth();
 
             if (currentYear < enrollmentYear) {
-                return { name: student.name, phone: student.phone, unpaidMonths: [], totalDebt: 0 };
+                return { id: student.id, name: student.name, phone: student.phone, unpaidMonths: [], totalDebt: 0 };
             }
             
             const startMonth = (currentYear === enrollmentYear) ? enrollmentMonth : 0;
@@ -119,29 +126,49 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     : student.monthlyFee;
 
                 if (totalPaidForMonth < monthlyExpected) {
-                    unpaidMonths.push(monthNames[monthIndex]);
-                    totalDebt += monthlyExpected - totalPaidForMonth;
+                    const pendingAmount = monthlyExpected - totalPaidForMonth;
+                    unpaidMonths.push({ 
+                        name: monthNames[monthIndex], 
+                        amount: pendingAmount, 
+                        monthIndex 
+                    });
+                    totalDebt += pendingAmount;
                 }
             }
 
-            return { name: student.name, phone: student.phone, unpaidMonths, totalDebt };
+            return { id: student.id, name: student.name, phone: student.phone, unpaidMonths, totalDebt };
         })
         .filter(info => info.totalDebt > 0)
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
     
     const totalPendingAmount = unpaidStudentsInfo.reduce((sum, info) => sum + info.totalDebt, 0);
     
-    const handleWhatsAppReminder = (info: { name: string; phone: string; totalDebt: number; unpaidMonths: string[] }) => {
+    const handleWhatsAppReminder = (info: { name: string; phone: string; totalDebt: number; unpaidMonths: { name: string }[] }) => {
         if (!info.phone) {
             alert(`El alumno ${info.name} no tiene un número de teléfono registrado.`);
             return;
         }
         const sanitizedPhone = `34${info.phone.replace(/[\s-()]/g, '')}`;
-        const monthsString = info.unpaidMonths.join(', ');
+        const monthsString = info.unpaidMonths.map(m => m.name).join(', ');
         const debtString = info.totalDebt.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
         const message = `¡Hola ${info.name}! Te escribimos desde Xen Dance Space para recordarte que tienes un pago pendiente de ${debtString} correspondiente a los meses de ${monthsString}. Puedes realizar el pago por los medios habituales. ¡Muchas gracias!`;
         const whatsappUrl = `https://wa.me/${sanitizedPhone}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    };
+
+    const handlePayMonth = (studentId: string, monthData: { name: string, amount: number, monthIndex: number }) => {
+        // Construct date for the 1st of the pending month
+        const paymentDate = new Date(currentYear, monthData.monthIndex, 1);
+        // Adjust if month is in the future relative to now (unlikely for "pending", but good safety) or handled simply
+        const formattedDate = `${currentYear}-${String(monthData.monthIndex + 1).padStart(2, '0')}-01`;
+
+        setPaymentModalData({
+            studentId: studentId,
+            amount: monthData.amount,
+            concept: `Cuota ${monthData.name}`,
+            date: formattedDate
+        });
+        setIsPaymentModalOpen(true);
     };
 
     // --- Chart Data Preparation ---
@@ -547,7 +574,14 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-wrap gap-1">
                                                     {info.unpaidMonths.map(m => (
-                                                        <span key={m} className="bg-red-500/10 text-red-400 px-2 py-0.5 rounded text-xs border border-red-500/20">{m}</span>
+                                                        <button 
+                                                            key={m.name} 
+                                                            onClick={() => handlePayMonth(info.id, m)}
+                                                            className="bg-red-500/10 text-red-400 px-2 py-0.5 rounded text-xs border border-red-500/20 hover:bg-red-500/30 cursor-pointer transition-colors"
+                                                            title="Click para pagar este mes"
+                                                        >
+                                                            {m.name}
+                                                        </button>
                                                     ))}
                                                 </div>
                                             </td>
@@ -580,6 +614,15 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     </div>
                 </div>
             </div>
+
+            <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Registrar Pago Pendiente">
+                <PaymentForm 
+                    students={students} 
+                    onSubmit={(p) => { addPayment(p); setIsPaymentModalOpen(false); }} 
+                    onCancel={() => setIsPaymentModalOpen(false)}
+                    initialValues={paymentModalData}
+                />
+            </Modal>
         </div>
     );
 };

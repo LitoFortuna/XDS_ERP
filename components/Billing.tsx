@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod, DanceClass, MerchandiseSale } from '../types';
 import Modal from './Modal';
 import { StudentForm } from './StudentList';
@@ -253,11 +253,12 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
 };
 
 // --- FORMULARIO DE COBROS (INGRESOS) ---
-const PaymentForm: React.FC<{
+export const PaymentForm: React.FC<{
     students: Student[];
     onSubmit: (payment: Omit<Payment, 'id'>) => void;
     onCancel: () => void;
-}> = ({ students, onSubmit, onCancel }) => {
+    initialValues?: Partial<Omit<Payment, 'id'>>;
+}> = ({ students, onSubmit, onCancel, initialValues }) => {
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split('T')[0],
         studentId: '',
@@ -266,6 +267,22 @@ const PaymentForm: React.FC<{
         paymentMethod: 'Efectivo' as PaymentMethod,
         notes: '',
     });
+
+    useEffect(() => {
+        if (initialValues) {
+            setFormData(prev => ({
+                ...prev,
+                ...initialValues,
+                // Ensure defaults if partial initialValues are missing
+                date: initialValues.date || prev.date,
+                studentId: initialValues.studentId || prev.studentId,
+                concept: initialValues.concept || prev.concept,
+                amount: initialValues.amount !== undefined ? initialValues.amount : prev.amount,
+                paymentMethod: initialValues.paymentMethod || prev.paymentMethod,
+                notes: initialValues.notes || prev.notes
+            }));
+        }
+    }, [initialValues]);
 
     const handleStudentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const studentId = e.target.value;

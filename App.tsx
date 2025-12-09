@@ -286,6 +286,7 @@ const App: React.FC = () => {
                             costs={costs} 
                             nuptialDances={nuptialDances}
                             setView={setCurrentView} 
+                            addPayment={addPayment}
                         />;
             case View.STUDENTS:
                 return <StudentList students={students} classes={classes} merchandiseSales={merchandiseSales} addStudent={addStudent} updateStudent={updateStudent} deleteStudent={deleteStudent} />;
@@ -357,7 +358,8 @@ const App: React.FC = () => {
                             payments={payments} 
                             costs={costs} 
                             nuptialDances={nuptialDances}
-                            setView={setCurrentView} 
+                            setView={setCurrentView}
+                            addPayment={addPayment}
                         />;
         }
     };
