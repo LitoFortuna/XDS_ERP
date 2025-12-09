@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Student, DanceClass, PaymentMethod, MerchandiseSale } from '../types';
 import Modal from './Modal';
@@ -27,6 +28,7 @@ const StudentForm: React.FC<{
     phone: student?.phone || '',
     birthDate: student?.birthDate || '',
     enrollmentDate: student?.enrollmentDate || new Date().toISOString().split('T')[0],
+    deactivationDate: student?.deactivationDate || '',
     enrolledClassIds: student?.enrolledClassIds || [],
     monthlyFee: student?.monthlyFee || 19,
     paymentMethod: student?.paymentMethod || 'Efectivo' as PaymentMethod,
@@ -48,7 +50,16 @@ const StudentForm: React.FC<{
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    if (type === 'checkbox') {
+    
+    if (name === 'deactivationDate') {
+        // Si se establece una fecha de baja, desmarcar automáticamente "Activo"
+        // Si se borra la fecha de baja, no cambiamos el estado automáticamente (el usuario decide)
+        setFormData(prev => ({
+            ...prev,
+            deactivationDate: value,
+            active: value ? false : prev.active
+        }));
+    } else if (type === 'checkbox') {
         const { checked } = e.target as HTMLInputElement;
         setFormData(prev => ({ ...prev, [name]: checked }));
     } else if (type === 'select-multiple') {
@@ -86,6 +97,11 @@ const StudentForm: React.FC<{
         <div>
             <label className="block text-sm font-medium text-gray-300">Fecha de Alta</label>
             <input type="date" name="enrollmentDate" value={formData.enrollmentDate} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
+        </div>
+        <div>
+            <label className="block text-sm font-medium text-gray-300">Fecha de Baja</label>
+            <input type="date" name="deactivationDate" value={formData.deactivationDate} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
+            <p className="text-xs text-gray-400 mt-1">Al poner fecha, se marcará como Inactivo.</p>
         </div>
         <div>
             <label className="block text-sm font-medium text-gray-300">Fecha de Nacimiento</label>
@@ -270,13 +286,14 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
 
   const handleExportCSV = () => {
     const headers = [
-      'Nombre', 'Fecha de Alta', 'Fecha de Nacimiento', 'Teléfono', 'Email', 
+      'Nombre', 'Fecha de Alta', 'Fecha de Baja', 'Fecha de Nacimiento', 'Teléfono', 'Email', 
       'Clases Inscritas', 'Cuota Mensual (€)', 'Forma de Pago', 'IBAN', 'Activo', 'Observaciones'
     ];
     
     const dataToExport = sortedAndFilteredStudents.map(student => ([
       student.name,
       new Date(student.enrollmentDate).toLocaleDateString('es-ES'),
+      student.deactivationDate ? new Date(student.deactivationDate).toLocaleDateString('es-ES') : '',
       new Date(student.birthDate).toLocaleDateString('es-ES'),
       student.phone,
       student.email,

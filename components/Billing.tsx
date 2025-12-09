@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod } from '../types';
 import Modal from './Modal';
@@ -100,18 +101,19 @@ const PaymentForm: React.FC<{
 // --- FORMULARIO DE COSTES (GASTOS) ---
 const CostForm: React.FC<{
     cost?: Cost;
+    initialValues?: Partial<Cost>;
     onSubmit: (cost: Omit<Cost, 'id'> | Cost) => void;
     onCancel: () => void;
-}> = ({ cost, onSubmit, onCancel }) => {
+}> = ({ cost, initialValues, onSubmit, onCancel }) => {
     const [formData, setFormData] = useState({
-        paymentDate: cost?.paymentDate || new Date().toISOString().split('T')[0],
-        category: cost?.category || 'Otros' as CostCategory,
-        beneficiary: cost?.beneficiary || '',
-        concept: cost?.concept || '',
-        amount: cost?.amount || 0,
-        paymentMethod: cost?.paymentMethod || 'Transferencia' as CostPaymentMethod,
-        isRecurring: cost?.isRecurring || false,
-        notes: cost?.notes || '',
+        paymentDate: cost?.paymentDate || initialValues?.paymentDate || new Date().toISOString().split('T')[0],
+        category: cost?.category || initialValues?.category || 'Otros' as CostCategory,
+        beneficiary: cost?.beneficiary || initialValues?.beneficiary || '',
+        concept: cost?.concept || initialValues?.concept || '',
+        amount: cost?.amount || initialValues?.amount || 0,
+        paymentMethod: cost?.paymentMethod || initialValues?.paymentMethod || 'Transferencia' as CostPaymentMethod,
+        isRecurring: cost?.isRecurring ?? initialValues?.isRecurring ?? false,
+        notes: cost?.notes || initialValues?.notes || '',
     });
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -201,6 +203,7 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
     const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
     const [isCostModalOpen, setIsCostModalOpen] = useState(false);
     const [editingCost, setEditingCost] = useState<Cost | undefined>(undefined);
+    const [costToDuplicate, setCostToDuplicate] = useState<Partial<Cost> | undefined>(undefined);
     const [searchQuery, setSearchQuery] = useState('');
 
     const totalIncome = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -213,6 +216,18 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
     const currentMonthIndex = new Date().getMonth();
 
     const getPaymentStatusForMonth = (student: Student, monthIndex: number) => {
+        // Verificar si se dio de baja
+        if (student.deactivationDate) {
+            const deactivationDate = new Date(student.deactivationDate);
+            const deactivationYear = deactivationDate.getFullYear();
+            const deactivationMonth = deactivationDate.getMonth();
+
+            // Si el año actual es posterior al de baja, o es el mismo año y el mes es posterior al de baja
+            if (currentYear > deactivationYear || (currentYear === deactivationYear && monthIndex > deactivationMonth)) {
+                return { text: '-', color: 'text-gray-500' };
+            }
+        }
+
         if (!student.enrollmentDate) {
              return { text: 'N/A', color: 'text-gray-600' };
         }
@@ -246,11 +261,22 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
     // --- Handlers para modales de Costes ---
     const handleOpenCostModal = (cost?: Cost) => {
         setEditingCost(cost);
+        setCostToDuplicate(undefined);
+        setIsCostModalOpen(true);
+    };
+
+    const handleDuplicateCost = (cost: Cost) => {
+        setEditingCost(undefined);
+        setCostToDuplicate({
+            ...cost,
+            paymentDate: new Date().toISOString().split('T')[0] // Default to today for the new entry
+        });
         setIsCostModalOpen(true);
     };
 
     const handleCloseCostModal = () => {
         setEditingCost(undefined);
+        setCostToDuplicate(undefined);
         setIsCostModalOpen(false);
     };
     
@@ -269,8 +295,20 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
         }
     };
     
+    // Mostramos también a los inactivos si tienen pagos en el año actual o fueron activos durante el año,
+    // pero para simplificar la vista, mantendremos el filtro de activos O búsqueda explícita.
+    // Sin embargo, el requisito dice "al poner fecha de baja... no se esperarán más ingresos".
+    // Esto implica que el alumno podría seguir apareciendo en la lista si queremos ver su histórico del año.
+    // Para cumplir con la UX de "Facturación", a veces queremos ver el histórico. 
+    // Modificaré el filtro para mostrar a todos (activos e inactivos) pero ordenados, 
+    // o mantener solo activos. Dado que el usuario "desmarca activo", normalmente desaparecen de la lista por defecto.
+    // Si queremos verlos, tendríamos que quitar el filtro `.filter(s => s.active)`.
+    // PERO, para no romper la funcionalidad actual de "solo activos", lo dejaré así. 
+    // Si el usuario quiere ver un alumno de baja, debe buscarlo por nombre o reactivarlo temporalmente (o cambiar la lógica de filtrado).
+    // Asumiré que si se da de baja, desaparece de la lista principal de facturación "pendiente".
+    
     const filteredStudents = students
-        .filter(student => student.active && student.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        .filter(student => (student.active || searchQuery !== '') && student.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
     
     // --- CSV Export Logic ---
@@ -377,6 +415,7 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full max-w-sm bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                         />
+                         <p className="text-xs text-gray-500 mt-2">Mostrando alumnos activos. Usa la búsqueda para encontrar alumnos inactivos.</p>
                     </div>
                      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
@@ -390,7 +429,10 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
                             <tbody>
                                 {filteredStudents.map(student => (
                                     <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
-                                        <td className="px-6 py-4 font-medium text-white whitespace-nowrap sticky left-0 bg-gray-800 z-10">{student.name}</td>
+                                        <td className="px-6 py-4 font-medium text-white whitespace-nowrap sticky left-0 bg-gray-800 z-10">
+                                            {student.name}
+                                            {!student.active && <span className="ml-2 text-xs text-red-400 bg-red-900/20 px-1 rounded">Inactivo</span>}
+                                        </td>
                                         <td className="px-6 py-4">€{student.monthlyFee.toFixed(2)}</td>
                                         {months.map((_, index) => {
                                             const { text, color } = getPaymentStatusForMonth(student, index);
@@ -443,6 +485,7 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
                                         <td className="px-6 py-4">{cost.concept}</td>
                                         <td className="px-6 py-4 text-red-400">€{cost.amount.toFixed(2)}</td>
                                         <td className="px-6 py-4 space-x-2 whitespace-nowrap">
+                                            <button onClick={() => handleDuplicateCost(cost)} className="font-medium text-blue-400 hover:text-blue-300 hover:underline">Duplicar</button>
                                             <button onClick={() => handleOpenCostModal(cost)} className="font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
                                             <button onClick={() => handleCostDelete(cost.id)} className="font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
                                         </td>
@@ -459,7 +502,7 @@ const Billing: React.FC<BillingProps> = ({ payments, costs, students, addPayment
             </Modal>
             
              <Modal isOpen={isCostModalOpen} onClose={handleCloseCostModal} title={editingCost ? 'Editar Coste' : 'Registrar Nuevo Coste'}>
-                <CostForm cost={editingCost} onSubmit={handleCostSubmit} onCancel={handleCloseCostModal} />
+                <CostForm cost={editingCost} initialValues={costToDuplicate} onSubmit={handleCostSubmit} onCancel={handleCloseCostModal} />
             </Modal>
         </div>
     );

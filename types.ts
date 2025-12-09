@@ -1,3 +1,4 @@
+
 export type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Domiciliación' | 'Bizum';
 export type CostPaymentMethod = 'Efectivo' | 'Transferencia' | 'Domiciliación' | 'Tarjeta';
 
@@ -6,6 +7,7 @@ export interface Student {
   id: string;
   name: string;
   enrollmentDate: string; // YYYY-MM-DD
+  deactivationDate?: string; // YYYY-MM-DD (Fecha de baja)
   birthDate: string;
   phone: string;
   email: string;
