@@ -16,10 +16,11 @@ interface MonthlyDetailModalProps {
     onAddPayment: (payment: Omit<Payment, 'id'>) => void;
     onUpdatePayment: (payment: Payment) => void;
     onDeletePayment: (id: string) => void;
+    onNavigateMonth: (direction: 'prev' | 'next') => void;
 }
 
 const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
-    isOpen, onClose, student, monthIndex, year, payments, onUpdateStudent, onAddPayment, onUpdatePayment, onDeletePayment
+    isOpen, onClose, student, monthIndex, year, payments, onUpdateStudent, onAddPayment, onUpdatePayment, onDeletePayment, onNavigateMonth
 }) => {
     const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const monthName = months[monthIndex];
@@ -51,7 +52,7 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
     const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
     const remaining = monthSpecificFee - totalPaid;
 
-    // Reset when modal opens
+    // Reset/Update when modal opens or month changes
     React.useEffect(() => {
         if (isOpen) {
             const feeForThisMonth = student.feeExceptions?.[`${year}-${monthIndex}`] !== undefined 
@@ -63,8 +64,11 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
             const currentTotalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
              setNewPayment(prev => ({
                 ...prev,
+                date: `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`,
+                concept: `Cuota ${months[monthIndex]}`,
                 amount: Math.max(0, feeForThisMonth - currentTotalPaid)
             }));
+            setIsFeeDirty(false);
         }
     }, [isOpen, student, year, monthIndex, payments]);
 
@@ -112,9 +116,32 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Gestión: ${student.name} - ${monthName} ${year}`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Gestión: ${student.name}`}>
             <div className="space-y-6">
                 
+                {/* NAVIGATION HEADER */}
+                <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg border border-gray-600">
+                    <button 
+                        onClick={() => onNavigateMonth('prev')}
+                        className="p-2 hover:bg-gray-600 rounded-full text-gray-400 hover:text-white transition-colors"
+                        title="Mes Anterior"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                        </svg>
+                    </button>
+                    <h3 className="text-xl font-bold text-white uppercase tracking-wider">{monthName} {year}</h3>
+                    <button 
+                        onClick={() => onNavigateMonth('next')}
+                        className="p-2 hover:bg-gray-600 rounded-full text-gray-400 hover:text-white transition-colors"
+                        title="Mes Siguiente"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+
                 {/* 1. EXPECTED AMOUNT (Cuota Mensual Específica) */}
                 <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
                     <div className="flex justify-between items-start mb-2">
@@ -837,6 +864,26 @@ const Billing: React.FC<BillingProps> = ({
                     onAddPayment={addPayment}
                     onUpdatePayment={updatePayment}
                     onDeletePayment={deletePayment}
+                    onNavigateMonth={(direction) => {
+                        if (!selectedMonthCell) return;
+                        let { monthIndex, year } = selectedMonthCell;
+                        if (direction === 'prev') {
+                            if (monthIndex === 0) {
+                                monthIndex = 11;
+                                year -= 1;
+                            } else {
+                                monthIndex -= 1;
+                            }
+                        } else {
+                            if (monthIndex === 11) {
+                                monthIndex = 0;
+                                year += 1;
+                            } else {
+                                monthIndex += 1;
+                            }
+                        }
+                        setSelectedMonthCell({ ...selectedMonthCell, monthIndex, year });
+                    }}
                 />
             )}
 
