@@ -17,6 +17,7 @@ export interface Student {
   iban?: string;
   active: boolean;
   notes?: string;
+  feeExceptions?: { [key: string]: number }; // Key: "YYYY-M", Value: specific amount for that month
 }
 
 export interface Instructor {

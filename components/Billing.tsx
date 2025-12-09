@@ -22,9 +22,16 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
 }) => {
     const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const monthName = months[monthIndex];
+    const exceptionKey = `${year}-${monthIndex}`;
     
-    // State for expected fee editing
-    const [expectedFee, setExpectedFee] = useState(student.monthlyFee);
+    // Determine the current expected fee for THIS specific month
+    // If an exception exists, use it. Otherwise use the global monthlyFee.
+    const currentMonthFee = student.feeExceptions?.[exceptionKey] !== undefined 
+        ? student.feeExceptions[exceptionKey] 
+        : student.monthlyFee;
+
+    // State for override fee editing
+    const [monthSpecificFee, setMonthSpecificFee] = useState(currentMonthFee);
     const [isFeeDirty, setIsFeeDirty] = useState(false);
 
     // State for new payment
@@ -41,24 +48,39 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
 
     // Calculations
     const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
-    const remaining = expectedFee - totalPaid;
+    const remaining = monthSpecificFee - totalPaid;
 
-    // Reset new payment amount when modal opens or expected fee changes
+    // Reset when modal opens
     React.useEffect(() => {
         if (isOpen) {
+            const feeForThisMonth = student.feeExceptions?.[`${year}-${monthIndex}`] !== undefined 
+                ? student.feeExceptions[`${year}-${monthIndex}`] 
+                : student.monthlyFee;
+            
+            setMonthSpecificFee(feeForThisMonth);
+            
             const currentTotalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
              setNewPayment(prev => ({
                 ...prev,
-                amount: Math.max(0, student.monthlyFee - currentTotalPaid)
+                amount: Math.max(0, feeForThisMonth - currentTotalPaid)
             }));
-            setExpectedFee(student.monthlyFee);
         }
-    }, [isOpen, student.monthlyFee, payments]);
+    }, [isOpen, student, year, monthIndex, payments]);
 
     if (!isOpen) return null;
 
-    const handleSaveFee = () => {
-        onUpdateStudent({ ...student, monthlyFee: expectedFee });
+    const handleSaveSpecificFee = () => {
+        const updatedExceptions = { ...student.feeExceptions };
+        
+        // If the specific fee matches the global fee, remove the exception (cleanup)
+        if (monthSpecificFee === student.monthlyFee) {
+            delete updatedExceptions[exceptionKey];
+        } else {
+            // Otherwise, save the exception
+            updatedExceptions[exceptionKey] = monthSpecificFee;
+        }
+
+        onUpdateStudent({ ...student, feeExceptions: updatedExceptions });
         setIsFeeDirty(false);
     };
 
@@ -92,32 +114,42 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
         <Modal isOpen={isOpen} onClose={onClose} title={`Gestión: ${student.name} - ${monthName} ${year}`}>
             <div className="space-y-6">
                 
-                {/* 1. EXPECTED AMOUNT (Cuota Mensual del Alumno) */}
+                {/* 1. EXPECTED AMOUNT (Cuota Mensual Específica) */}
                 <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
-                    <h4 className="text-sm font-semibold text-gray-300 mb-2 uppercase tracking-wide">Importe Esperado (Cuota Global)</h4>
+                    <div className="flex justify-between items-start mb-2">
+                        <h4 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Importe Esperado ({monthName})</h4>
+                        <span className="text-xs text-gray-500">Cuota Global: €{student.monthlyFee}</span>
+                    </div>
+                    
                     <div className="flex items-end gap-4">
                         <div className="flex-1">
-                            <label className="block text-xs text-gray-400 mb-1">Cuota Mensual Actual</label>
+                            <label className="block text-xs text-gray-400 mb-1">
+                                {student.feeExceptions?.[exceptionKey] !== undefined 
+                                    ? "Importe modificado para este mes" 
+                                    : "Usando cuota estándar"}
+                            </label>
                             <input 
                                 type="number" 
-                                value={expectedFee}
+                                value={monthSpecificFee}
                                 onChange={(e) => {
-                                    setExpectedFee(parseFloat(e.target.value) || 0);
+                                    setMonthSpecificFee(parseFloat(e.target.value) || 0);
                                     setIsFeeDirty(true);
                                 }}
-                                className="block w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500 font-mono text-lg"
+                                className={`block w-full bg-gray-800 border rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500 font-mono text-lg
+                                    ${monthSpecificFee !== student.monthlyFee ? 'border-purple-500/50 text-purple-300' : 'border-gray-600'}
+                                `}
                             />
                         </div>
                         <button 
-                            onClick={handleSaveFee}
+                            onClick={handleSaveSpecificFee}
                             disabled={!isFeeDirty}
                             className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed h-[42px]"
                         >
-                            Actualizar Cuota
+                            Guardar Importe
                         </button>
                     </div>
-                    <p className="text-xs text-yellow-500 mt-2">
-                        ⚠️ Nota: Cambiar este valor actualizará la cuota mensual general del alumno para todos los meses.
+                    <p className="text-xs text-gray-400 mt-2">
+                        Define cuánto debe pagar el alumno <strong className="text-white">solo en este mes</strong>. Pon "0" si está exento.
                     </p>
                 </div>
 
@@ -125,7 +157,7 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
                 <div>
                     <h4 className="text-sm font-semibold text-gray-300 mb-2 uppercase tracking-wide flex justify-between items-center">
                         <span>Pagos Realizados</span>
-                        <span className={`text-lg font-bold ${totalPaid >= expectedFee ? 'text-green-400' : 'text-orange-400'}`}>
+                        <span className={`text-lg font-bold ${totalPaid >= monthSpecificFee ? 'text-green-400' : 'text-orange-400'}`}>
                             Total: €{totalPaid.toFixed(2)}
                         </span>
                     </h4>
@@ -465,6 +497,13 @@ const Billing: React.FC<BillingProps> = ({
             return { text: 'N/A', color: 'text-gray-600' };
         }
 
+        // --- EXCEPTION CHECK START ---
+        const exceptionKey = `${currentYear}-${monthIndex}`;
+        const expectedFee = student.feeExceptions?.[exceptionKey] !== undefined 
+            ? student.feeExceptions[exceptionKey] 
+            : student.monthlyFee;
+        // --- EXCEPTION CHECK END ---
+
         const paymentsForMonth = payments.filter(p => {
             const paymentDate = new Date(p.date);
             return p.studentId === student.id && paymentDate.getMonth() === monthIndex && paymentDate.getFullYear() === currentYear;
@@ -472,7 +511,13 @@ const Billing: React.FC<BillingProps> = ({
         const totalPaid = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
 
         const baseClasses = "cursor-pointer transition-colors hover:brightness-110";
-        if (totalPaid >= student.monthlyFee) {
+        
+        // If expected fee is 0 and they paid nothing (or anything), it's "OK" / Exempt
+        if (expectedFee === 0) {
+            return { text: totalPaid > 0 ? `€${totalPaid.toFixed(2)}` : 'Exento', color: `${baseClasses} bg-gray-600 text-gray-300` };
+        }
+
+        if (totalPaid >= expectedFee) {
             return { text: `€${totalPaid.toFixed(2)}`, color: `${baseClasses} bg-green-500/20 text-green-300` };
         }
         if (totalPaid > 0) {
