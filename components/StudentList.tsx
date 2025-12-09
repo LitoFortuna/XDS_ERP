@@ -15,7 +15,7 @@ interface StudentListProps {
 type SortKey = keyof Student | 'enrolledClasses';
 type SortDirection = 'asc' | 'desc';
 
-const StudentForm: React.FC<{ 
+export const StudentForm: React.FC<{ 
     student?: Student, 
     classes: DanceClass[],
     merchandiseSales: MerchandiseSale[],

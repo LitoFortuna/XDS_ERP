@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod } from '../types';
+import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod, DanceClass, MerchandiseSale } from '../types';
 import Modal from './Modal';
+import { StudentForm } from './StudentList';
 
 // --- COMPONENTE MODAL DE GESTIÓN MENSUAL ---
 interface MonthlyDetailModalProps {
@@ -439,6 +440,8 @@ interface BillingProps {
     payments: Payment[];
     costs: Cost[];
     students: Student[];
+    classes: DanceClass[];
+    merchandiseSales: MerchandiseSale[];
     addPayment: (payment: Omit<Payment, 'id'>) => void;
     updatePayment: (payment: Payment) => void;
     deletePayment: (id: string) => void;
@@ -449,7 +452,7 @@ interface BillingProps {
 }
 
 const Billing: React.FC<BillingProps> = ({ 
-    payments, costs, students, 
+    payments, costs, students, classes, merchandiseSales,
     addPayment, updatePayment, deletePayment, 
     addCost, updateCost, deleteCost, updateStudent 
 }) => {
@@ -462,6 +465,10 @@ const Billing: React.FC<BillingProps> = ({
     
     // State for Monthly Detail Modal
     const [selectedMonthCell, setSelectedMonthCell] = useState<{ studentId: string, monthIndex: number, year: number } | null>(null);
+
+    // State for Student Editing Modal
+    const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
+    const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
     const totalIncome = payments.reduce((sum, p) => sum + p.amount, 0);
     const totalCosts = costs.reduce((sum, c) => sum + c.amount, 0);
@@ -566,6 +573,21 @@ const Billing: React.FC<BillingProps> = ({
         }
     };
     
+    // --- Handlers para modal de Edición de Alumno ---
+    const handleEditStudent = (student: Student) => {
+        setEditingStudent(student);
+        setIsStudentModalOpen(true);
+    };
+
+    const handleStudentUpdateSubmit = (studentData: Omit<Student, 'id'> | Student) => {
+        if ('id' in studentData) {
+            updateStudent(studentData);
+        }
+        setIsStudentModalOpen(false);
+        setEditingStudent(undefined);
+    };
+
+
     const filteredStudents = students
         .filter(student => (student.active || searchQuery !== '') && student.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
@@ -686,7 +708,7 @@ const Billing: React.FC<BillingProps> = ({
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full max-w-sm bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                         />
-                         <p className="text-xs text-gray-500 mt-2">Haz clic en cualquier celda mensual para ver detalles, editar importe esperado o gestionar pagos.</p>
+                         <p className="text-xs text-gray-500 mt-2">Haz clic en cualquier celda mensual para ver detalles o editar pagos. Haz clic en el nombre del alumno para editar sus datos.</p>
                     </div>
                      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
@@ -701,7 +723,12 @@ const Billing: React.FC<BillingProps> = ({
                                 {filteredStudents.map(student => (
                                     <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                                         <td className="px-6 py-4 font-medium text-white whitespace-nowrap sticky left-0 bg-gray-800 z-10">
-                                            {student.name}
+                                            <button 
+                                                onClick={() => handleEditStudent(student)} 
+                                                className="hover:text-purple-400 hover:underline text-left font-medium text-white focus:outline-none"
+                                            >
+                                                {student.name}
+                                            </button>
                                             {!student.active && <span className="ml-2 text-xs text-red-400 bg-red-900/20 px-1 rounded">Inactivo</span>}
                                         </td>
                                         <td className="px-6 py-4">€{student.monthlyFee.toFixed(2)}</td>
@@ -795,6 +822,19 @@ const Billing: React.FC<BillingProps> = ({
                     onDeletePayment={deletePayment}
                 />
             )}
+
+            {/* Student Editing Modal */}
+            <Modal isOpen={isStudentModalOpen} onClose={() => setIsStudentModalOpen(false)} title="Editar Datos del Alumno">
+                {editingStudent && (
+                    <StudentForm 
+                        student={editingStudent} 
+                        classes={classes} 
+                        merchandiseSales={merchandiseSales}
+                        onSubmit={handleStudentUpdateSubmit} 
+                        onCancel={() => setIsStudentModalOpen(false)} 
+                    />
+                )}
+            </Modal>
         </div>
     );
 };

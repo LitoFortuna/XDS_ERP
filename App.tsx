@@ -300,6 +300,8 @@ const App: React.FC = () => {
                     payments={payments} 
                     costs={costs} 
                     students={students} 
+                    classes={classes}
+                    merchandiseSales={merchandiseSales}
                     addPayment={addPayment} 
                     updatePayment={updatePayment}
                     deletePayment={deletePayment}
