@@ -111,10 +111,16 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     return p.studentId === student.id && paymentDate.getMonth() === monthIndex && paymentDate.getFullYear() === currentYear;
                 });
                 const totalPaidForMonth = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
+                
+                // Check if there is a specific fee exception for this month
+                const exceptionKey = `${currentYear}-${monthIndex}`;
+                const monthlyExpected = student.feeExceptions?.[exceptionKey] !== undefined 
+                    ? student.feeExceptions[exceptionKey] 
+                    : student.monthlyFee;
 
-                if (totalPaidForMonth < student.monthlyFee) {
+                if (totalPaidForMonth < monthlyExpected) {
                     unpaidMonths.push(monthNames[monthIndex]);
-                    totalDebt += student.monthlyFee - totalPaidForMonth;
+                    totalDebt += monthlyExpected - totalPaidForMonth;
                 }
             }
 
@@ -139,6 +145,28 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     };
 
     // --- Chart Data Preparation ---
+
+    // 0. Active Students History (New)
+    const activeStudentsHistory = monthNames.map((month, index) => {
+        const lastDayOfMonth = new Date(currentYear, index + 1, 0); // Last day of month
+        
+        const count = students.filter(s => {
+            if (!s.enrollmentDate) return false;
+            const enrollmentDate = new Date(s.enrollmentDate);
+            // Must be enrolled before or on the last day of the month
+            if (enrollmentDate > lastDayOfMonth) return false;
+
+            // Check deactivation
+            if (s.deactivationDate) {
+                const deactivationDate = new Date(s.deactivationDate);
+                // If deactivated before or on the last day of the month, they are not active at the end of month
+                if (deactivationDate <= lastDayOfMonth) return false;
+            }
+            return true;
+        }).length;
+
+        return { name: month.substring(0, 3), Alumnos: count };
+    });
 
     // 1. Class Enrollment (Horizontal Bar)
     const classEnrollmentData = classes
@@ -282,6 +310,34 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 <StatCard title="Profesores" value={instructors.length} color="blue" onClick={() => setView(View.INSTRUCTORS)}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                 </StatCard>
+            </div>
+
+            {/* NEW CHART: Active Student Evolution */}
+            <div className="grid grid-cols-1 gap-8">
+                <div className={containerClass}>
+                    <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
+                         <span className="w-2 h-6 bg-blue-500 rounded-full shadow-[0_0_10px_#3b82f6]"></span>
+                         Evolución de Clientes Activos ({currentYear})
+                    </h3>
+                     <ResponsiveContainer width="100%" height={300}>
+                        <AreaChart data={activeStudentsHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorStudents" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151"/>
+                            <XAxis dataKey="name" tick={{ fill: '#9ca3af' }} />
+                            <YAxis tick={{ fill: '#9ca3af' }} />
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
+                                itemStyle={{ color: '#fff' }}
+                            />
+                            <Area type="monotone" dataKey="Alumnos" stroke="#3B82F6" fillOpacity={1} fill="url(#colorStudents)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
 
             {/* MAIN CHARTS ROW 1: Classes & Finances */}
