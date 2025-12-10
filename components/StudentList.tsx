@@ -183,6 +183,8 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [classFilter, setClassFilter] = useState<string>('');
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
 
@@ -195,9 +197,23 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
   };
   
   const sortedAndFilteredStudents = useMemo(() => {
-    let sortableStudents = [...students].filter(student =>
-      student.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    let sortableStudents = [...students].filter(student => {
+      // 1. Text Search
+      const matchesName = student.name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // 2. Status Filter
+      let matchesStatus = true;
+      if (statusFilter === 'active') matchesStatus = student.active;
+      if (statusFilter === 'inactive') matchesStatus = !student.active;
+
+      // 3. Class Filter
+      let matchesClass = true;
+      if (classFilter) {
+          matchesClass = student.enrolledClassIds.includes(classFilter);
+      }
+
+      return matchesName && matchesStatus && matchesClass;
+    });
 
     sortableStudents.sort((a, b) => {
       const key = sortConfig.key;
@@ -220,7 +236,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
     });
 
     return sortableStudents;
-  }, [students, searchQuery, sortConfig, classes]);
+  }, [students, searchQuery, statusFilter, classFilter, sortConfig, classes]);
 
 
   const requestSort = (key: SortKey) => {
@@ -319,6 +335,11 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
     </th>
   );
 
+  // Helper for sorting classes in dropdown
+  const sortedClassesForFilter = useMemo(() => 
+    [...classes].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+  [classes]);
+
 
   return (
     <div className="p-4 sm:p-8">
@@ -332,15 +353,46 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
             <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Alumno</button>
         </div>
       </div>
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Buscar por nombre..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full max-w-sm bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-        />
+      
+      {/* FILTERS SECTION */}
+      <div className="mb-6 flex flex-col md:flex-row gap-4 bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700/50">
+        <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
+            <input
+            type="text"
+            placeholder="Buscar por nombre..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+            />
+        </div>
+        <div className="w-full md:w-48">
+             <label className="block text-xs font-medium text-gray-400 mb-1">Estado</label>
+             <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+            >
+                <option value="all">Todos</option>
+                <option value="active">Activos</option>
+                <option value="inactive">Inactivos</option>
+            </select>
+        </div>
+        <div className="w-full md:w-64">
+            <label className="block text-xs font-medium text-gray-400 mb-1">Clase</label>
+             <select
+                value={classFilter}
+                onChange={(e) => setClassFilter(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+            >
+                <option value="">Todas las clases</option>
+                {sortedClassesForFilter.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+            </select>
+        </div>
       </div>
+
       <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs text-gray-300 uppercase bg-gray-700">
