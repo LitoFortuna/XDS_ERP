@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useRef } from 'react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -8,16 +9,36 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const mouseDownTarget = useRef<EventTarget | null>(null);
+
   if (!isOpen) return null;
+
+  // Capturamos dónde empieza el clic
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseDownTarget.current = e.target;
+  };
+
+  // Solo cerramos si el clic EMPEZÓ y TERMINÓ en el fondo oscuro (overlay)
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === overlayRef.current && mouseDownTarget.current === overlayRef.current) {
+      onClose();
+    }
+    // Reseteamos el target para evitar estados inconsistentes
+    mouseDownTarget.current = null;
+  };
 
   return (
     <div 
+      ref={overlayRef}
       className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center"
-      onClick={onClose}
+      onMouseDown={handleMouseDown}
+      onClick={handleBackdropClick}
     >
       <div 
         className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl m-4"
         onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()} // Importante: evita que el clic inicial dentro del modal se registre en el overlay
       >
         <div className="flex justify-between items-center p-4 border-b border-gray-700">
           <h3 className="text-xl font-semibold text-white">{title}</h3>
