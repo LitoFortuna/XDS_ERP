@@ -74,12 +74,18 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [paymentModalData, setPaymentModalData] = useState<Partial<Omit<Payment, 'id'>> | undefined>(undefined);
 
-    // --- KPIs Calculations ---
-    
-    // 1. New Students this month
+    // --- KPI Context ---
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    // --- State for Class Profitability Chart Filter ---
+    const [selectedProfitabilityMonth, setSelectedProfitabilityMonth] = useState(currentMonth);
+
+    // --- KPIs Calculations ---
+    
+    // 1. New Students this month
     const newStudentsCount = students.filter(s => {
         const d = new Date(s.enrollmentDate);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
@@ -94,7 +100,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const occupancyRate = totalCapacity > 0 ? ((totalEnrollments / totalCapacity) * 100).toFixed(1) : '0';
 
     // 3. Unpaid Students Logic
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     
     const unpaidStudentsInfo = students
         .filter(s => s.active && s.monthlyFee > 0 && s.enrollmentDate)
@@ -326,12 +331,12 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         .sort((a, b) => b.value - a.value);
 
     // --- 8. Class Profitability Chart (Income vs Costs) ---
-    // LOGIC: Current Month Only
+    // LOGIC: Uses selectedProfitabilityMonth (default current month)
     const profitabilityData = React.useMemo(() => {
-        // 1. Filter Costs for Current Month
+        // 1. Filter Costs for Selected Month
         const currentMonthCosts = costs.filter(c => {
             const d = new Date(c.paymentDate);
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            return d.getMonth() === selectedProfitabilityMonth && d.getFullYear() === currentYear;
         });
 
         // 2. Separate Indirect Costs (Overhead)
@@ -362,10 +367,10 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             totalCost: 0
         }));
 
-        // 5. Calculate Income (Revenue) per Class
+        // 5. Calculate Income (Revenue) per Class for Selected Month
         const currentMonthPayments = payments.filter(p => {
             const d = new Date(p.date);
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            return d.getMonth() === selectedProfitabilityMonth && d.getFullYear() === currentYear;
         });
 
         currentMonthPayments.forEach(pay => {
@@ -410,7 +415,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             }))
             .sort((a, b) => b.Beneficio - a.Beneficio); // Sort by highest profit
 
-    }, [classes, costs, payments, students, instructors, currentMonth, currentYear]);
+    }, [classes, costs, payments, students, instructors, selectedProfitabilityMonth, currentYear]);
 
 
     const COLORS_METHODS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
@@ -506,10 +511,21 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             {/* CLASS PROFITABILITY CHART (New Request) */}
             <div className="grid grid-cols-1 gap-8">
                 <div className={containerClass}>
-                    <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
-                        <span className="w-2 h-6 bg-gradient-to-b from-green-400 to-green-600 rounded-full shadow-[0_0_10px_#4ade80]"></span>
-                        Rentabilidad por Clase (Mes Actual: {monthNames[currentMonth]})
-                    </h3>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                        <h3 className="font-semibold text-white flex items-center gap-2">
+                            <span className="w-2 h-6 bg-gradient-to-b from-green-400 to-green-600 rounded-full shadow-[0_0_10px_#4ade80]"></span>
+                            Rentabilidad por Clase
+                        </h3>
+                        <select 
+                            value={selectedProfitabilityMonth} 
+                            onChange={(e) => setSelectedProfitabilityMonth(Number(e.target.value))}
+                            className="bg-gray-700 border border-gray-600 rounded-md py-1 px-3 text-sm text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                        >
+                            {monthNames.map((month, index) => (
+                                <option key={index} value={index}>{month} {currentYear}</option>
+                            ))}
+                        </select>
+                    </div>
                     <p className="text-xs text-gray-400 mb-4">
                         Ingresos: Suma de (Cuota alumno / Nº clases inscritas). 
                         Gastos: (Pago profesor / Nº clases que imparte) + (Gastos generales / Nº clases totales).
