@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, ReferenceLine } from 'recharts';
 import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance } from '../types';
 import Modal from './Modal';
 import { PaymentForm } from './Billing';
@@ -158,8 +158,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 
     const handlePayMonth = (studentId: string, monthData: { name: string, amount: number, monthIndex: number }) => {
         // Construct date for the 1st of the pending month
-        const paymentDate = new Date(currentYear, monthData.monthIndex, 1);
-        // Adjust if month is in the future relative to now (unlikely for "pending", but good safety) or handled simply
         const formattedDate = `${currentYear}-${String(monthData.monthIndex + 1).padStart(2, '0')}-01`;
 
         setPaymentModalData({
@@ -327,6 +325,94 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
+    // --- 8. Class Profitability Chart (Income vs Costs) ---
+    // LOGIC: Current Month Only
+    const profitabilityData = React.useMemo(() => {
+        // 1. Filter Costs for Current Month
+        const currentMonthCosts = costs.filter(c => {
+            const d = new Date(c.paymentDate);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        });
+
+        // 2. Separate Indirect Costs (Overhead)
+        const overheadCosts = currentMonthCosts
+            .filter(c => c.category !== 'Profesores')
+            .reduce((sum, c) => sum + c.amount, 0);
+        
+        const activeClassesCount = classes.length || 1; 
+        const overheadPerClass = overheadCosts / activeClassesCount;
+
+        // 3. Prepare Teacher Payments Map
+        // Group teacher costs by beneficiary (name) normalized
+        const teacherCostsMap: Record<string, number> = {};
+        currentMonthCosts
+            .filter(c => c.category === 'Profesores')
+            .forEach(c => {
+                const name = c.beneficiary.trim().toLowerCase();
+                teacherCostsMap[name] = (teacherCostsMap[name] || 0) + c.amount;
+            });
+
+        // 4. Initialize Class Data Structure
+        const classFinancials = classes.map(cls => ({
+            id: cls.id,
+            name: cls.name,
+            instructorId: cls.instructorId,
+            income: 0,
+            directCost: 0,
+            totalCost: 0
+        }));
+
+        // 5. Calculate Income (Revenue) per Class
+        const currentMonthPayments = payments.filter(p => {
+            const d = new Date(p.date);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        });
+
+        currentMonthPayments.forEach(pay => {
+            const student = students.find(s => s.id === pay.studentId);
+            if (student && student.enrolledClassIds.length > 0) {
+                // Split payment equally among enrolled classes
+                const amountPerClass = pay.amount / student.enrolledClassIds.length;
+                student.enrolledClassIds.forEach(classId => {
+                    const cls = classFinancials.find(c => c.id === classId);
+                    if (cls) cls.income += amountPerClass;
+                });
+            }
+        });
+
+        // 6. Calculate Costs per Class
+        classFinancials.forEach(cls => {
+            const instructor = instructors.find(i => i.id === cls.instructorId);
+            let directCost = 0;
+            
+            if (instructor) {
+                const normalizedName = instructor.name.trim().toLowerCase();
+                const totalPaidToInstructor = teacherCostsMap[normalizedName] || 0;
+                
+                // Count how many classes this instructor teaches
+                const numClassesTaught = classes.filter(c => c.instructorId === instructor.id).length || 1;
+                
+                // Distribute instructor's monthly pay across their classes
+                directCost = totalPaidToInstructor / numClassesTaught;
+            }
+
+            cls.directCost = directCost;
+            cls.totalCost = directCost + overheadPerClass;
+        });
+
+        // 7. Format for Chart
+        return classFinancials
+            .map(c => ({
+                name: c.name,
+                Ingresos: parseFloat(c.income.toFixed(2)),
+                Gastos: parseFloat(c.totalCost.toFixed(2)),
+                Beneficio: parseFloat((c.income - c.totalCost).toFixed(2))
+            }))
+            .sort((a, b) => b.Beneficio - a.Beneficio); // Sort by highest profit
+
+    }, [classes, costs, payments, students, instructors, currentMonth, currentYear]);
+
+
     const COLORS_METHODS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
 
     // --- Upcoming Birthdays ---
@@ -413,6 +499,43 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             />
                             <Area type="monotone" dataKey="Alumnos" stroke="#3B82F6" fillOpacity={1} fill="url(#colorStudents)" />
                         </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* CLASS PROFITABILITY CHART (New Request) */}
+            <div className="grid grid-cols-1 gap-8">
+                <div className={containerClass}>
+                    <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
+                        <span className="w-2 h-6 bg-gradient-to-b from-green-400 to-green-600 rounded-full shadow-[0_0_10px_#4ade80]"></span>
+                        Rentabilidad por Clase (Mes Actual: {monthNames[currentMonth]})
+                    </h3>
+                    <p className="text-xs text-gray-400 mb-4">
+                        Ingresos: Suma de (Cuota alumno / Nº clases inscritas). 
+                        Gastos: (Pago profesor / Nº clases que imparte) + (Gastos generales / Nº clases totales).
+                    </p>
+                    <ResponsiveContainer width="100%" height={400}>
+                        <BarChart data={profitabilityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                            <XAxis 
+                                dataKey="name" 
+                                tick={{ fill: '#9ca3af', fontSize: 11 }} 
+                                interval={0}
+                                angle={-45}
+                                textAnchor="end"
+                                height={80}
+                            />
+                            <YAxis tick={{ fill: '#9ca3af' }} tickFormatter={(val) => `€${val}`} />
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF', borderRadius: '8px' }}
+                                formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                                labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                            />
+                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                            <Bar dataKey="Ingresos" fill="#10B981" name="Ingresos Estimados" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="Gastos" fill="#EF4444" name="Gastos Estimados" radius={[4, 4, 0, 0]} />
+                            <ReferenceLine y={0} stroke="#6B7280" />
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
             </div>
