@@ -394,7 +394,7 @@ export const PaymentForm: React.FC<{
 const CostForm: React.FC<{
     cost?: Cost;
     initialValues?: Partial<Cost>;
-    onSubmit: (cost: Omit<Cost, 'id'> | Cost) => void;
+    onSubmit: (cost: Omit<Cost, 'id'> | Omit<Cost, 'id'>[]) => void;
     onCancel: () => void;
 }> = ({ cost, initialValues, onSubmit, onCancel }) => {
     const [formData, setFormData] = useState({
@@ -408,6 +408,45 @@ const CostForm: React.FC<{
         notes: cost?.notes || initialValues?.notes || '',
     });
     
+    // State to handle multiple future months selection if recurring is checked for a NEW cost
+    const [selectedRecurringDates, setSelectedRecurringDates] = useState<Set<string>>(new Set());
+    const [futureDates, setFutureDates] = useState<{date: string, label: string}[]>([]);
+
+    useEffect(() => {
+        if (!formData.paymentDate) return;
+        
+        // Generate next 11 months based on selected payment date
+        const baseDate = new Date(formData.paymentDate);
+        const dates = [];
+        for (let i = 1; i <= 11; i++) {
+            const nextDate = new Date(baseDate);
+            nextDate.setMonth(baseDate.getMonth() + i);
+            
+            // Handle edge cases (e.g., Jan 31 -> Feb 28)
+            if (nextDate.getDate() !== baseDate.getDate()) {
+                 nextDate.setDate(0); 
+            }
+            
+            const dateStr = nextDate.toISOString().split('T')[0];
+            const label = nextDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric', day: 'numeric' });
+            dates.push({ date: dateStr, label });
+        }
+        setFutureDates(dates);
+        // Clear selection if date changes drastically to avoid confusion, or keep intersection? 
+        // Clearing is safer.
+        setSelectedRecurringDates(new Set());
+    }, [formData.paymentDate]);
+
+    const toggleRecurringDate = (date: string) => {
+        const newSet = new Set(selectedRecurringDates);
+        if (newSet.has(date)) {
+            newSet.delete(date);
+        } else {
+            newSet.add(date);
+        }
+        setSelectedRecurringDates(newSet);
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         if (type === 'checkbox') {
@@ -423,10 +462,32 @@ const CostForm: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        const baseCost = {
+            ...formData,
+            // If we are editing, we preserve ID outside this form handler usually, but here we return Omit<Cost, 'id'>
+            // The parent handles ID if editing.
+        };
+
         if (cost) {
-            onSubmit({ ...cost, ...formData });
+            // Editing existing cost
+             onSubmit({ ...cost, ...baseCost });
         } else {
-            onSubmit(formData);
+            // Creating new cost
+            if (formData.isRecurring && selectedRecurringDates.size > 0) {
+                // Batch create
+                const costsToCreate = [baseCost]; // Add the main one
+                selectedRecurringDates.forEach(dateStr => {
+                    costsToCreate.push({
+                        ...baseCost,
+                        paymentDate: dateStr
+                    });
+                });
+                onSubmit(costsToCreate);
+            } else {
+                // Single create
+                onSubmit(baseCost);
+            }
         }
     };
 
@@ -465,9 +526,48 @@ const CostForm: React.FC<{
                     <label className="block text-sm font-medium text-gray-300">Observaciones</label>
                     <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"></textarea>
                 </div>
-                <div className="flex items-center">
-                    <input type="checkbox" name="isRecurring" id="isRecurring" checked={formData.isRecurring} onChange={handleChange} className="h-4 w-4 text-purple-600 bg-gray-600 border-gray-500 rounded focus:ring-purple-500 focus:ring-offset-gray-800" />
-                    <label htmlFor="isRecurring" className="ml-2 block text-sm text-gray-200">Gasto Recurrente</label>
+                <div className="md:col-span-2 space-y-3">
+                    <div className="flex items-center">
+                        <input type="checkbox" name="isRecurring" id="isRecurring" checked={formData.isRecurring} onChange={handleChange} className="h-4 w-4 text-purple-600 bg-gray-600 border-gray-500 rounded focus:ring-purple-500 focus:ring-offset-gray-800" />
+                        <label htmlFor="isRecurring" className="ml-2 block text-sm text-gray-200">Gasto Recurrente</label>
+                    </div>
+
+                    {/* Show future month selection only if recurring is checked AND we are creating a new cost */}
+                    {formData.isRecurring && !cost && (
+                        <div className="bg-gray-700/50 p-3 rounded-md border border-gray-600">
+                            <p className="text-xs text-gray-300 mb-2 font-semibold">Repetir gasto para los siguientes meses:</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                                {futureDates.map((fd) => (
+                                    <label key={fd.date} className="flex items-center space-x-2 text-xs text-gray-400 bg-gray-800/50 p-2 rounded cursor-pointer hover:bg-gray-800">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={selectedRecurringDates.has(fd.date)}
+                                            onChange={() => toggleRecurringDate(fd.date)}
+                                            className="rounded border-gray-600 text-purple-600 focus:ring-purple-500 bg-gray-700"
+                                        />
+                                        <span className={selectedRecurringDates.has(fd.date) ? "text-purple-300 font-medium" : ""}>
+                                            {fd.label}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                            <div className="flex justify-between items-center mt-2">
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        const all = new Set(futureDates.map(d => d.date));
+                                        setSelectedRecurringDates(all);
+                                    }}
+                                    className="text-xs text-purple-400 hover:text-purple-300 hover:underline"
+                                >
+                                    Seleccionar todos
+                                </button>
+                                <span className="text-xs text-gray-500">
+                                    Se crearán {selectedRecurringDates.size + 1} gastos en total.
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
              <div className="flex justify-end space-x-2 pt-4">
@@ -602,11 +702,14 @@ const Billing: React.FC<BillingProps> = ({
         setIsCostModalOpen(false);
     };
     
-    const handleCostSubmit = (cost: Omit<Cost, 'id'> | Cost) => {
-        if ('id' in cost) {
-            updateCost(cost);
+    const handleCostSubmit = (costData: Omit<Cost, 'id'> | Cost | Omit<Cost, 'id'>[]) => {
+        if (Array.isArray(costData)) {
+            // Batch create (Recurring costs)
+            costData.forEach(c => addCost(c));
+        } else if ('id' in costData) {
+            updateCost(costData);
         } else {
-            addCost(cost);
+            addCost(costData);
         }
         handleCloseCostModal();
     };
