@@ -388,7 +388,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
             >
                 <option value="">Todas las clases</option>
                 {sortedClassesForFilter.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>{c.name} ({c.days.join(', ')} {c.startTime})</option>
                 ))}
             </select>
         </div>
