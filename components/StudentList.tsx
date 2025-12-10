@@ -183,7 +183,8 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  // Changed default state from 'all' to 'active'
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [classFilter, setClassFilter] = useState<string>('');
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
