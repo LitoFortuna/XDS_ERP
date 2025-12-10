@@ -607,6 +607,12 @@ const Billing: React.FC<BillingProps> = ({
     const [costToDuplicate, setCostToDuplicate] = useState<Partial<Cost> | undefined>(undefined);
     const [searchQuery, setSearchQuery] = useState('');
     
+    // Cost Filters
+    const [costSearchQuery, setCostSearchQuery] = useState('');
+    const [costCategoryFilter, setCostCategoryFilter] = useState<CostCategory | ''>('');
+    const [costStartDate, setCostStartDate] = useState('');
+    const [costEndDate, setCostEndDate] = useState('');
+
     // State for Monthly Detail Modal
     const [selectedMonthCell, setSelectedMonthCell] = useState<{ studentId: string, monthIndex: number, year: number } | null>(null);
 
@@ -739,6 +745,32 @@ const Billing: React.FC<BillingProps> = ({
         .filter(student => (student.active || searchQuery !== '') && student.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
 
+    // --- Filtered Costs Logic ---
+    const filteredCosts = useMemo(() => {
+        return costs.filter(cost => {
+            // 1. Text Search
+            const searchString = `${cost.concept} ${cost.beneficiary} ${cost.notes || ''}`.toLowerCase();
+            const matchesSearch = searchString.includes(costSearchQuery.toLowerCase());
+
+            // 2. Category Filter
+            const matchesCategory = costCategoryFilter ? cost.category === costCategoryFilter : true;
+
+            // 3. Date Range Filter
+            let matchesDate = true;
+            if (costStartDate || costEndDate) {
+                const costDate = new Date(cost.paymentDate);
+                if (costStartDate) {
+                    matchesDate = matchesDate && costDate >= new Date(costStartDate);
+                }
+                if (costEndDate) {
+                    matchesDate = matchesDate && costDate <= new Date(costEndDate);
+                }
+            }
+
+            return matchesSearch && matchesCategory && matchesDate;
+        });
+    }, [costs, costSearchQuery, costCategoryFilter, costStartDate, costEndDate]);
+
     // Prepare data for Monthly Detail Modal
     const selectedStudent = selectedMonthCell ? students.find(s => s.id === selectedMonthCell.studentId) : null;
     const selectedMonthPayments = useMemo(() => {
@@ -797,7 +829,7 @@ const Billing: React.FC<BillingProps> = ({
                 'Fecha', 'Categoría', 'Beneficiario', 'Concepto', 'Importe (€)', 
                 'Forma de Pago', 'Recurrente', 'Observaciones'
             ];
-            const dataToExport = costs.map(cost => ([
+            const dataToExport = filteredCosts.map(cost => ([
                 new Date(cost.paymentDate).toLocaleDateString('es-ES'),
                 cost.category,
                 cost.beneficiary,
@@ -913,6 +945,70 @@ const Billing: React.FC<BillingProps> = ({
                             <button onClick={() => handleOpenCostModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Registrar Coste</button>
                          </div>
                     </div>
+
+                    {/* Cost Filters */}
+                    <div className="mb-6 bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700/50 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div className="col-span-1 md:col-span-1">
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Buscar (Concepto/Beneficiario)</label>
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                value={costSearchQuery}
+                                onChange={(e) => setCostSearchQuery(e.target.value)}
+                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                            />
+                        </div>
+                        <div className="col-span-1 md:col-span-1">
+                             <label className="block text-xs font-medium text-gray-400 mb-1">Categoría</label>
+                             <select
+                                value={costCategoryFilter}
+                                onChange={(e) => setCostCategoryFilter(e.target.value as CostCategory)}
+                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                            >
+                                <option value="">Todas</option>
+                                {(['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Marketing', 'Mantenimiento', 'Otros'] as CostCategory[]).map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="col-span-1 md:col-span-1">
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Fecha Inicio</label>
+                            <input
+                                type="date"
+                                value={costStartDate}
+                                onChange={(e) => setCostStartDate(e.target.value)}
+                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                            />
+                        </div>
+                        <div className="col-span-1 md:col-span-1 flex gap-2">
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Fecha Fin</label>
+                                <input
+                                    type="date"
+                                    value={costEndDate}
+                                    onChange={(e) => setCostEndDate(e.target.value)}
+                                    className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                />
+                            </div>
+                             {(costSearchQuery || costCategoryFilter || costStartDate || costEndDate) && (
+                                <button 
+                                    onClick={() => {
+                                        setCostSearchQuery('');
+                                        setCostCategoryFilter('');
+                                        setCostStartDate('');
+                                        setCostEndDate('');
+                                    }}
+                                    className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-md self-end mb-0.5"
+                                    title="Limpiar filtros"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                             )}
+                        </div>
+                    </div>
+
                      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700">
@@ -926,7 +1022,7 @@ const Billing: React.FC<BillingProps> = ({
                                 </tr>
                             </thead>
                             <tbody>
-                                {costs.map(cost => (
+                                {filteredCosts.map(cost => (
                                     <tr key={cost.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                                         <td className="px-6 py-4 whitespace-nowrap">{new Date(cost.paymentDate).toLocaleDateString('es-ES')}</td>
                                         <td className="px-6 py-4">{cost.category}</td>
@@ -940,6 +1036,13 @@ const Billing: React.FC<BillingProps> = ({
                                         </td>
                                     </tr>
                                 ))}
+                                {filteredCosts.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">
+                                            No se encontraron gastos con los filtros seleccionados.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
