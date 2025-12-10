@@ -279,6 +279,56 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         { name: 'Inactivos', value: students.length - activeStudentsCount },
     ];
 
+    // 6. Average Income Per Student Per Class (Line Chart)
+    const avgIncomePerClassData = monthNames.map((month, index) => {
+        // Filter payments for this specific month of the current year
+        const monthPayments = payments.filter(p => {
+            const d = new Date(p.date);
+            return d.getMonth() === index && d.getFullYear() === currentYear;
+        });
+
+        // Group payments by student ID
+        const studentPaymentsMap: Record<string, number> = {};
+        monthPayments.forEach(p => {
+            studentPaymentsMap[p.studentId] = (studentPaymentsMap[p.studentId] || 0) + p.amount;
+        });
+
+        let totalRatio = 0;
+        let countStudents = 0;
+
+        Object.entries(studentPaymentsMap).forEach(([studentId, totalPaid]) => {
+            const student = students.find(s => s.id === studentId);
+            if (student) {
+                // Determine number of classes (prevent division by zero)
+                const numClasses = student.enrolledClassIds.length || 1; 
+                const ratio = totalPaid / numClasses;
+                totalRatio += ratio;
+                countStudents++;
+            }
+        });
+
+        const avg = countStudents > 0 ? totalRatio / countStudents : 0;
+
+        return {
+            name: month.substring(0, 3),
+            Valor: parseFloat(avg.toFixed(2))
+        };
+    });
+
+    // 7. Payment Methods Distribution (Pie Chart)
+    const paymentMethodsMap: Record<string, number> = {};
+    payments
+        .filter(p => new Date(p.date).getFullYear() === currentYear) // Current year only
+        .forEach(p => {
+            paymentMethodsMap[p.paymentMethod] = (paymentMethodsMap[p.paymentMethod] || 0) + p.amount;
+        });
+    
+    const paymentMethodsData = Object.entries(paymentMethodsMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+    const COLORS_METHODS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
+
     // --- Upcoming Birthdays ---
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -428,6 +478,59 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <Area type="monotone" dataKey="Ingresos" stroke="#8B5CF6" fillOpacity={1} fill="url(#colorIncome)" />
                             <Area type="monotone" dataKey="Gastos" stroke="#EF4444" fillOpacity={1} fill="url(#colorCost)" />
                         </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* ADVANCED METRICS: Avg Income & Payment Methods */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className={containerClass}>
+                    <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
+                        <span className="w-2 h-6 bg-purple-500 rounded-full shadow-[0_0_10px_#d8b4fe]"></span>
+                        Ingreso Medio por Alumno/Clase
+                    </h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <LineChart data={avgIncomePerClassData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                            <XAxis dataKey="name" tick={{ fill: '#9ca3af' }} />
+                            <YAxis tick={{ fill: '#9ca3af' }} domain={['auto', 'auto']} tickFormatter={(value) => `€${value}`} />
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF', borderRadius: '8px' }}
+                                formatter={(value: number) => [`€${value}`, 'Ingreso Medio / Clase']}
+                            />
+                            <Line type="monotone" dataKey="Valor" stroke="#A78BFA" strokeWidth={3} dot={{ fill: '#A78BFA', r: 4 }} activeDot={{ r: 8 }} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                    <p className="text-xs text-gray-400 mt-2 italic text-center">Cálculo: (Pago mensual del alumno / Nº Clases inscritas) promediado entre todos los alumnos.</p>
+                </div>
+
+                <div className={containerClass}>
+                    <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
+                        <span className="w-2 h-6 bg-yellow-500 rounded-full shadow-[0_0_10px_#fcd34d]"></span>
+                        Distribución Métodos de Pago (Volumen €)
+                    </h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                            <Pie 
+                                data={paymentMethodsData} 
+                                dataKey="value" 
+                                nameKey="name" 
+                                cx="50%" 
+                                cy="50%" 
+                                innerRadius={60} 
+                                outerRadius={90} 
+                                paddingAngle={5}
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            >
+                                {paymentMethodsData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS_METHODS[index % COLORS_METHODS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF', borderRadius: '8px' }}
+                                formatter={(value: number) => formatCurrency(value)}
+                            />
+                        </PieChart>
                     </ResponsiveContainer>
                 </div>
             </div>
