@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { MerchandiseItem, MerchandiseSale, Student, PaymentMethod } from '../types';
 import Modal from './Modal';
@@ -12,6 +13,9 @@ interface MerchandisingProps {
     addSale: (sale: Omit<MerchandiseSale, 'id'>) => void;
     deleteSale: (sale: MerchandiseSale) => void;
 }
+
+type SortKey = keyof MerchandiseItem | 'status'; // Extended for future use if needed
+type SortDirection = 'asc' | 'desc';
 
 // --- FORMULARIO DE ARTÍCULO ---
 const ItemForm: React.FC<{
@@ -178,7 +182,63 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
     const [editingItem, setEditingItem] = useState<MerchandiseItem | undefined>(undefined);
     const [itemForSale, setItemForSale] = useState<MerchandiseItem | undefined>(undefined);
     
+    // Filtros y Ordenación
+    const [searchQuery, setSearchQuery] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
+
     const studentMap = useMemo(() => new Map(students.map(s => [s.id, s.name])), [students]);
+    
+    // Calcular categorías únicas para el dropdown
+    const uniqueCategories = useMemo(() => {
+        const cats = new Set(items.map(i => i.category));
+        return Array.from(cats).sort();
+    }, [items]);
+
+    // Lógica de Filtrado y Ordenación
+    const sortedAndFilteredItems = useMemo(() => {
+        let filtered = items.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesCategory = categoryFilter ? item.category === categoryFilter : true;
+            return matchesSearch && matchesCategory;
+        });
+
+        return filtered.sort((a, b) => {
+            const aValue = a[sortConfig.key as keyof MerchandiseItem];
+            const bValue = b[sortConfig.key as keyof MerchandiseItem];
+
+            if (aValue < bValue) {
+                return sortConfig.direction === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+    }, [items, searchQuery, categoryFilter, sortConfig]);
+
+    const requestSort = (key: SortKey) => {
+        let direction: SortDirection = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIndicator = (key: SortKey) => {
+        if (sortConfig.key !== key) return null;
+        return sortConfig.direction === 'asc' ? '▲' : '▼';
+    };
+
+    // Componente de cabecera ordenable
+    const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode }> = ({ sortKey, children }) => (
+        <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600 transition-colors select-none" onClick={() => requestSort(sortKey)}>
+            <div className="flex items-center gap-1">
+                {children}
+                <span className="text-gray-500 text-xs w-3">{getSortIndicator(sortKey)}</span>
+            </div>
+        </th>
+    );
     
     // Handlers
     const handleOpenItemModal = (item?: MerchandiseItem) => {
@@ -238,23 +298,51 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
 
             {activeTab === 'inventory' && (
                 <div>
-                    <div className="flex justify-between items-center mb-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <h3 className="text-2xl font-bold">Inventario de Artículos</h3>
-                        <button onClick={() => handleOpenItemModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Artículo</button>
+                        <button onClick={() => handleOpenItemModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 w-full sm:w-auto">Añadir Artículo</button>
                     </div>
+
+                    {/* FILTROS */}
+                    <div className="bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700/50 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
+                            <input
+                                type="text"
+                                placeholder="Buscar por nombre..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Categoría</label>
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                            >
+                                <option value="">Todas las categorías</option>
+                                {uniqueCategories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
                     <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                              <thead className="text-xs text-gray-300 uppercase bg-gray-700">
                                 <tr>
-                                    <th scope="col" className="px-6 py-3">Artículo</th>
-                                    <th scope="col" className="px-6 py-3">Categoría</th>
-                                    <th scope="col" className="px-6 py-3">Precio Venta</th>
-                                    <th scope="col" className="px-6 py-3">Stock</th>
+                                    <SortableHeader sortKey="name">Artículo</SortableHeader>
+                                    <SortableHeader sortKey="category">Categoría</SortableHeader>
+                                    <SortableHeader sortKey="salePrice">Precio Venta</SortableHeader>
+                                    <SortableHeader sortKey="stock">Stock</SortableHeader>
                                     <th scope="col" className="px-6 py-3">Acciones</th>
                                 </tr>
                              </thead>
                              <tbody>
-                                {items.map(item => (
+                                {sortedAndFilteredItems.map(item => (
                                     <tr key={item.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                                         <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{item.name} {item.size ? `(${item.size})` : ''}</td>
                                         <td className="px-6 py-4">{item.category}</td>
@@ -269,6 +357,11 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
                                         </td>
                                     </tr>
                                 ))}
+                                {sortedAndFilteredItems.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">No se encontraron artículos con los filtros seleccionados.</td>
+                                    </tr>
+                                )}
                              </tbody>
                         </table>
                     </div>
@@ -321,3 +414,4 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
 };
 
 export default Merchandising;
+    
