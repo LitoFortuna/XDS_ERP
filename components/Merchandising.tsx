@@ -14,7 +14,7 @@ interface MerchandisingProps {
     deleteSale: (sale: MerchandiseSale) => void;
 }
 
-type SortKey = keyof MerchandiseItem | 'status'; // Extended for future use if needed
+type SortKey = keyof MerchandiseItem | 'status';
 type SortDirection = 'asc' | 'desc';
 
 // --- FORMULARIO DE ARTÍCULO ---

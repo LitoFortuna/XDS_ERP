@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod, DanceClass, MerchandiseSale } from '../types';
+import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod, DanceClass, MerchandiseSale, Instructor } from '../types';
 import Modal from './Modal';
 import { StudentForm } from './StudentList';
 
@@ -393,10 +393,11 @@ export const PaymentForm: React.FC<{
 // --- FORMULARIO DE COSTES (GASTOS) ---
 const CostForm: React.FC<{
     cost?: Cost;
+    instructors: Instructor[];
     initialValues?: Partial<Cost>;
     onSubmit: (cost: Omit<Cost, 'id'> | Omit<Cost, 'id'>[]) => void;
     onCancel: () => void;
-}> = ({ cost, initialValues, onSubmit, onCancel }) => {
+}> = ({ cost, instructors, initialValues, onSubmit, onCancel }) => {
     const [formData, setFormData] = useState({
         paymentDate: cost?.paymentDate || initialValues?.paymentDate || new Date().toISOString().split('T')[0],
         category: cost?.category || initialValues?.category || 'Otros' as CostCategory,
@@ -406,6 +407,7 @@ const CostForm: React.FC<{
         paymentMethod: cost?.paymentMethod || initialValues?.paymentMethod || 'Transferencia' as CostPaymentMethod,
         isRecurring: cost?.isRecurring ?? initialValues?.isRecurring ?? false,
         notes: cost?.notes || initialValues?.notes || '',
+        relatedInstructorId: cost?.relatedInstructorId || '',
     });
     
     // State to handle multiple future months selection if recurring is checked for a NEW cost
@@ -459,6 +461,17 @@ const CostForm: React.FC<{
             }));
         }
     };
+    
+    // Auto-fill beneficiary if instructor is selected
+    const handleInstructorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const instructorId = e.target.value;
+        const selectedInstructor = instructors.find(i => i.id === instructorId);
+        setFormData(prev => ({
+            ...prev,
+            relatedInstructorId: instructorId,
+            beneficiary: selectedInstructor ? selectedInstructor.name : prev.beneficiary
+        }));
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -491,6 +504,10 @@ const CostForm: React.FC<{
         }
     };
 
+    const sortedInstructors = useMemo(() => 
+        [...instructors].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+    [instructors]);
+
     return (
          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -504,6 +521,26 @@ const CostForm: React.FC<{
                         {(['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Marketing', 'Mantenimiento', 'Otros'] as CostCategory[]).map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
+
+                {/* Instructor Selection if Category is Profesores */}
+                {formData.category === 'Profesores' && (
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-300">Seleccionar Profesor (Vincular)</label>
+                        <select 
+                            name="relatedInstructorId" 
+                            value={formData.relatedInstructorId} 
+                            onChange={handleInstructorChange}
+                            className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                        >
+                            <option value="">-- Seleccionar Profesor --</option>
+                            {sortedInstructors.map(inst => (
+                                <option key={inst.id} value={inst.id}>{inst.name}</option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-400 mt-1">Seleccionar un profesor rellenará automáticamente el campo Beneficiario.</p>
+                    </div>
+                )}
+
                 <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-300">Proveedor/Beneficiario</label>
                     <input type="text" name="beneficiary" value={formData.beneficiary} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
@@ -586,6 +623,7 @@ interface BillingProps {
     students: Student[];
     classes: DanceClass[];
     merchandiseSales: MerchandiseSale[];
+    instructors: Instructor[]; // Added instructors prop
     addPayment: (payment: Omit<Payment, 'id'>) => void;
     updatePayment: (payment: Payment) => void;
     deletePayment: (id: string) => void;
@@ -596,7 +634,7 @@ interface BillingProps {
 }
 
 const Billing: React.FC<BillingProps> = ({ 
-    payments, costs, students, classes, merchandiseSales,
+    payments, costs, students, classes, merchandiseSales, instructors,
     addPayment, updatePayment, deletePayment, 
     addCost, updateCost, deleteCost, updateStudent 
 }) => {
@@ -775,153 +813,84 @@ const Billing: React.FC<BillingProps> = ({
     const selectedStudent = selectedMonthCell ? students.find(s => s.id === selectedMonthCell.studentId) : null;
     const selectedMonthPayments = useMemo(() => {
         if (!selectedMonthCell) return [];
+        const { studentId, monthIndex, year } = selectedMonthCell;
         return payments.filter(p => {
             const d = new Date(p.date);
-            return p.studentId === selectedMonthCell.studentId && 
-                   d.getMonth() === selectedMonthCell.monthIndex && 
-                   d.getFullYear() === selectedMonthCell.year;
+            return p.studentId === studentId && 
+                   d.getMonth() === monthIndex && 
+                   d.getFullYear() === year;
         });
     }, [selectedMonthCell, payments]);
-    
-    // --- CSV Export Logic ---
-    const sanitizeCSVCell = (cellData: any): string => {
-        const cellString = String(cellData ?? '');
-        if (/[";\n\r]/.test(cellString)) {
-            return `"${cellString.replace(/"/g, '""')}"`;
-        }
-        return cellString;
-    };
-
-    const downloadCSV = (csvContent: string, filename: string) => {
-        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute('download', filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const handleExportCSV = () => {
-        if (activeTab === 'income') {
-            const headers = ['Alumno', 'Cuota Mensual (€)', ...months];
-            const dataToExport = filteredStudents.map(student => {
-                const rowData = [
-                    student.name,
-                    student.monthlyFee.toFixed(2).replace('.', ',')
-                ];
-                months.forEach((_, index) => {
-                    const { text } = getPaymentStatusForMonth(student, index);
-                    rowData.push(text);
-                });
-                return rowData;
-            });
-
-            const csvContent = [
-                headers.map(sanitizeCSVCell).join(';'),
-                ...dataToExport.map(row => row.map(sanitizeCSVCell).join(';'))
-            ].join('\n');
-            
-            downloadCSV(csvContent, `resumen_cobros_${currentYear}.csv`);
-
-        } else { // activeTab === 'costs'
-            const headers = [
-                'Fecha', 'Categoría', 'Beneficiario', 'Concepto', 'Importe (€)', 
-                'Forma de Pago', 'Recurrente', 'Observaciones'
-            ];
-            const dataToExport = filteredCosts.map(cost => ([
-                new Date(cost.paymentDate).toLocaleDateString('es-ES'),
-                cost.category,
-                cost.beneficiary,
-                cost.concept,
-                cost.amount.toFixed(2).replace('.', ','),
-                cost.paymentMethod,
-                cost.isRecurring ? 'Sí' : 'No',
-                cost.notes || ''
-            ]));
-            
-            const csvContent = [
-                headers.map(sanitizeCSVCell).join(';'),
-                ...dataToExport.map(row => row.map(sanitizeCSVCell).join(';'))
-            ].join('\n');
-            
-            downloadCSV(csvContent, 'registro_costes.csv');
-        }
-    };
 
     return (
         <div className="p-4 sm:p-8">
             <h2 className="text-3xl font-bold mb-6">Facturación</h2>
-            {/* Resumen Financiero */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-gray-800 p-6 rounded-lg shadow-sm"><p className="text-sm text-green-400">Ingresos Totales</p><p className="text-2xl font-bold">€{totalIncome.toLocaleString('es-ES')}</p></div>
-                <div className="bg-gray-800 p-6 rounded-lg shadow-sm"><p className="text-sm text-red-400">Costes Totales</p><p className="text-2xl font-bold">€{totalCosts.toLocaleString('es-ES')}</p></div>
-                <div className="bg-gray-800 p-6 rounded-lg shadow-sm"><p className="text-sm text-blue-400">Margen Neto</p><p className="text-2xl font-bold">€{netMargin.toLocaleString('es-ES')}</p></div>
+
+            {/* TABS */}
+            <div className="flex space-x-4 border-b border-gray-700 mb-6">
+                <button 
+                    className={`pb-2 px-4 ${activeTab === 'income' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`}
+                    onClick={() => setActiveTab('income')}
+                >
+                    Ingresos (Cuotas)
+                </button>
+                <button 
+                    className={`pb-2 px-4 ${activeTab === 'costs' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`}
+                    onClick={() => setActiveTab('costs')}
+                >
+                    Gastos (Costes)
+                </button>
             </div>
 
-            {/* Pestañas de Navegación */}
-            <div className="border-b border-gray-700 mb-6">
-                <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                    <button onClick={() => setActiveTab('income')} className={`${activeTab === 'income' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Ingresos</button>
-                    <button onClick={() => setActiveTab('costs')} className={`${activeTab === 'costs' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Costes</button>
-                </nav>
-            </div>
-            
+            {/* INCOME VIEW */}
             {activeTab === 'income' && (
                 <div>
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-2xl font-bold">Resumen de Cobros a Alumnos ({currentYear})</h3>
+                     <div className="flex justify-between items-center mb-4">
+                        <div className="w-1/3">
+                             <input 
+                                type="text" 
+                                placeholder="Buscar alumno..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                            />
+                        </div>
                         <div className="flex items-center gap-4">
-                            <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                Exportar a CSV
+                            <div className="text-right">
+                                <p className="text-sm text-gray-400">Ingresos Totales</p>
+                                <p className="text-xl font-bold text-green-400">€{totalIncome.toFixed(2)}</p>
+                            </div>
+                            <button onClick={() => setIsIncomeModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                Registrar Cobro
                             </button>
-                            <button onClick={() => setIsIncomeModalOpen(true)} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Registrar Cobro</button>
                         </div>
                     </div>
-                    <div className="mb-4">
-                        <input
-                            type="text"
-                            placeholder="Buscar por nombre de alumno..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full max-w-sm bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                        />
-                         <p className="text-xs text-gray-500 mt-2">Haz clic en cualquier celda mensual para ver detalles o editar pagos. Haz clic en el nombre del alumno para editar sus datos.</p>
-                    </div>
-                     <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
+
+                    <div className="bg-gray-800 rounded-lg shadow overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
-                            <thead className="text-xs text-gray-300 uppercase bg-gray-700">
+                            <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
                                 <tr>
-                                    <th scope="col" className="px-6 py-3 sticky left-0 bg-gray-700 z-10">Alumno/a</th>
-                                    <th scope="col" className="px-6 py-3">Cuota</th>
-                                    {months.map(month => <th key={month} scope="col" className="px-6 py-3 text-center">{month}</th>)}
+                                    <th className="px-4 py-3 bg-gray-700 sticky left-0 z-10">Alumno</th>
+                                    {months.map((m, i) => <th key={i} className="px-2 py-3 text-center">{m.substring(0,3)}</th>)}
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredStudents.map(student => (
-                                    <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
-                                        <td className="px-6 py-4 font-medium text-white whitespace-nowrap sticky left-0 bg-gray-800 z-10">
-                                            <button 
-                                                onClick={() => handleEditStudent(student)} 
-                                                className="hover:text-purple-400 hover:underline text-left font-medium text-white focus:outline-none"
-                                            >
+                                    <tr key={student.id} className="border-b border-gray-700 hover:bg-gray-700/50">
+                                        <td className="px-4 py-3 font-medium text-white bg-gray-800 sticky left-0">
+                                            <button onClick={() => handleEditStudent(student)} className="hover:text-purple-400 text-left">
                                                 {student.name}
                                             </button>
-                                            {!student.active && <span className="ml-2 text-xs text-red-400 bg-red-900/20 px-1 rounded">Inactivo</span>}
                                         </td>
-                                        <td className="px-6 py-4">€{student.monthlyFee.toFixed(2)}</td>
-                                        {months.map((_, index) => {
-                                            const { text, color } = getPaymentStatusForMonth(student, index);
+                                        {months.map((_, i) => {
+                                            const status = getPaymentStatusForMonth(student, i);
                                             return (
                                                 <td 
-                                                    key={index} 
-                                                    className="px-6 py-4 text-center cursor-pointer"
-                                                    onClick={() => setSelectedMonthCell({ studentId: student.id, monthIndex: index, year: currentYear })}
+                                                    key={i} 
+                                                    className={`px-2 py-3 text-center border-l border-gray-700/50 ${status.color}`}
+                                                    onClick={() => setSelectedMonthCell({ studentId: student.id, monthIndex: i, year: currentYear })}
                                                 >
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${color}`}>
-                                                        {text}
-                                                    </span>
+                                                    {status.text}
                                                 </td>
                                             );
                                         })}
@@ -932,132 +901,94 @@ const Billing: React.FC<BillingProps> = ({
                     </div>
                 </div>
             )}
-            
+
+            {/* COSTS VIEW */}
             {activeTab === 'costs' && (
-                 <div>
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-2xl font-bold">Registro de Gastos del Negocio</h3>
-                         <div className="flex items-center gap-4">
-                             <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                Exportar a CSV
-                            </button>
-                            <button onClick={() => handleOpenCostModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Registrar Coste</button>
-                         </div>
-                    </div>
+                <div>
+                     <div className="flex flex-wrap gap-4 mb-4 bg-gray-800 p-4 rounded-lg">
+                        <input type="text" placeholder="Buscar concepto/beneficiario..." value={costSearchQuery} onChange={e => setCostSearchQuery(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white flex-grow" />
+                        <select value={costCategoryFilter} onChange={e => setCostCategoryFilter(e.target.value as CostCategory)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
+                            <option value="">Todas las categorías</option>
+                            {['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Marketing', 'Mantenimiento', 'Otros'].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input type="date" value={costStartDate} onChange={e => setCostStartDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
+                        <input type="date" value={costEndDate} onChange={e => setCostEndDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
+                     </div>
 
-                    {/* Cost Filters */}
-                    <div className="mb-6 bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700/50 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                        <div className="col-span-1 md:col-span-1">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Buscar (Concepto/Beneficiario)</label>
-                            <input
-                                type="text"
-                                placeholder="Buscar..."
-                                value={costSearchQuery}
-                                onChange={(e) => setCostSearchQuery(e.target.value)}
-                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
-                            />
+                     <div className="flex justify-between items-center mb-4">
+                        <div className="text-right">
+                             <p className="text-sm text-gray-400">Gastos Totales</p>
+                             <p className="text-xl font-bold text-red-400">€{totalCosts.toFixed(2)}</p>
                         </div>
-                        <div className="col-span-1 md:col-span-1">
-                             <label className="block text-xs font-medium text-gray-400 mb-1">Categoría</label>
-                             <select
-                                value={costCategoryFilter}
-                                onChange={(e) => setCostCategoryFilter(e.target.value as CostCategory)}
-                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
-                            >
-                                <option value="">Todas</option>
-                                {(['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Marketing', 'Mantenimiento', 'Otros'] as CostCategory[]).map(c => (
-                                    <option key={c} value={c}>{c}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="col-span-1 md:col-span-1">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Fecha Inicio</label>
-                            <input
-                                type="date"
-                                value={costStartDate}
-                                onChange={(e) => setCostStartDate(e.target.value)}
-                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
-                            />
-                        </div>
-                        <div className="col-span-1 md:col-span-1 flex gap-2">
-                            <div className="flex-1">
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Fecha Fin</label>
-                                <input
-                                    type="date"
-                                    value={costEndDate}
-                                    onChange={(e) => setCostEndDate(e.target.value)}
-                                    className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
-                                />
-                            </div>
-                             {(costSearchQuery || costCategoryFilter || costStartDate || costEndDate) && (
-                                <button 
-                                    onClick={() => {
-                                        setCostSearchQuery('');
-                                        setCostCategoryFilter('');
-                                        setCostStartDate('');
-                                        setCostEndDate('');
-                                    }}
-                                    className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-md self-end mb-0.5"
-                                    title="Limpiar filtros"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                             )}
-                        </div>
-                    </div>
+                        <button onClick={() => handleOpenCostModal()} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                            Registrar Gasto
+                        </button>
+                     </div>
 
-                     <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
+                     <div className="bg-gray-800 rounded-lg shadow overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700">
                                 <tr>
-                                    <th scope="col" className="px-6 py-3">Fecha</th>
-                                    <th scope="col" className="px-6 py-3">Categoría</th>
-                                    <th scope="col" className="px-6 py-3">Beneficiario</th>
-                                    <th scope="col" className="px-6 py-3">Concepto</th>
-                                    <th scope="col" className="px-6 py-3">Importe</th>
-                                    <th scope="col" className="px-6 py-3">Acciones</th>
+                                    <th className="px-6 py-3">Fecha</th>
+                                    <th className="px-6 py-3">Concepto</th>
+                                    <th className="px-6 py-3">Categoría</th>
+                                    <th className="px-6 py-3">Beneficiario</th>
+                                    <th className="px-6 py-3">Importe</th>
+                                    <th className="px-6 py-3">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredCosts.map(cost => (
-                                    <tr key={cost.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
-                                        <td className="px-6 py-4 whitespace-nowrap">{new Date(cost.paymentDate).toLocaleDateString('es-ES')}</td>
-                                        <td className="px-6 py-4">{cost.category}</td>
-                                        <td className="px-6 py-4 font-medium text-white">{cost.beneficiary}</td>
+                                    <tr key={cost.id} className="border-b border-gray-700 hover:bg-gray-700/50">
+                                        <td className="px-6 py-4">{new Date(cost.paymentDate).toLocaleDateString()}</td>
                                         <td className="px-6 py-4">{cost.concept}</td>
-                                        <td className="px-6 py-4 text-red-400">€{cost.amount.toFixed(2)}</td>
-                                        <td className="px-6 py-4 space-x-2 whitespace-nowrap">
-                                            <button onClick={() => handleDuplicateCost(cost)} className="font-medium text-blue-400 hover:text-blue-300 hover:underline">Duplicar</button>
-                                            <button onClick={() => handleOpenCostModal(cost)} className="font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
-                                            <button onClick={() => handleCostDelete(cost.id)} className="font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
+                                        <td className="px-6 py-4"><span className="bg-gray-700 px-2 py-1 rounded text-xs">{cost.category}</span></td>
+                                        <td className="px-6 py-4">{cost.beneficiary}</td>
+                                        <td className="px-6 py-4 font-bold text-white">€{cost.amount.toFixed(2)}</td>
+                                        <td className="px-6 py-4 space-x-2">
+                                            <button onClick={() => handleOpenCostModal(cost)} className="text-purple-400 hover:text-purple-300">Editar</button>
+                                            <button onClick={() => handleDuplicateCost(cost)} className="text-blue-400 hover:text-blue-300">Duplicar</button>
+                                            <button onClick={() => handleCostDelete(cost.id)} className="text-red-400 hover:text-red-300">Eliminar</button>
                                         </td>
                                     </tr>
                                 ))}
-                                {filteredCosts.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">
-                                            No se encontraron gastos con los filtros seleccionados.
-                                        </td>
-                                    </tr>
-                                )}
                             </tbody>
                         </table>
-                    </div>
+                     </div>
                 </div>
             )}
 
-            <Modal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} title="Registrar Nuevo Cobro">
-                <PaymentForm students={students} onSubmit={(p) => { addPayment(p); setIsIncomeModalOpen(false); }} onCancel={() => setIsIncomeModalOpen(false)} />
-            </Modal>
-            
-             <Modal isOpen={isCostModalOpen} onClose={handleCloseCostModal} title={editingCost ? 'Editar Coste' : 'Registrar Nuevo Coste'}>
-                <CostForm cost={editingCost} initialValues={costToDuplicate} onSubmit={handleCostSubmit} onCancel={handleCloseCostModal} />
+            {/* MODALS */}
+            <Modal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} title="Registrar Cobro">
+                <PaymentForm 
+                    students={students} 
+                    onSubmit={(p) => { addPayment(p); setIsIncomeModalOpen(false); }} 
+                    onCancel={() => setIsIncomeModalOpen(false)} 
+                />
             </Modal>
 
-            {/* Monthly Detail Modal */}
+            <Modal isOpen={isCostModalOpen} onClose={handleCloseCostModal} title={editingCost ? 'Editar Coste' : 'Registrar Coste'}>
+                <CostForm 
+                    cost={editingCost} 
+                    instructors={instructors}
+                    initialValues={costToDuplicate}
+                    onSubmit={handleCostSubmit} 
+                    onCancel={handleCloseCostModal} 
+                />
+            </Modal>
+            
+            <Modal isOpen={isStudentModalOpen} onClose={() => setIsStudentModalOpen(false)} title="Editar Alumno">
+                {editingStudent && (
+                    <StudentForm 
+                        student={editingStudent} 
+                        classes={classes} 
+                        merchandiseSales={merchandiseSales}
+                        onSubmit={handleStudentUpdateSubmit} 
+                        onCancel={() => setIsStudentModalOpen(false)} 
+                    />
+                )}
+            </Modal>
+
             {selectedStudent && selectedMonthCell && (
                 <MonthlyDetailModal 
                     isOpen={!!selectedMonthCell}
@@ -1070,41 +1001,18 @@ const Billing: React.FC<BillingProps> = ({
                     onAddPayment={addPayment}
                     onUpdatePayment={updatePayment}
                     onDeletePayment={deletePayment}
-                    onNavigateMonth={(direction) => {
-                        if (!selectedMonthCell) return;
-                        let { monthIndex, year } = selectedMonthCell;
-                        if (direction === 'prev') {
-                            if (monthIndex === 0) {
-                                monthIndex = 11;
-                                year -= 1;
-                            } else {
-                                monthIndex -= 1;
-                            }
-                        } else {
-                            if (monthIndex === 11) {
-                                monthIndex = 0;
-                                year += 1;
-                            } else {
-                                monthIndex += 1;
-                            }
-                        }
-                        setSelectedMonthCell({ ...selectedMonthCell, monthIndex, year });
+                    onNavigateMonth={(dir) => {
+                        setSelectedMonthCell(prev => {
+                            if (!prev) return null;
+                            let newMonth = prev.monthIndex + (dir === 'next' ? 1 : -1);
+                            let newYear = prev.year;
+                            if (newMonth > 11) { newMonth = 0; newYear++; }
+                            if (newMonth < 0) { newMonth = 11; newYear--; }
+                            return { ...prev, monthIndex: newMonth, year: newYear };
+                        });
                     }}
                 />
             )}
-
-            {/* Student Editing Modal */}
-            <Modal isOpen={isStudentModalOpen} onClose={() => setIsStudentModalOpen(false)} title="Editar Datos del Alumno">
-                {editingStudent && (
-                    <StudentForm 
-                        student={editingStudent} 
-                        classes={classes} 
-                        merchandiseSales={merchandiseSales}
-                        onSubmit={handleStudentUpdateSubmit} 
-                        onCancel={() => setIsStudentModalOpen(false)} 
-                    />
-                )}
-            </Modal>
         </div>
     );
 };

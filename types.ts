@@ -69,6 +69,7 @@ export interface Cost {
   paymentMethod: CostPaymentMethod;
   isRecurring: boolean;
   notes?: string;
+  relatedInstructorId?: string; // Optional link to an instructor for better analytics
 }
 
 export interface Rehearsal {
