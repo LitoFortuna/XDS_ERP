@@ -61,10 +61,10 @@ const SaturnLoader = () => (
         {/* Planet Body */}
         <div className="absolute w-10 h-10 bg-purple-600 rounded-full shadow-[0_0_20px_rgba(147,51,234,0.6)] z-10"></div>
         
-        {/* Ring Wrapper - Fixed Tilt to look nice */}
-        <div className="absolute inset-0 flex items-center justify-center rotate-[-15deg]">
-             {/* Spinning Ring - Ellipse that rotates */}
-             <div className="w-20 h-7 border-[3px] border-purple-500/30 border-t-purple-300 border-l-purple-300/80 rounded-[50%] animate-[spin_1.5s_linear_infinite]"></div>
+        {/* Ring Wrapper - Fixed Tilt */}
+        <div className="absolute inset-0 flex items-center justify-center rotate-[-20deg]">
+             {/* Spinning Ring - Blue Halo */}
+             <div className="w-20 h-6 border-[3px] border-blue-900/30 border-t-cyan-400 border-l-blue-500 rounded-[50%] animate-[spin_1s_linear_infinite] shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
         </div>
     </div>
 );
