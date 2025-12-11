@@ -336,6 +336,7 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
                                 <tr>
                                     <SortableHeader sortKey="name">Artículo</SortableHeader>
                                     <SortableHeader sortKey="category">Categoría</SortableHeader>
+                                    <SortableHeader sortKey="purchasePrice">Precio Compra</SortableHeader>
                                     <SortableHeader sortKey="salePrice">Precio Venta</SortableHeader>
                                     <SortableHeader sortKey="stock">Stock</SortableHeader>
                                     <th scope="col" className="px-6 py-3">Acciones</th>
@@ -346,6 +347,7 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
                                     <tr key={item.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                                         <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{item.name} {item.size ? `(${item.size})` : ''}</td>
                                         <td className="px-6 py-4">{item.category}</td>
+                                        <td className="px-6 py-4 text-gray-400">€{item.purchasePrice.toFixed(2)}</td>
                                         <td className="px-6 py-4">€{item.salePrice.toFixed(2)}</td>
                                         <td className="px-6 py-4">
                                             <span className={`font-bold ${item.stock <= 5 ? 'text-red-400' : 'text-green-400'}`}>{item.stock}</span>
@@ -359,7 +361,7 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
                                 ))}
                                 {sortedAndFilteredItems.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">No se encontraron artículos con los filtros seleccionados.</td>
+                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">No se encontraron artículos con los filtros seleccionados.</td>
                                     </tr>
                                 )}
                              </tbody>
@@ -414,4 +416,3 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
 };
 
 export default Merchandising;
-    
