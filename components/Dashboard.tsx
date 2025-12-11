@@ -62,13 +62,15 @@ const StatCard: React.FC<{ title: string; value: string | number; subtext?: stri
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, setView, addPayment }) => {
-    const totalStudents = students.length;
+    // KPI: Active Students
+    const activeStudentsCount = students.filter(s => s.active).length;
     
-    // Revenue Calculation
+    // Revenue & Profit Calculation
     const totalRegularRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
     const totalNuptialRevenue = nuptialDances.reduce((acc, d) => acc + (d.paidAmount || 0), 0);
     const totalRevenue = totalRegularRevenue + totalNuptialRevenue;
     const totalCosts = costs.reduce((acc, c) => acc + c.amount, 0);
+    const totalProfit = totalRevenue - totalCosts;
 
     // Payment Modal State
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -279,7 +281,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         { name: 'Ingresos', value: totalRevenue },
         { name: 'Costes', value: totalCosts },
     ];
-    const activeStudentsCount = students.filter(s => s.active).length;
+    
     const studentStatusData = [
         { name: 'Activos', value: activeStudentsCount },
         { name: 'Inactivos', value: students.length - activeStudentsCount },
@@ -474,7 +476,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             
             {/* KPI CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-                <StatCard title="Total Alumnos" value={totalStudents} color="blue" onClick={() => setView(View.STUDENTS)}>
+                <StatCard title="Alumnos Activos" value={activeStudentsCount} color="blue" onClick={() => setView(View.STUDENTS)}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                 </StatCard>
                 <StatCard title="Nuevos (Mes)" value={newStudentsCount} subtext="Crecimiento mensual" color="green">
@@ -483,7 +485,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                  <StatCard title="Ocupación Global" value={`${occupancyRate}%`} subtext="Capacidad utilizada" color="pink">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                 </StatCard>
-                <StatCard title="Ingresos Totales" value={`€${totalRevenue.toLocaleString('es-ES', { notation: "compact" })}`} color="purple" onClick={() => setView(View.BILLING)}>
+                <StatCard title="Beneficio Total" value={`€${totalProfit.toLocaleString('es-ES', { notation: "compact" })}`} color={totalProfit >= 0 ? "purple" : "red"} onClick={() => setView(View.BILLING)}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>
                 </StatCard>
                 <StatCard title="Pendiente Cobro" value={`€${totalPendingAmount.toLocaleString('es-ES')}`} color="red">
