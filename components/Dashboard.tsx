@@ -353,11 +353,17 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         // 3. Prepare Teacher Payments Map
         // Group teacher costs by beneficiary (name) normalized
         const teacherCostsMap: Record<string, number> = {};
+        const teacherCostsById: Record<string, number> = {}; // New map for ID based
+
         currentMonthCosts
             .filter(c => c.category === 'Profesores')
             .forEach(c => {
-                const name = c.beneficiary.trim().toLowerCase();
-                teacherCostsMap[name] = (teacherCostsMap[name] || 0) + c.amount;
+                if (c.relatedInstructorId) {
+                     teacherCostsById[c.relatedInstructorId] = (teacherCostsById[c.relatedInstructorId] || 0) + c.amount;
+                } else {
+                    const name = c.beneficiary.trim().toLowerCase();
+                    teacherCostsMap[name] = (teacherCostsMap[name] || 0) + c.amount;
+                }
             });
 
         // 4. Initialize Class Data Structure
@@ -394,8 +400,13 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             let directCost = 0;
             
             if (instructor) {
+                // Try ID first
+                let totalPaidToInstructor = teacherCostsById[instructor.id] || 0;
+                
+                // Then try name match if no ID match (or add them if both exist?)
+                // Assuming instructor might have some old costs by name and new ones by ID.
                 const normalizedName = instructor.name.trim().toLowerCase();
-                const totalPaidToInstructor = teacherCostsMap[normalizedName] || 0;
+                totalPaidToInstructor += teacherCostsMap[normalizedName] || 0;
                 
                 // Count how many classes this instructor teaches
                 const numClassesTaught = classes.filter(c => c.instructorId === instructor.id).length || 1;

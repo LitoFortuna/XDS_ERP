@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale } from './types';
 import Sidebar from './components/Sidebar';
@@ -300,56 +299,57 @@ const App: React.FC = () => {
                 return <Billing 
                     payments={payments} 
                     costs={costs} 
-                    students={students} 
+                    students={students}
                     classes={classes}
                     merchandiseSales={merchandiseSales}
-                    addPayment={addPayment} 
+                    instructors={instructors}
+                    addPayment={addPayment}
                     updatePayment={updatePayment}
                     deletePayment={deletePayment}
-                    addCost={addCost} 
-                    updateCost={updateCost} 
-                    deleteCost={deleteCost} 
+                    addCost={addCost}
+                    updateCost={updateCost}
+                    deleteCost={deleteCost}
                     updateStudent={updateStudent}
                 />;
             case View.QUARTERLY_INVOICING:
                 return <QuarterlyInvoicing 
-                            payments={payments}
-                            students={students}
-                            classes={classes}
-                            merchandiseSales={merchandiseSales}
-                        />;
+                    payments={payments} 
+                    students={students} 
+                    classes={classes} 
+                    merchandiseSales={merchandiseSales} 
+                />;
             case View.MERCHANDISING:
                 return <Merchandising 
-                            items={merchandiseItems}
-                            sales={merchandiseSales}
-                            students={students}
-                            addItem={addMerchandiseItem}
-                            updateItem={updateMerchandiseItem}
-                            deleteItem={deleteMerchandiseItem}
-                            addSale={addMerchandiseSale}
-                            deleteSale={deleteMerchandiseSale}
-                        />;
+                    items={merchandiseItems} 
+                    sales={merchandiseSales} 
+                    students={students} 
+                    addItem={addMerchandiseItem} 
+                    updateItem={updateMerchandiseItem} 
+                    deleteItem={deleteMerchandiseItem} 
+                    addSale={addMerchandiseSale} 
+                    deleteSale={deleteMerchandiseSale} 
+                />;
             case View.NUPTIAL_DANCES:
                 return <NuptialDances 
-                            nuptialDances={nuptialDances}
-                            instructors={instructors}
-                            addNuptialDance={addNuptialDance}
-                            updateNuptialDance={updateNuptialDance}
-                            deleteNuptialDance={deleteNuptialDance}
-                        />;
+                    nuptialDances={nuptialDances} 
+                    instructors={instructors} 
+                    addNuptialDance={addNuptialDance} 
+                    updateNuptialDance={updateNuptialDance} 
+                    deleteNuptialDance={deleteNuptialDance} 
+                />;
             case View.DATA_MANAGEMENT:
                 return <DataManagement 
-                            students={students}
-                            instructors={instructors}
-                            classes={classes}
-                            merchandiseItems={merchandiseItems}
-                            batchAddStudents={batchAddStudents} 
-                            batchAddInstructors={batchAddInstructors}
-                            batchAddClasses={batchAddClasses}
-                            batchAddPayments={batchAddPayments}
-                            batchAddCosts={batchAddCosts}
-                            batchAddMerchandiseItems={batchAddMerchandiseItems}
-                        />;
+                    students={students} 
+                    instructors={instructors} 
+                    classes={classes} 
+                    merchandiseItems={merchandiseItems} 
+                    batchAddStudents={batchAddStudents} 
+                    batchAddInstructors={batchAddInstructors} 
+                    batchAddClasses={batchAddClasses} 
+                    batchAddPayments={batchAddPayments} 
+                    batchAddCosts={batchAddCosts} 
+                    batchAddMerchandiseItems={batchAddMerchandiseItems} 
+                />;
             default:
                 return <Dashboard 
                             students={students} 
@@ -358,24 +358,25 @@ const App: React.FC = () => {
                             payments={payments} 
                             costs={costs} 
                             nuptialDances={nuptialDances}
-                            setView={setCurrentView}
+                            setView={setCurrentView} 
                             addPayment={addPayment}
                         />;
         }
     };
 
     return (
-        <div className="relative min-h-screen lg:flex font-sans">
+        <div className="flex h-screen bg-gray-900 text-gray-100 font-sans overflow-hidden">
             <Sidebar 
                 currentView={currentView} 
                 setView={setCurrentView} 
-                isOpen={isSidebarOpen}
-                setIsOpen={setSidebarOpen}
+                isOpen={isSidebarOpen} 
+                setIsOpen={setSidebarOpen} 
                 onLogout={handleLogout}
             />
-            <div className="flex-1 flex flex-col min-w-0">
+            
+            <div className="flex-1 flex flex-col overflow-hidden relative">
                 <Header setIsOpen={setSidebarOpen} />
-                <main className="flex-1 overflow-y-auto">
+                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-900 custom-scrollbar relative">
                     {renderView()}
                 </main>
             </div>
