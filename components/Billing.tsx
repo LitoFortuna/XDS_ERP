@@ -417,26 +417,30 @@ const CostForm: React.FC<{
     useEffect(() => {
         if (!formData.paymentDate) return;
         
-        // Generate next 11 months based on selected payment date
-        const baseDate = new Date(formData.paymentDate);
-        const dates = [];
-        for (let i = 1; i <= 11; i++) {
-            const nextDate = new Date(baseDate);
-            nextDate.setMonth(baseDate.getMonth() + i);
-            
-            // Handle edge cases (e.g., Jan 31 -> Feb 28)
-            if (nextDate.getDate() !== baseDate.getDate()) {
-                 nextDate.setDate(0); 
+        try {
+            // Generate next 11 months based on selected payment date
+            const baseDate = new Date(formData.paymentDate);
+            if (isNaN(baseDate.getTime())) return; // Avoid invalid dates
+
+            const dates = [];
+            for (let i = 1; i <= 11; i++) {
+                const nextDate = new Date(baseDate);
+                nextDate.setMonth(baseDate.getMonth() + i);
+                
+                // Handle edge cases (e.g., Jan 31 -> Feb 28)
+                if (nextDate.getDate() !== baseDate.getDate()) {
+                     nextDate.setDate(0); 
+                }
+                
+                const dateStr = nextDate.toISOString().split('T')[0];
+                const label = nextDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric', day: 'numeric' });
+                dates.push({ date: dateStr, label });
             }
-            
-            const dateStr = nextDate.toISOString().split('T')[0];
-            const label = nextDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric', day: 'numeric' });
-            dates.push({ date: dateStr, label });
+            setFutureDates(dates);
+            setSelectedRecurringDates(new Set());
+        } catch (e) {
+            console.error("Error generating dates:", e);
         }
-        setFutureDates(dates);
-        // Clear selection if date changes drastically to avoid confusion, or keep intersection? 
-        // Clearing is safer.
-        setSelectedRecurringDates(new Set());
     }, [formData.paymentDate]);
 
     const toggleRecurringDate = (date: string) => {
@@ -465,7 +469,7 @@ const CostForm: React.FC<{
     // Auto-fill beneficiary if instructor is selected
     const handleInstructorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const instructorId = e.target.value;
-        const selectedInstructor = instructors.find(i => i.id === instructorId);
+        const selectedInstructor = (instructors || []).find(i => i.id === instructorId);
         setFormData(prev => ({
             ...prev,
             relatedInstructorId: instructorId,
@@ -505,7 +509,7 @@ const CostForm: React.FC<{
     };
 
     const sortedInstructors = useMemo(() => 
-        [...instructors].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+        [...(instructors || [])].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
     [instructors]);
 
     return (
