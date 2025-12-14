@@ -111,57 +111,85 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         document.body.removeChild(link);
     };
 
-    const handleExportReport = () => {
-        if (!selectedClassId) {
-            alert("Por favor, selecciona una clase primero para exportar su historial.");
-            return;
-        }
-
+    // Exportación Específica (Matriz de una clase)
+    const handleExportSpecificClass = () => {
+        if (!selectedClassId) return;
         const selectedClass = classes.find(c => c.id === selectedClassId);
         if (!selectedClass) return;
 
-        // 1. Get all dates recorded for this class, sorted chronologically
         const classRecords = attendanceRecords
             .filter(r => r.classId === selectedClassId)
             .sort((a, b) => a.date.localeCompare(b.date));
 
         if (classRecords.length === 0) {
-            alert("No hay registros de asistencia para esta clase todavía.");
+            alert("No hay registros para esta clase.");
             return;
         }
 
-        // 2. Prepare Header Row
-        const headers = ['Alumno', ...classRecords.map(r => new Date(r.date).toLocaleDateString('es-ES')), 'Total Asistencias', '% Asistencia'];
-
-        // 3. Prepare Data Rows
+        const headers = ['Alumno', ...classRecords.map(r => new Date(r.date).toLocaleDateString('es-ES')), 'Total', '%'];
         const rows = enrolledStudents.map(student => {
             let presentCount = 0;
-            
-            // Build attendance cells for each date
             const dateCells = classRecords.map(record => {
                 const isPresent = record.presentStudentIds.includes(student.id);
                 if (isPresent) presentCount++;
                 return isPresent ? 'P' : '-';
             });
-
             const totalDates = classRecords.length;
             const percentage = totalDates > 0 ? Math.round((presentCount / totalDates) * 100) : 0;
-
-            return [
-                student.name,
-                ...dateCells,
-                String(presentCount),
-                `${percentage}%`
-            ];
+            return [student.name, ...dateCells, String(presentCount), `${percentage}%`];
         });
 
-        // 4. Construct CSV
+        const csvContent = [headers.map(sanitizeCSVCell).join(';'), ...rows.map(row => row.map(sanitizeCSVCell).join(';'))].join('\n');
+        downloadCSV(csvContent, `Asistencia_${selectedClass.name.replace(/\s+/g, '_')}.csv`);
+    };
+
+    // Exportación Global (Listado completo detallado)
+    const handleExportGlobal = () => {
+        if (attendanceRecords.length === 0) {
+            alert("No hay registros de asistencia en el sistema.");
+            return;
+        }
+
+        const headers = ['Fecha', 'Clase', 'Alumno', 'Estado', 'Notas Sesión'];
+        const rows: string[][] = [];
+
+        // Ordenar registros por fecha descendente
+        const sortedRecords = [...attendanceRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        sortedRecords.forEach(record => {
+            const classObj = classes.find(c => c.id === record.classId);
+            if (!classObj) return;
+
+            // Obtenemos los alumnos que DEBERÍAN estar (inscritos actualmente) + los que estuvieran marcados (por si se desinscribieron)
+            const enrolledInClass = students.filter(s => s.enrolledClassIds.includes(record.classId));
+            
+            // Creamos un Set con todos los IDs relevantes para esta sesión (Inscritos + Presentes históricos)
+            const allRelevantStudentIds = new Set([
+                ...enrolledInClass.map(s => s.id),
+                ...record.presentStudentIds
+            ]);
+
+            allRelevantStudentIds.forEach(studentId => {
+                const student = students.find(s => s.id === studentId);
+                const studentName = student ? student.name : 'Alumno Eliminado';
+                const isPresent = record.presentStudentIds.includes(studentId);
+
+                rows.push([
+                    new Date(record.date).toLocaleDateString('es-ES'),
+                    classObj.name,
+                    studentName,
+                    isPresent ? 'Presente' : 'Ausente',
+                    record.notes || ''
+                ]);
+            });
+        });
+
         const csvContent = [
             headers.map(sanitizeCSVCell).join(';'),
             ...rows.map(row => row.map(sanitizeCSVCell).join(';'))
         ].join('\n');
 
-        downloadCSV(csvContent, `Asistencia_${selectedClass.name.replace(/\s+/g, '_')}.csv`);
+        downloadCSV(csvContent, `Asistencia_GLOBAL_${new Date().toISOString().split('T')[0]}.csv`);
     };
 
     // Calculate stats for current view
@@ -172,17 +200,31 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         <div className="p-4 sm:p-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h2 className="text-3xl font-bold text-white">Control de Asistencia</h2>
-                {selectedClassId && (
+                
+                <div className="flex gap-2">
+                    {selectedClassId && (
+                        <button 
+                            onClick={handleExportSpecificClass}
+                            className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-md flex items-center transition-colors shadow-sm text-sm"
+                            title="Exportar matriz de la clase seleccionada"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Exportar Clase
+                        </button>
+                    )}
                     <button 
-                        onClick={handleExportReport}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center transition-colors shadow-sm"
+                        onClick={handleExportGlobal}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center transition-colors shadow-sm text-sm"
+                        title="Exportar listado completo de todas las clases y fechas"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Exportar Historial
+                        Exportar Global
                     </button>
-                )}
+                </div>
             </div>
 
             {/* CONTROLS */}
