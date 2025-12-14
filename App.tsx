@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale } from './types';
 import Sidebar from './components/Sidebar';
@@ -13,6 +14,7 @@ import DataManagement from './components/DataManagement';
 import Merchandising from './components/Merchandising';
 import QuarterlyInvoicing from './components/QuarterlyInvoicing';
 import Login from './components/Login';
+import Modal from './components/Modal'; // Import Modal
 import { auth } from './src/config/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import {
@@ -79,6 +81,11 @@ const App: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [dataLoading, setDataLoading] = useState(true);
     
+    // Birthday Notification State
+    const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
+    const [birthdaysToday, setBirthdaysToday] = useState<Student[]>([]);
+    const [hasCheckedBirthdays, setHasCheckedBirthdays] = useState(false);
+
     // Data State
     const [students, setStudents] = useState<Student[]>([]);
     const [instructors, setInstructors] = useState<Instructor[]>([]);
@@ -95,7 +102,10 @@ const App: React.FC = () => {
             setUser(currentUser);
             setAuthLoading(false);
             // Reset loading when user logs out so it spins again on next login
-            if (!currentUser) setDataLoading(true);
+            if (!currentUser) {
+                setDataLoading(true);
+                setHasCheckedBirthdays(false); // Reset check on logout
+            }
         });
         return () => unsubscribe();
     }, []);
@@ -125,6 +135,27 @@ const App: React.FC = () => {
           clearTimeout(timer);
         };
     }, [user]);
+
+    // 3. Check for Birthdays on Load
+    useEffect(() => {
+        if (!dataLoading && students.length > 0 && !hasCheckedBirthdays) {
+            const today = new Date();
+            const todayMonth = today.getMonth();
+            const todayDay = today.getDate();
+
+            const todayBirthdays = students.filter(s => {
+                if (!s.active || !s.birthDate) return false;
+                const dob = new Date(s.birthDate);
+                return dob.getDate() === todayDay && dob.getMonth() === todayMonth;
+            });
+
+            if (todayBirthdays.length > 0) {
+                setBirthdaysToday(todayBirthdays);
+                setIsBirthdayModalOpen(true);
+            }
+            setHasCheckedBirthdays(true);
+        }
+    }, [dataLoading, students, hasCheckedBirthdays]);
 
     // Student Handlers
     const addStudent = async (student: Omit<Student, 'id'>) => {
@@ -388,6 +419,48 @@ const App: React.FC = () => {
                     {renderView()}
                 </main>
             </div>
+
+            {/* NOTIFICACIÓN DE CUMPLEAÑOS */}
+            <Modal 
+                isOpen={isBirthdayModalOpen} 
+                onClose={() => setIsBirthdayModalOpen(false)} 
+                title="🎉 ¡Cumpleaños de Hoy! 🎂"
+            >
+                <div className="text-center p-4">
+                    <p className="mb-6 text-lg text-gray-300">
+                        Hoy es un día especial para {birthdaysToday.length} {birthdaysToday.length === 1 ? 'alumna' : 'alumnas'}.
+                        <br />¡No olvides felicitarlas!
+                    </p>
+                    <div className="bg-purple-900/30 rounded-xl p-4 border border-purple-500/30">
+                        <ul className="space-y-3">
+                            {birthdaysToday.map(s => {
+                                const age = s.birthDate ? new Date().getFullYear() - new Date(s.birthDate).getFullYear() : '?';
+                                return (
+                                    <li key={s.id} className="flex items-center justify-between text-white p-2 rounded hover:bg-white/5 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold">
+                                                {s.name.charAt(0)}
+                                            </div>
+                                            <span className="font-semibold text-lg">{s.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-purple-300 font-mono bg-purple-500/10 px-2 py-1 rounded">{age} años</span>
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                    <div className="mt-8 flex justify-center">
+                        <button 
+                            onClick={() => setIsBirthdayModalOpen(false)}
+                            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-2 px-8 rounded-full shadow-lg transform transition hover:scale-105"
+                        >
+                            ¡Entendido! 🎉
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };
