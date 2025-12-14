@@ -24,6 +24,7 @@ export const StudentForm: React.FC<{
 }> = ({ student, classes, merchandiseSales, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: student?.name || '',
+    dni: student?.dni || '',
     email: student?.email || '',
     phone: student?.phone || '',
     birthDate: student?.birthDate || '',
@@ -95,6 +96,10 @@ export const StudentForm: React.FC<{
             <input type="text" name="name" value={formData.name} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
         </div>
         <div>
+            <label className="block text-sm font-medium text-gray-300">DNI (Opcional)</label>
+            <input type="text" name="dni" value={formData.dni} onChange={handleChange} placeholder="12345678X" className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
+        </div>
+        <div>
             <label className="block text-sm font-medium text-gray-300">Fecha de Alta</label>
             <input type="date" name="enrollmentDate" value={formData.enrollmentDate} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
         </div>
@@ -104,16 +109,16 @@ export const StudentForm: React.FC<{
             <p className="text-xs text-gray-400 mt-1">Al poner fecha, se marcará como Inactivo.</p>
         </div>
         <div>
-            <label className="block text-sm font-medium text-gray-300">Fecha de Nacimiento</label>
-            <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
+            <label className="block text-sm font-medium text-gray-300">Fecha de Nacimiento (Opcional)</label>
+            <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
         </div>
         <div>
-            <label className="block text-sm font-medium text-gray-300">Teléfono</label>
-            <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
+            <label className="block text-sm font-medium text-gray-300">Teléfono (Opcional)</label>
+            <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
         </div>
         <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-300">Email</label>
-            <input type="email" name="email" value={formData.email} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
+            <label className="block text-sm font-medium text-gray-300">Email (Opcional)</label>
+            <input type="email" name="email" value={formData.email} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-300">Clases Inscritas</label>
@@ -303,17 +308,18 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
 
   const handleExportCSV = () => {
     const headers = [
-      'Nombre', 'Fecha de Alta', 'Fecha de Baja', 'Fecha de Nacimiento', 'Teléfono', 'Email', 
+      'Nombre', 'DNI', 'Fecha de Alta', 'Fecha de Baja', 'Fecha de Nacimiento', 'Teléfono', 'Email', 
       'Clases Inscritas', 'Cuota Mensual (€)', 'Forma de Pago', 'IBAN', 'Activo', 'Observaciones'
     ];
     
     const dataToExport = sortedAndFilteredStudents.map(student => ([
       student.name,
+      student.dni || '',
       new Date(student.enrollmentDate).toLocaleDateString('es-ES'),
       student.deactivationDate ? new Date(student.deactivationDate).toLocaleDateString('es-ES') : '',
-      new Date(student.birthDate).toLocaleDateString('es-ES'),
-      student.phone,
-      student.email,
+      student.birthDate ? new Date(student.birthDate).toLocaleDateString('es-ES') : '',
+      student.phone || '',
+      student.email || '',
       getEnrolledClassNames(student.enrolledClassIds),
       student.monthlyFee.toFixed(2),
       student.paymentMethod,
@@ -413,7 +419,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
               <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                 <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
                 <td className="px-6 py-4">{new Date(student.enrollmentDate).toLocaleDateString('es-ES')}</td>
-                <td className="px-6 py-4">{student.phone}</td>
+                <td className="px-6 py-4">{student.phone || '-'}</td>
                 <td className="px-6 py-4">{getEnrolledClassNames(student.enrolledClassIds)}</td>
                 <td className="px-6 py-4">€{student.monthlyFee.toFixed(2)}</td>
                 <td className="px-6 py-4">{student.paymentMethod}</td>

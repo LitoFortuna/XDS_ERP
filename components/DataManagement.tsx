@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem } from '../types';
 
@@ -131,7 +132,11 @@ const DataManagement: React.FC<DataManagementProps> = ({
     
     const convertDateToISO = (dateStr: string): string => {
         if (!dateStr || !/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
-            throw new Error(`Formato de fecha inválido: "${dateStr}". Se esperaba DD-MM-YYYY.`);
+            // Allow empty dates if field is optional in some contexts, but here we expect ISO format conversion 
+            // If empty string comes in and it's optional, handle it outside or return empty string?
+            // Current logic throws error, which is safer for required fields.
+            // For optional fields, we check before calling this function.
+             throw new Error(`Formato de fecha inválido: "${dateStr}". Se esperaba DD-MM-YYYY.`);
         }
         const [day, month, year] = dateStr.split('-');
         return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
@@ -148,6 +153,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
     // --- Cabeceras de las plantillas con ayudas ---
     const studentHeaders = [
         'Nombre Completo',
+        'DNI',
         'Fecha de Alta (formato: DD-MM-YYYY)',
         'Fecha de Nacimiento (formato: DD-MM-YYYY)',
         'Teléfono',
@@ -216,21 +222,22 @@ const DataManagement: React.FC<DataManagementProps> = ({
     // --- Lógica de importación ---
     const handleStudentImport = async (data: string[][]) => {
         const newStudents: Omit<Student, 'id'>[] = data.map(row => {
-            const classNames = row[10] ? row[10].split(';').map(s => s.trim()) : [];
+            const classNames = row[11] ? row[11].split(';').map(s => s.trim()) : [];
             const enrolledClassIds = classNames
                 .map(name => classes.find(c => c.name === name)?.id)
                 .filter((id): id is string => !!id);
             return {
                 name: row[0],
-                enrollmentDate: convertDateToISO(row[1]),
-                birthDate: convertDateToISO(row[2]),
-                phone: row[3],
-                email: row[4],
-                monthlyFee: parseFloat(row[5]) || 0,
-                paymentMethod: row[6] as PaymentMethod,
-                iban: row[7],
-                active: row[8].toLowerCase() === 'true',
-                notes: row[9],
+                dni: row[1],
+                enrollmentDate: convertDateToISO(row[2]),
+                birthDate: row[3] ? convertDateToISO(row[3]) : undefined,
+                phone: row[4],
+                email: row[5],
+                monthlyFee: parseFloat(row[6]) || 0,
+                paymentMethod: row[7] as PaymentMethod,
+                iban: row[8],
+                active: row[9].toLowerCase() === 'true',
+                notes: row[10],
                 enrolledClassIds: enrolledClassIds,
             };
         });

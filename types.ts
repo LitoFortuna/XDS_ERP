@@ -8,9 +8,10 @@ export interface Student {
   name: string;
   enrollmentDate: string; // YYYY-MM-DD
   deactivationDate?: string; // YYYY-MM-DD (Fecha de baja)
-  birthDate: string;
-  phone: string;
-  email: string;
+  birthDate?: string; // Made optional
+  phone?: string;     // Made optional
+  email?: string;     // Made optional
+  dni?: string;       // Added optional field
   enrolledClassIds: string[];
   monthlyFee: number;
   paymentMethod: PaymentMethod;
