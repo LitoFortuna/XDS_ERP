@@ -92,14 +92,98 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         setTimeout(() => setShowSuccess(false), 3000);
     };
 
-    // Calculate stats
+    // --- CSV EXPORT LOGIC ---
+    const sanitizeCSVCell = (cellData: any): string => {
+        const cellString = String(cellData ?? '');
+        if (/[";\n\r]/.test(cellString)) {
+            return `"${cellString.replace(/"/g, '""')}"`;
+        }
+        return cellString;
+    };
+
+    const downloadCSV = (csvContent: string, filename: string) => {
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportReport = () => {
+        if (!selectedClassId) {
+            alert("Por favor, selecciona una clase primero para exportar su historial.");
+            return;
+        }
+
+        const selectedClass = classes.find(c => c.id === selectedClassId);
+        if (!selectedClass) return;
+
+        // 1. Get all dates recorded for this class, sorted chronologically
+        const classRecords = attendanceRecords
+            .filter(r => r.classId === selectedClassId)
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        if (classRecords.length === 0) {
+            alert("No hay registros de asistencia para esta clase todavía.");
+            return;
+        }
+
+        // 2. Prepare Header Row
+        const headers = ['Alumno', ...classRecords.map(r => new Date(r.date).toLocaleDateString('es-ES')), 'Total Asistencias', '% Asistencia'];
+
+        // 3. Prepare Data Rows
+        const rows = enrolledStudents.map(student => {
+            let presentCount = 0;
+            
+            // Build attendance cells for each date
+            const dateCells = classRecords.map(record => {
+                const isPresent = record.presentStudentIds.includes(student.id);
+                if (isPresent) presentCount++;
+                return isPresent ? 'P' : '-';
+            });
+
+            const totalDates = classRecords.length;
+            const percentage = totalDates > 0 ? Math.round((presentCount / totalDates) * 100) : 0;
+
+            return [
+                student.name,
+                ...dateCells,
+                String(presentCount),
+                `${percentage}%`
+            ];
+        });
+
+        // 4. Construct CSV
+        const csvContent = [
+            headers.map(sanitizeCSVCell).join(';'),
+            ...rows.map(row => row.map(sanitizeCSVCell).join(';'))
+        ].join('\n');
+
+        downloadCSV(csvContent, `Asistencia_${selectedClass.name.replace(/\s+/g, '_')}.csv`);
+    };
+
+    // Calculate stats for current view
     const totalEnrolled = enrolledStudents.length;
     const totalPresent = presentStudentIds.size;
-    const percentage = totalEnrolled > 0 ? Math.round((totalPresent / totalEnrolled) * 100) : 0;
 
     return (
         <div className="p-4 sm:p-8">
-            <h2 className="text-3xl font-bold mb-6 text-white">Control de Asistencia</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h2 className="text-3xl font-bold text-white">Control de Asistencia</h2>
+                {selectedClassId && (
+                    <button 
+                        onClick={handleExportReport}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center transition-colors shadow-sm"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Exportar Historial
+                    </button>
+                )}
+            </div>
 
             {/* CONTROLS */}
             <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-8">
