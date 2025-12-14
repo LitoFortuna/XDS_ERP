@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { View } from '../types';
 import { DashboardIcon } from './icons/DashboardIcon';
@@ -10,6 +11,7 @@ import { DocumentTextIcon } from './icons/DocumentTextIcon';
 import { DatabaseIcon } from './icons/DatabaseIcon';
 import { HeartIcon } from './icons/HeartIcon';
 import { ShoppingBagIcon } from './icons/ShoppingBagIcon';
+import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
 
 interface SidebarProps {
   currentView: View;
@@ -22,6 +24,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOpen, onLogout }) => {
   const navItems = [
     { view: View.DASHBOARD, label: 'Dashboard', icon: DashboardIcon },
+    { view: View.ATTENDANCE, label: 'Asistencia', icon: ClipboardCheckIcon },
     { view: View.STUDENTS, label: 'Alumnos', icon: UsersIcon },
     { view: View.CLASSES, label: 'Clases', icon: BookIcon },
     { view: View.INSTRUCTORS, label: 'Profesores', icon: IdentificationIcon },

@@ -121,6 +121,14 @@ export interface MerchandiseSale {
   notes?: string;
 }
 
+export interface AttendanceRecord {
+  id: string;
+  classId: string;
+  date: string; // YYYY-MM-DD
+  presentStudentIds: string[]; // List of students present
+  notes?: string;
+}
+
 
 export enum View {
   DASHBOARD = 'DASHBOARD',
@@ -133,4 +141,5 @@ export enum View {
   INTERACTIVE_SCHEDULE = 'INTERACTIVE_SCHEDULE',
   NUPTIAL_DANCES = 'NUPTIAL_DANCES',
   DATA_MANAGEMENT = 'DATA_MANAGEMENT',
+  ATTENDANCE = 'ATTENDANCE',
 }

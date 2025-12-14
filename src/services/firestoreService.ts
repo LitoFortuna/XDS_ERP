@@ -13,7 +13,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale } from '../../types';
+import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale, AttendanceRecord } from '../../types';
 
 // --- Students ---
 
@@ -291,4 +291,27 @@ export const addMerchandiseSale = async (sale: Omit<MerchandiseSale, 'id'>) => {
 export const deleteMerchandiseSale = async (saleId: string) => {
   const saleDoc = doc(db, 'merchandiseSales', saleId);
   await deleteDoc(saleDoc);
+};
+
+// --- Attendance ---
+
+export const subscribeToAttendance = (callback: (records: AttendanceRecord[]) => void): Unsubscribe => {
+  const q = query(collection(db, 'attendance'), orderBy('date', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const records: AttendanceRecord[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as AttendanceRecord));
+    callback(records);
+  });
+};
+
+export const addAttendance = async (record: Omit<AttendanceRecord, 'id'>) => {
+  await addDoc(collection(db, 'attendance'), record);
+};
+
+export const updateAttendance = async (record: AttendanceRecord) => {
+  const { id, ...recordData } = record;
+  const recordDoc = doc(db, 'attendance', id);
+  await updateDoc(recordDoc, recordData);
 };

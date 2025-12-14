@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale } from './types';
+import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale, AttendanceRecord } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -13,6 +13,7 @@ import NuptialDances from './components/NuptialDances';
 import DataManagement from './components/DataManagement';
 import Merchandising from './components/Merchandising';
 import QuarterlyInvoicing from './components/QuarterlyInvoicing';
+import Attendance from './components/Attendance';
 import Login from './components/Login';
 import Modal from './components/Modal'; // Import Modal
 import { auth } from './src/config/firebase';
@@ -55,6 +56,9 @@ import {
     subscribeToMerchandiseSales,
     addMerchandiseSale as addMerchandiseSaleToDb,
     deleteMerchandiseSale as deleteMerchandiseSaleFromDb,
+    subscribeToAttendance,
+    addAttendance as addAttendanceToDb,
+    updateAttendance as updateAttendanceInDb,
 } from './src/services/firestoreService';
 
 // --- SATURN LOADER COMPONENT ---
@@ -95,6 +99,7 @@ const App: React.FC = () => {
     const [nuptialDances, setNuptialDances] = useState<NuptialDance[]>([]);
     const [merchandiseItems, setMerchandiseItems] = useState<MerchandiseItem[]>([]);
     const [merchandiseSales, setMerchandiseSales] = useState<MerchandiseSale[]>([]);
+    const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
 
     // 1. Check Authentication Status
     useEffect(() => {
@@ -123,6 +128,7 @@ const App: React.FC = () => {
             subscribeToNuptialDances(setNuptialDances),
             subscribeToMerchandiseItems(setMerchandiseItems),
             subscribeToMerchandiseSales(setMerchandiseSales),
+            subscribeToAttendance(setAttendanceRecords),
         ];
 
         // Fake minimum loading time for better UX
@@ -273,6 +279,15 @@ const App: React.FC = () => {
              await updateMerchandiseItemInDb({ ...itemSold, stock: itemSold.stock + sale.quantity });
         }
     };
+
+    // Attendance Handler
+    const saveAttendance = async (record: Omit<AttendanceRecord, 'id'> | AttendanceRecord) => {
+        if ('id' in record) {
+            await updateAttendanceInDb(record);
+        } else {
+            await addAttendanceToDb(record);
+        }
+    };
     
     const handleLogout = async () => {
         try {
@@ -326,6 +341,13 @@ const App: React.FC = () => {
                             setView={setCurrentView} 
                             addPayment={addPayment}
                         />;
+            case View.ATTENDANCE:
+                return <Attendance 
+                    students={students}
+                    classes={classes}
+                    attendanceRecords={attendanceRecords}
+                    onSaveAttendance={saveAttendance}
+                />;
             case View.STUDENTS:
                 return <StudentList students={students} classes={classes} merchandiseSales={merchandiseSales} addStudent={addStudent} updateStudent={updateStudent} deleteStudent={deleteStudent} />;
             case View.CLASSES:
