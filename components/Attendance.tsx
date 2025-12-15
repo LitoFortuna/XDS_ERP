@@ -150,7 +150,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
             return;
         }
 
-        const headers = ['Fecha', 'Clase', 'Alumno', 'Estado', 'Notas Sesión'];
+        const headers = ['Fecha', 'Clase', 'Alumno', 'Asistencia', 'Estado Alumno', 'Notas Sesión'];
         const rows: string[][] = [];
 
         // Ordenar registros por fecha descendente
@@ -172,6 +172,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
             allRelevantStudentIds.forEach(studentId => {
                 const student = students.find(s => s.id === studentId);
                 const studentName = student ? student.name : 'Alumno Eliminado';
+                const studentStatus = student ? (student.active ? 'Activo' : 'Inactivo') : 'Eliminado';
                 const isPresent = record.presentStudentIds.includes(studentId);
 
                 rows.push([
@@ -179,6 +180,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                     classObj.name,
                     studentName,
                     isPresent ? 'Presente' : 'Ausente',
+                    studentStatus,
                     record.notes || ''
                 ]);
             });

@@ -475,7 +475,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const daysArray = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
     const upcomingBirthdays = students
-      .filter(student => student.active && student.birthDate)
+      .filter(student => student.birthDate) // Modified: Removed student.active check to include inactive students
       .map(student => {
         const birthDate = new Date(student.birthDate!);
         const thisYearBirthday = new Date(birthDate.getTime());
@@ -531,7 +531,15 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             });
         });
 
-        return { name: student.name, phone: student.phone, birthday: thisYearBirthday, age, hasClassOnBirthday, nextClassInfo };
+        return { 
+            name: student.name, 
+            phone: student.phone, 
+            birthday: thisYearBirthday, 
+            age, 
+            hasClassOnBirthday, 
+            nextClassInfo, 
+            active: student.active // Include active status
+        };
       })
       .filter(b => {
         const sevenDaysFromNow = new Date(today);
@@ -881,7 +889,12 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                                     </svg>
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-white text-sm">{b.name}</p>
+                                                    <p className="font-medium text-white text-sm flex items-center">
+                                                        {b.name}
+                                                        <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded border ${b.active ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30'}`}>
+                                                            {b.active ? 'Activo' : 'Inactivo'}
+                                                        </span>
+                                                    </p>
                                                     <p className="text-xs text-gray-400">Cumple {b.age} años</p>
                                                 </div>
                                             </div>
@@ -891,7 +904,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                         </div>
                                         
                                         <div className="flex items-center justify-between border-t border-gray-600/30 pt-2 mt-1">
-                                            {b.nextClassInfo ? (
+                                            {b.nextClassInfo && b.active ? (
                                                 <div className="text-xs text-gray-300 flex items-center">
                                                     <span className="text-purple-400 mr-1">Próxima clase:</span>
                                                     <span>{b.nextClassInfo.day} {b.nextClassInfo.time} - {b.nextClassInfo.name}</span>
