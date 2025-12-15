@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, ReferenceLine } from 'recharts';
-import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance } from '../types';
+import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance, DayOfWeek } from '../types';
 import Modal from './Modal';
 import { PaymentForm } from './Billing';
 
@@ -180,6 +180,17 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         const monthsString = info.unpaidMonths.map(m => m.name).join(', ');
         const debtString = info.totalDebt.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
         const message = `¡Hola ${info.name}! Te escribimos desde Xen Dance Space para recordarte que tienes un pago pendiente de ${debtString} correspondiente a los meses de ${monthsString}. Puedes realizar el pago por los medios habituales. ¡Muchas gracias!`;
+        const whatsappUrl = `https://wa.me/${sanitizedPhone}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    };
+
+     const handleWhatsAppBirthday = (name: string, phone: string | undefined) => {
+        if (!phone) {
+            alert(`El alumno ${name} no tiene un número de teléfono registrado.`);
+            return;
+        }
+        const sanitizedPhone = `34${phone.replace(/[\s-()]/g, '')}`;
+        const message = `¡Felicidades ${name}! 🎂 Desde Xen Dance Space te deseamos un día espectacular lleno de baile y alegría. ¡Que pases un feliz cumpleaños! 🎉`;
         const whatsappUrl = `https://wa.me/${sanitizedPhone}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     };
@@ -454,22 +465,73 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 
     const COLORS_METHODS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
 
-    // --- Upcoming Birthdays ---
+    // --- Upcoming Birthdays Logic ---
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    const daysMap: { [key: string]: number } = {
+        'Domingo': 0, 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6
+    };
+    const daysArray = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
     const upcomingBirthdays = students
       .filter(student => student.active && student.birthDate)
       .map(student => {
-        const birthDate = new Date(student.birthDate);
+        const birthDate = new Date(student.birthDate!);
         const thisYearBirthday = new Date(birthDate.getTime());
         thisYearBirthday.setFullYear(today.getFullYear());
         thisYearBirthday.setHours(0,0,0,0);
+        
         if (thisYearBirthday < today) {
           thisYearBirthday.setFullYear(today.getFullYear() + 1);
         }
+        
         const age = thisYearBirthday.getFullYear() - birthDate.getFullYear();
-        return { name: student.name, birthday: thisYearBirthday, age };
+
+        // New Logic: Check if they have class ON their birthday
+        const birthdayDayIndex = thisYearBirthday.getDay(); // 0-6
+        const birthdayDayName = daysArray[birthdayDayIndex];
+        
+        const enrolledClasses = classes.filter(c => student.enrolledClassIds.includes(c.id));
+        const hasClassOnBirthday = enrolledClasses.some(c => c.days.includes(birthdayDayName as DayOfWeek));
+
+        // Logic: Find the NEXT class (closest to today)
+        let nextClassInfo: { name: string, day: string, time: string, daysUntil: number } | null = null;
+        let minDiff = Infinity;
+
+        enrolledClasses.forEach(cls => {
+            cls.days.forEach(dayStr => {
+                const targetDayIndex = daysMap[dayStr];
+                if (targetDayIndex !== undefined) {
+                    const currentDayIndex = today.getDay();
+                    let diff = targetDayIndex - currentDayIndex;
+                    if (diff < 0) diff += 7; // Next week
+                    // If diff is 0, we assume it's today (upcoming if simpler, or check time if strict. Keeping simple: same day counts).
+                    
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        nextClassInfo = {
+                            name: cls.name,
+                            day: dayStr,
+                            time: cls.startTime,
+                            daysUntil: diff
+                        };
+                    } else if (diff === minDiff) {
+                        // Tie-breaker: earlier time
+                        if (nextClassInfo && cls.startTime < nextClassInfo.time) {
+                             nextClassInfo = {
+                                name: cls.name,
+                                day: dayStr,
+                                time: cls.startTime,
+                                daysUntil: diff
+                            };
+                        }
+                    }
+                }
+            });
+        });
+
+        return { name: student.name, phone: student.phone, birthday: thisYearBirthday, age, hasClassOnBirthday, nextClassInfo };
       })
       .filter(b => {
         const sevenDaysFromNow = new Date(today);
@@ -810,21 +872,46 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         {upcomingBirthdays.length > 0 ? (
                             <ul className="space-y-3">
                                 {upcomingBirthdays.map((b, index) => (
-                                    <li key={index} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-xl border border-gray-700/50 hover:bg-gray-700/50 transition-colors shadow-sm">
-                                        <div className="flex items-center">
-                                            <div className="bg-purple-500/20 text-purple-400 rounded-full p-2 mr-3 shadow-inner">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M6 3a1 1 0 011-1h.01a1 1 0 010 2H7a1 1 0 01-1-1zm2 3a1 1 0 00-2 0v1a2 2 0 002 0V6zm-5 5a1 1 0 011-1h2a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1zm10 0a1 1 0 011-1h2a1 1 0 011 1v1a1 1 0 01-1 1h-2a1 1 0 01-1-1v-1zM6 15a1 1 0 00-2 0v1a2 2 0 002 0v-1z" clipRule="evenodd" />
-                                                </svg>
+                                    <li key={index} className="flex flex-col p-3 bg-gray-700/30 rounded-xl border border-gray-700/50 hover:bg-gray-700/50 transition-colors shadow-sm">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center">
+                                                <div className="bg-purple-500/20 text-purple-400 rounded-full p-2 mr-3 shadow-inner">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M6 3a1 1 0 011-1h.01a1 1 0 010 2H7a1 1 0 01-1-1zm2 3a1 1 0 00-2 0v1a2 2 0 002 0V6zm-5 5a1 1 0 011-1h2a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1zm10 0a1 1 0 011-1h2a1 1 0 011 1v1a1 1 0 01-1 1h-2a1 1 0 01-1-1v-1zM6 15a1 1 0 00-2 0v1a2 2 0 002 0v-1z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-white text-sm">{b.name}</p>
+                                                    <p className="text-xs text-gray-400">Cumple {b.age} años</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-medium text-white text-sm">{b.name}</p>
-                                                <p className="text-xs text-gray-400">Cumple {b.age} años</p>
-                                            </div>
+                                            <span className="text-xs font-semibold text-purple-300 capitalize bg-purple-500/10 px-2 py-1 rounded-lg">
+                                                {new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(b.birthday)}
+                                            </span>
                                         </div>
-                                        <span className="text-xs font-semibold text-purple-300 capitalize bg-purple-500/10 px-2 py-1 rounded-lg">
-                                            {new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(b.birthday)}
-                                        </span>
+                                        
+                                        <div className="flex items-center justify-between border-t border-gray-600/30 pt-2 mt-1">
+                                            {b.nextClassInfo ? (
+                                                <div className="text-xs text-gray-300 flex items-center">
+                                                    <span className="text-purple-400 mr-1">Próxima clase:</span>
+                                                    <span>{b.nextClassInfo.day} {b.nextClassInfo.time} - {b.nextClassInfo.name}</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-gray-500">Sin clases próximas</span>
+                                            )}
+
+                                            {!b.hasClassOnBirthday && b.daysUntil === 0 && (
+                                                <button 
+                                                    onClick={() => handleWhatsAppBirthday(b.name, b.phone)}
+                                                    className="bg-green-600 hover:bg-green-500 text-white p-1.5 rounded-full transition-colors shadow-lg"
+                                                    title="Enviar felicitación por WhatsApp"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                        <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+                                                    </svg>
+                                                </button>
+                                            )}
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -917,4 +1004,3 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 };
 
 export default Dashboard;
-    
