@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory } from '../types';
 import Modal from './Modal';
@@ -108,7 +109,7 @@ export const ClassForm: React.FC<{
             <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-300">Día(s)</label>
                 <select multiple name="days" value={formData.days} onChange={handleChange} className="mt-1 block w-full h-24 bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
-                    {(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'] as DayOfWeek[]).map(day => <option key={day} value={day}>{day}</option>)}
+                    {(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'] as DayOfWeek[]).map(day => <option key={day} value={day}>{day}</option>)}
                 </select>
             </div>
             <div>
