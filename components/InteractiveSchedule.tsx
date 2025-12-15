@@ -216,7 +216,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                                                 
                                                 {!isShortClass && (
                                                     <div className="mt-1 flex items-center justify-between text-[10px] opacity-90">
-                                                        <span>{c.startTime}</span>
+                                                        <span>{c.startTime} - {c.endTime}</span>
                                                         {instructors.find(i => i.id === c.instructorId) && (
                                                             <span className="truncate max-w-[60px] text-right">
                                                                 {instructors.find(i => i.id === c.instructorId)?.name.split(' ')[0]}
@@ -226,7 +226,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                                                 )}
                                                 {isShortClass && (
                                                      <div className="flex justify-between items-center mt-0.5">
-                                                        <span className="text-[9px] opacity-80">{c.startTime}</span>
+                                                        <span className="text-[9px] opacity-80">{c.startTime}-{c.endTime}</span>
                                                         <span className="text-[9px] font-mono bg-black/20 px-1 rounded">{enrolledCount}</span>
                                                      </div>
                                                 )}
