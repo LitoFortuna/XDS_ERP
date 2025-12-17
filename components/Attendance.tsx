@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { DanceClass, Student, AttendanceRecord } from '../types';
+import { DanceClass, Student, AttendanceRecord, DayOfWeek } from '../types';
 
 interface AttendanceProps {
     students: Student[];
@@ -18,10 +18,29 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
     const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
     const [showSuccess, setShowSuccess] = useState(false);
 
-    // Filter classes to show in dropdown (sort by name)
-    const sortedClasses = useMemo(() => 
-        [...classes].sort((a, b) => a.name.localeCompare(b.name)), 
-    [classes]);
+    // Filter classes to show in dropdown (sort chronologically: Day -> Time)
+    const sortedClasses = useMemo(() => {
+        const dayMap: { [key: string]: number } = {
+            'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6, 'Domingo': 7
+        };
+
+        const getFirstDayValue = (days: DayOfWeek[]) => {
+            if (!days || days.length === 0) return 99;
+            // Returns the value of the earliest day the class is held
+            return Math.min(...days.map(d => dayMap[d] || 99));
+        };
+
+        return [...classes].sort((a, b) => {
+            const dayA = getFirstDayValue(a.days);
+            const dayB = getFirstDayValue(b.days);
+            
+            if (dayA !== dayB) {
+                return dayA - dayB;
+            }
+            // If starting on the same day (or strictly same day), sort by time
+            return a.startTime.localeCompare(b.startTime);
+        });
+    }, [classes]);
 
     // Get students enrolled in selected class
     const enrolledStudents = useMemo(() => {
