@@ -17,30 +17,43 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
     const [notes, setNotes] = useState('');
     const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [showAllClasses, setShowAllClasses] = useState(false);
 
-    // Filter classes to show in dropdown (sort chronologically: Day -> Time)
-    const sortedClasses = useMemo(() => {
+    // Get the day of the week for the selected date
+    const selectedDayName = useMemo(() => {
+        if (!selectedDate) return '';
+        // Add time to avoid timezone shifts to previous day
+        const date = new Date(selectedDate + 'T12:00:00');
+        const days: DayOfWeek[] = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        return days[date.getDay()];
+    }, [selectedDate]);
+
+    // Sorted classes logic: Mon -> Sun, then by Time
+    const sortedClassesList = useMemo(() => {
         const dayMap: { [key: string]: number } = {
             'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6, 'Domingo': 7
         };
 
         const getFirstDayValue = (days: DayOfWeek[]) => {
             if (!days || days.length === 0) return 99;
-            // Returns the value of the earliest day the class is held
             return Math.min(...days.map(d => dayMap[d] || 99));
         };
 
-        return [...classes].sort((a, b) => {
+        const list = [...classes].sort((a, b) => {
             const dayA = getFirstDayValue(a.days);
             const dayB = getFirstDayValue(b.days);
             
             if (dayA !== dayB) {
                 return dayA - dayB;
             }
-            // If starting on the same day (or strictly same day), sort by time
             return a.startTime.localeCompare(b.startTime);
         });
-    }, [classes]);
+
+        if (showAllClasses) return list;
+
+        // Filter by current selected day if not showing all
+        return list.filter(c => c.days.includes(selectedDayName as DayOfWeek));
+    }, [classes, showAllClasses, selectedDayName]);
 
     // Get students enrolled in selected class
     const enrolledStudents = useMemo(() => {
@@ -130,7 +143,6 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         document.body.removeChild(link);
     };
 
-    // Exportación Específica (Matriz de una clase)
     const handleExportSpecificClass = () => {
         if (!selectedClassId) return;
         const selectedClass = classes.find(c => c.id === selectedClassId);
@@ -162,7 +174,6 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         downloadCSV(csvContent, `Asistencia_${selectedClass.name.replace(/\s+/g, '_')}.csv`);
     };
 
-    // Exportación Global (Listado completo detallado)
     const handleExportGlobal = () => {
         if (attendanceRecords.length === 0) {
             alert("No hay registros de asistencia en el sistema.");
@@ -172,17 +183,13 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         const headers = ['Fecha', 'Clase', 'Alumno', 'Asistencia', 'Estado Alumno', 'Notas Sesión'];
         const rows: string[][] = [];
 
-        // Ordenar registros por fecha descendente
         const sortedRecords = [...attendanceRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         sortedRecords.forEach(record => {
             const classObj = classes.find(c => c.id === record.classId);
             if (!classObj) return;
 
-            // Obtenemos los alumnos que DEBERÍAN estar (inscritos actualmente) + los que estuvieran marcados (por si se desinscribieron)
             const enrolledInClass = students.filter(s => s.enrolledClassIds.includes(record.classId));
-            
-            // Creamos un Set con todos los IDs relevantes para esta sesión (Inscritos + Presentes históricos)
             const allRelevantStudentIds = new Set([
                 ...enrolledInClass.map(s => s.id),
                 ...record.presentStudentIds
@@ -213,7 +220,6 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         downloadCSV(csvContent, `Asistencia_GLOBAL_${new Date().toISOString().split('T')[0]}.csv`);
     };
 
-    // Calculate stats for current view
     const totalEnrolled = enrolledStudents.length;
     const totalPresent = presentStudentIds.size;
 
@@ -259,21 +265,36 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                             onChange={(e) => setSelectedDate(e.target.value)} 
                             className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         />
+                        <p className="text-xs text-gray-500 mt-2 font-medium uppercase tracking-wider">Hoy es {selectedDayName}</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Clase</label>
+                        <div className="flex justify-between items-center mb-2">
+                             <label className="block text-sm font-medium text-gray-300">Clase</label>
+                             <label className="flex items-center text-xs text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
+                                <input 
+                                    type="checkbox" 
+                                    checked={showAllClasses} 
+                                    onChange={(e) => setShowAllClasses(e.target.checked)}
+                                    className="mr-2 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                                />
+                                Mostrar todas las de la semana
+                             </label>
+                        </div>
                         <select 
                             value={selectedClassId} 
                             onChange={(e) => setSelectedClassId(e.target.value)} 
                             className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         >
-                            <option value="">-- Seleccionar Clase --</option>
-                            {sortedClasses.map(c => (
+                            <option value="">-- {sortedClassesList.length > 0 ? 'Seleccionar Clase' : 'No hay clases este día'} --</option>
+                            {sortedClassesList.map(c => (
                                 <option key={c.id} value={c.id}>
-                                    {c.name} ({c.days.join(', ')} {c.startTime})
+                                    [{c.days.join('/')}] {c.startTime} - {c.name}
                                 </option>
                             ))}
                         </select>
+                        {!showAllClasses && sortedClassesList.length === 0 && (
+                            <p className="text-xs text-orange-400 mt-2 italic">Pulsa "Mostrar todas" si la clase no es de hoy.</p>
+                        )}
                     </div>
                 </div>
             </div>
