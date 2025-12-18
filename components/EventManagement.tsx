@@ -171,6 +171,33 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
         }
     };
 
+    const handleExportParticipants = (event: DanceEvent) => {
+        const participantList = event.participantIds
+            .map(id => students.find(s => s.id === id))
+            .filter(Boolean)
+            .sort((a, b) => a!.name.localeCompare(b!.name));
+
+        if (participantList.length === 0) {
+            alert("No hay participantes para exportar.");
+            return;
+        }
+
+        const headers = ['Nombre', 'Teléfono', 'Email'];
+        const rows = participantList.map(s => [s!.name, s!.phone || '-', s!.email || '-']);
+        const csvContent = [
+            headers.join(';'),
+            ...rows.map(row => row.join(';'))
+        ].join('\n');
+
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', `Participantes_${event.name.replace(/\s+/g, '_')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const getTypeColor = (type: EventType) => {
         switch (type) {
             case 'Competición': return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
@@ -233,9 +260,15 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                                     </div>
                                 )}
                             </div>
-                            <div className="p-4 border-t border-gray-700 flex justify-end gap-3 bg-gray-750">
-                                <button onClick={() => handleOpenModal(event)} className="text-sm font-medium text-purple-400 hover:text-purple-300">Editar</button>
-                                <button onClick={() => handleDelete(event.id, event.name)} className="text-sm font-medium text-red-400 hover:text-red-300">Eliminar</button>
+                            <div className="p-4 border-t border-gray-700 flex justify-between items-center bg-gray-750">
+                                <button onClick={() => handleExportParticipants(event)} className="text-xs font-medium text-blue-400 hover:text-blue-300 flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    Lista
+                                </button>
+                                <div className="flex gap-3">
+                                    <button onClick={() => handleOpenModal(event)} className="text-sm font-medium text-purple-400 hover:text-purple-300">Editar</button>
+                                    <button onClick={() => handleDelete(event.id, event.name)} className="text-sm font-medium text-red-400 hover:text-red-300">Eliminar</button>
+                                </div>
                             </div>
                         </div>
                     ))
