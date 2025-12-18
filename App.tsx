@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale, AttendanceRecord } from './types';
+import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale, AttendanceRecord, DanceEvent } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -14,6 +14,7 @@ import DataManagement from './components/DataManagement';
 import Merchandising from './components/Merchandising';
 import QuarterlyInvoicing from './components/QuarterlyInvoicing';
 import Attendance from './components/Attendance';
+import EventManagement from './components/EventManagement';
 import Login from './components/Login';
 import Modal from './components/Modal'; // Import Modal
 import { auth } from './src/config/firebase';
@@ -59,6 +60,10 @@ import {
     subscribeToAttendance,
     addAttendance as addAttendanceToDb,
     updateAttendance as updateAttendanceInDb,
+    subscribeToEvents,
+    addEvent as addEventToDb,
+    updateEvent as updateEventInDb,
+    deleteEvent as deleteEventToDb,
 } from './src/services/firestoreService';
 
 // --- SATURN LOADER COMPONENT ---
@@ -100,6 +105,7 @@ const App: React.FC = () => {
     const [merchandiseItems, setMerchandiseItems] = useState<MerchandiseItem[]>([]);
     const [merchandiseSales, setMerchandiseSales] = useState<MerchandiseSale[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+    const [events, setEvents] = useState<DanceEvent[]>([]);
 
     // 1. Check Authentication Status
     useEffect(() => {
@@ -129,6 +135,7 @@ const App: React.FC = () => {
             subscribeToMerchandiseItems(setMerchandiseItems),
             subscribeToMerchandiseSales(setMerchandiseSales),
             subscribeToAttendance(setAttendanceRecords),
+            subscribeToEvents(setEvents),
         ];
 
         // Fake minimum loading time for better UX
@@ -288,6 +295,17 @@ const App: React.FC = () => {
             await addAttendanceToDb(record);
         }
     };
+
+    // Event Handlers
+    const addEvent = async (event: Omit<DanceEvent, 'id'>) => {
+        await addEventToDb(event);
+    };
+    const updateEvent = async (event: DanceEvent) => {
+        await updateEventInDb(event);
+    };
+    const deleteEvent = async (eventId: string) => {
+        await deleteEventToDb(eventId);
+    };
     
     const handleLogout = async () => {
         try {
@@ -356,6 +374,8 @@ const App: React.FC = () => {
                 return <InteractiveSchedule classes={classes} instructors={instructors} students={students} updateClass={updateClass} />;
             case View.INSTRUCTORS:
                 return <InstructorList instructors={instructors} classes={classes} addInstructor={addInstructor} updateInstructor={updateInstructor} deleteInstructor={deleteInstructor} />;
+            case View.EVENTS:
+                return <EventManagement events={events} students={students} addEvent={addEvent} updateEvent={updateEvent} deleteEvent={deleteEvent} />;
             case View.BILLING:
                 return <Billing 
                     payments={payments} 

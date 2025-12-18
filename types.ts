@@ -129,6 +129,19 @@ export interface AttendanceRecord {
   notes?: string;
 }
 
+export type EventType = 'Competición' | 'Exhibición' | 'Taller' | 'Otro';
+
+export interface DanceEvent {
+  id: string;
+  name: string;
+  type: EventType;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  location: string;
+  participantIds: string[];
+  price: number;
+  notes?: string;
+}
 
 export enum View {
   DASHBOARD = 'DASHBOARD',
@@ -142,4 +155,5 @@ export enum View {
   NUPTIAL_DANCES = 'NUPTIAL_DANCES',
   DATA_MANAGEMENT = 'DATA_MANAGEMENT',
   ATTENDANCE = 'ATTENDANCE',
+  EVENTS = 'EVENTS',
 }

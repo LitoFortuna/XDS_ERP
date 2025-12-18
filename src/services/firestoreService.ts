@@ -13,7 +13,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale, AttendanceRecord } from '../../types';
+import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale, AttendanceRecord, DanceEvent } from '../../types';
 
 // --- Students ---
 
@@ -314,4 +314,32 @@ export const updateAttendance = async (record: AttendanceRecord) => {
   const { id, ...recordData } = record;
   const recordDoc = doc(db, 'attendance', id);
   await updateDoc(recordDoc, recordData);
+};
+
+// --- Events ---
+
+export const subscribeToEvents = (callback: (events: DanceEvent[]) => void): Unsubscribe => {
+  const q = query(collection(db, 'events'), orderBy('date', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const events: DanceEvent[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as DanceEvent));
+    callback(events);
+  });
+};
+
+export const addEvent = async (event: Omit<DanceEvent, 'id'>) => {
+  await addDoc(collection(db, 'events'), event);
+};
+
+export const updateEvent = async (event: DanceEvent) => {
+  const { id, ...eventData } = event;
+  const eventDoc = doc(db, 'events', id);
+  await updateDoc(eventDoc, eventData);
+};
+
+export const deleteEvent = async (eventId: string) => {
+  const eventDoc = doc(db, 'events', eventId);
+  await deleteDoc(eventDoc);
 };

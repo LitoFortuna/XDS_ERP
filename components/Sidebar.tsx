@@ -12,6 +12,7 @@ import { DatabaseIcon } from './icons/DatabaseIcon';
 import { HeartIcon } from './icons/HeartIcon';
 import { ShoppingBagIcon } from './icons/ShoppingBagIcon';
 import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
+import { StarIcon } from './icons/StarIcon';
 
 interface SidebarProps {
   currentView: View;
@@ -31,6 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
     { view: View.CLASSES, label: 'Clases', icon: BookIcon },
     { view: View.INSTRUCTORS, label: 'Profesores', icon: IdentificationIcon },
     { view: View.INTERACTIVE_SCHEDULE, label: 'Horario', icon: CalendarIcon },
+    { view: View.EVENTS, label: 'Eventos', icon: StarIcon },
     { view: View.NUPTIAL_DANCES, label: 'Bailes Nupciales', icon: HeartIcon },
     { view: View.BILLING, label: 'Facturación', icon: CreditCardIcon },
     { view: View.QUARTERLY_INVOICING, label: 'Facturas Trim.', icon: DocumentTextIcon },
