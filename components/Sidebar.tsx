@@ -25,14 +25,15 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOpen, onLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // He movido 'Eventos' a la parte superior para que sea más visible
   const navItems = [
     { view: View.DASHBOARD, label: 'Dashboard', icon: DashboardIcon },
+    { view: View.EVENTS, label: 'Eventos', icon: StarIcon, isNew: true },
     { view: View.ATTENDANCE, label: 'Asistencia', icon: ClipboardCheckIcon },
     { view: View.STUDENTS, label: 'Alumnos', icon: UsersIcon },
     { view: View.CLASSES, label: 'Clases', icon: BookIcon },
     { view: View.INSTRUCTORS, label: 'Profesores', icon: IdentificationIcon },
     { view: View.INTERACTIVE_SCHEDULE, label: 'Horario', icon: CalendarIcon },
-    { view: View.EVENTS, label: 'Eventos', icon: StarIcon },
     { view: View.NUPTIAL_DANCES, label: 'Bailes Nupciales', icon: HeartIcon },
     { view: View.BILLING, label: 'Facturación', icon: CreditCardIcon },
     { view: View.QUARTERLY_INVOICING, label: 'Facturas Trim.', icon: DocumentTextIcon },
@@ -42,12 +43,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
 
   const handleNavItemClick = (view: View) => {
     setView(view);
-    setIsOpen(false); // Close sidebar on mobile after selection
+    setIsOpen(false); // Cierra el sidebar en móvil al seleccionar
   };
 
   return (
     <>
-      {/* Overlay for mobile */}
+      {/* Overlay para móvil */}
       <div
         className={`fixed inset-0 bg-black bg-opacity-60 z-20 lg:hidden transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsOpen(false)}
@@ -89,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
            </button>
         </div>
 
-        {/* Navigation */}
+        {/* Navegación */}
         <nav className="flex-1 px-2 py-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
           <ul>
             {navItems.map((item) => (
@@ -97,17 +98,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
                 <button
                   onClick={() => handleNavItemClick(item.view)}
                   title={isCollapsed ? item.label : ''}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'px-4'} py-2 my-1 rounded-md text-sm font-medium transition-all duration-150 ${
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'px-4'} py-2.5 my-1 rounded-lg text-sm font-semibold transition-all duration-150 ${
                     currentView === item.view
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      : 'text-gray-400 hover:bg-gray-700 hover:text-white'
                   }`}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <item.icon className={`w-5 h-5 flex-shrink-0 ${currentView === item.view ? 'text-white' : 'text-gray-500'}`} />
                   {!isCollapsed && (
-                      <span className="ml-3 whitespace-nowrap transition-opacity duration-300 opacity-100">
-                          {item.label}
-                      </span>
+                      <div className="ml-3 flex items-center justify-between flex-1">
+                          <span className="whitespace-nowrap">{item.label}</span>
+                          {(item as any).isNew && (
+                            <span className="bg-yellow-500 text-[9px] font-black text-gray-900 px-1.5 py-0.5 rounded-sm animate-pulse">NUEVO</span>
+                          )}
+                      </div>
                   )}
                 </button>
               </li>
@@ -127,7 +131,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
             </svg>
             {!isCollapsed && <span className="ml-3 whitespace-nowrap">Cerrar Sesión</span>}
           </button>
-          {!isCollapsed && <p className="text-xs text-center text-gray-400 whitespace-nowrap overflow-hidden transition-all">Xen Dance Space | 2026</p>}
+          {!isCollapsed && <p className="text-xs text-center text-gray-500 whitespace-nowrap overflow-hidden transition-all">XDS ERP v2.0 • 2026</p>}
         </div>
       </aside>
     </>

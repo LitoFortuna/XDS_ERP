@@ -356,6 +356,7 @@ const App: React.FC = () => {
                             payments={payments} 
                             costs={costs} 
                             nuptialDances={nuptialDances}
+                            events={events}
                             setView={setCurrentView} 
                             addPayment={addPayment}
                         />;
@@ -439,6 +440,7 @@ const App: React.FC = () => {
                             payments={payments} 
                             costs={costs} 
                             nuptialDances={nuptialDances}
+                            events={events}
                             setView={setCurrentView} 
                             addPayment={addPayment}
                         />;
