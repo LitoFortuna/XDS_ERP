@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, ReferenceLine } from 'recharts';
 import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance, DayOfWeek, DanceEvent } from '../types';
 import Modal from './Modal';
@@ -72,29 +72,31 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const totalCosts = costs.reduce((acc, c) => acc + c.amount, 0);
     const totalProfit = totalRevenue - totalCosts;
 
-    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-    const [paymentModalData, setPaymentModalData] = useState<Partial<Omit<Payment, 'id'>> | undefined>(undefined);
-
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-    const [selectedProfitabilityMonth, setSelectedProfitabilityMonth] = useState(currentMonth);
+    // Upcoming Events Logic
+    const upcomingEvents = useMemo(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        return (events || [])
+            .filter(e => e.date >= todayStr)
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(0, 4);
+    }, [events]);
 
-    const newStudentsCount = students.filter(s => {
-        const d = new Date(s.enrollmentDate);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    }).length;
-
-    const totalCapacity = classes.reduce((acc, c) => acc + c.capacity, 0);
-    const totalEnrollments = classes.reduce((acc, c) => {
-        const count = students.filter(s => s.enrolledClassIds.includes(c.id)).length;
-        return acc + count;
-    }, 0);
-    const occupancyRate = totalCapacity > 0 ? ((totalEnrollments / totalCapacity) * 100).toFixed(1) : '0';
-
-    const activeInstructorsCount = instructors.filter(i => i.active).length;
+    // Upcoming Rehearsals Logic
+    const upcomingRehearsals = useMemo(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        return (nuptialDances || [])
+            .flatMap(dance => (dance.rehearsals || [])
+                .filter(r => r.status === 'Pendiente' && r.date >= todayStr)
+                .map(r => ({ ...r, coupleName: dance.coupleName }))
+            )
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(0, 4);
+    }, [nuptialDances]);
 
     const unpaidStudentsInfo = students
         .filter(s => s.active && s.monthlyFee > 0 && s.enrollmentDate)
@@ -104,7 +106,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             const enrollmentDate = new Date(student.enrollmentDate);
             const enrollmentYear = enrollmentDate.getFullYear();
             const enrollmentMonth = enrollmentDate.getMonth();
-            if (currentYear < enrollmentYear) return { id: student.id, name: student.name, phone: student.phone, unpaidMonths: [], totalDebt: 0 };
+            if (currentYear < enrollmentYear) return { id: student.id, name: student.name, totalDebt: 0 };
             const startMonth = (currentYear === enrollmentYear) ? enrollmentMonth : 0;
             for (let monthIndex = startMonth; monthIndex <= currentMonth; monthIndex++) {
                 const paymentsForMonth = payments.filter(p => {
@@ -122,21 +124,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     totalDebt += pendingAmount;
                 }
             }
-            return { id: student.id, name: student.name, phone: student.phone, unpaidMonths, totalDebt };
+            return { id: student.id, name: student.name, unpaidMonths, totalDebt };
         })
-        .filter(info => info.totalDebt > 0)
-        .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+        .filter(info => info.totalDebt > 0);
     
     const totalPendingAmount = unpaidStudentsInfo.reduce((sum, info) => sum + info.totalDebt, 0);
-
-    const roiPercentage = totalCosts > 0 ? ((totalProfit / totalCosts) * 100) : 0;
-    const currentYearPaymentsTotal = payments
-        .filter(p => new Date(p.date).getFullYear() === currentYear)
-        .reduce((sum, p) => sum + p.amount, 0);
-    const totalExpectedCurrentYear = currentYearPaymentsTotal + totalPendingAmount;
-    const collectionRate = totalExpectedCurrentYear > 0 
-        ? (currentYearPaymentsTotal / totalExpectedCurrentYear) * 100 
-        : (currentYearPaymentsTotal > 0 ? 100 : 0);
 
     const activeStudentsHistory = monthNames.map((month, index) => {
         const lastDayOfMonth = new Date(currentYear, index + 1, 0);
@@ -153,23 +145,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         return { name: month.substring(0, 3), Alumnos: count };
     });
 
-    const classEnrollmentData = classes
-        .map(c => ({
-            name: c.name,
-            Inscritos: students.filter(s => s.enrolledClassIds.includes(c.id)).length,
-            Capacidad: c.capacity,
-            Ocupacion: c.capacity > 0 ? (students.filter(s => s.enrolledClassIds.includes(c.id)).length / c.capacity) * 100 : 0
-        }))
-        .sort((a, b) => b.Inscritos - a.Inscritos)
-        .slice(0, 10);
-
-    type MonthlyData = { month: string; Ingresos: number; Gastos: number; monthIndex: number; year: number };
-    const initialMonthlyData: Record<string, MonthlyData> = {};
     const monthlyData = [
         ...payments.map(p => ({ type: 'income', date: p.date, amount: p.amount })),
         ...costs.map(c => ({ type: 'cost', date: c.paymentDate, amount: c.amount })),
         ...(events || []).map(e => ({ type: 'income', date: e.date, amount: e.price * e.participantIds.length }))
-    ].reduce((acc, item) => {
+    ].reduce((acc: any, item) => {
         const date = new Date(item.date);
         const month = date.toLocaleString('es-ES', { month: 'short' });
         const year = date.getFullYear();
@@ -183,9 +163,9 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             acc[key].Gastos += item.amount;
         }
         return acc;
-    }, initialMonthlyData);
+    }, {});
 
-    const sortedMonthlyData = Object.values(monthlyData).sort((a: MonthlyData, b: MonthlyData) => {
+    const sortedMonthlyData = Object.values(monthlyData).sort((a: any, b: any) => {
         if (a.year !== b.year) return a.year - b.year;
         return a.monthIndex - b.monthIndex;
     });
@@ -212,13 +192,60 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 </StatCard>
             </div>
 
+            {/* UPCOMING ACTIVITIES ROW */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className={containerClass}>
+                    <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
+                        <span className="w-2 h-6 bg-yellow-500 rounded-full shadow-[0_0_10px_#eab308]"></span>
+                        Próximos Eventos
+                    </h3>
+                    <div className="space-y-3">
+                        {upcomingEvents.length > 0 ? upcomingEvents.map(e => (
+                            <div key={e.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-700">
+                                <div>
+                                    <p className="font-bold text-white text-sm">{e.name}</p>
+                                    <p className="text-xs text-gray-400">{new Date(e.date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} • {e.location}</p>
+                                </div>
+                                <span className="text-[10px] uppercase font-bold px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded border border-yellow-500/30">{e.type}</span>
+                            </div>
+                        )) : (
+                            <p className="text-gray-500 text-sm italic text-center py-4">No hay eventos programados.</p>
+                        )}
+                        <button onClick={() => setView(View.EVENTS)} className="w-full mt-2 text-xs text-purple-400 hover:text-purple-300 font-medium text-center">Ver todos los eventos →</button>
+                    </div>
+                </div>
+
+                <div className={containerClass}>
+                    <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
+                        <span className="w-2 h-6 bg-pink-500 rounded-full shadow-[0_0_10px_#ec4899]"></span>
+                        Ensayos de Boda
+                    </h3>
+                    <div className="space-y-3">
+                        {upcomingRehearsals.length > 0 ? upcomingRehearsals.map((r, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-700">
+                                <div>
+                                    <p className="font-bold text-white text-sm">{r.coupleName}</p>
+                                    <p className="text-xs text-gray-400">{new Date(r.date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} • {r.startTime}</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-[10px] text-pink-400 font-bold px-2 py-1 bg-pink-500/10 rounded">Ensayo</span>
+                                </div>
+                            </div>
+                        )) : (
+                            <p className="text-gray-500 text-sm italic text-center py-4">No hay ensayos pendientes.</p>
+                        )}
+                        <button onClick={() => setView(View.NUPTIAL_DANCES)} className="w-full mt-2 text-xs text-purple-400 hover:text-purple-300 font-medium text-center">Gestionar bailes nupciales →</button>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className={containerClass}>
                     <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
                         <span className="w-2 h-6 bg-blue-500 rounded-full shadow-[0_0_10px_#3b82f6]"></span>
                         Evolución de Clientes Activos ({currentYear})
                     </h3>
-                     <ResponsiveContainer width="100%" height={300}>
+                     <ResponsiveContainer width="100%" height={250}>
                         <AreaChart data={activeStudentsHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorStudents" x1="0" y1="0" x2="0" y2="1">
@@ -227,8 +254,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151"/>
-                            <XAxis dataKey="name" tick={{ fill: '#9ca3af' }} />
-                            <YAxis tick={{ fill: '#9ca3af' }} />
+                            <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 10 }} />
+                            <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} />
                             <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF', borderRadius: '8px' }} />
                             <Area type="monotone" dataKey="Alumnos" stroke="#3B82F6" fillOpacity={1} fill="url(#colorStudents)" />
                         </AreaChart>
@@ -238,9 +265,9 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 <div className={containerClass}>
                     <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
                          <span className="w-2 h-6 bg-green-500 rounded-full shadow-[0_0_10px_#22c55e]"></span>
-                         Evolución Financiera (Incl. Eventos)
+                         Finanzas Mensuales
                     </h3>
-                     <ResponsiveContainer width="100%" height={300}>
+                     <ResponsiveContainer width="100%" height={250}>
                         <AreaChart data={sortedMonthlyData}>
                             <defs>
                                 <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
@@ -249,16 +276,15 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151"/>
-                            <XAxis dataKey="month" tick={{ fill: '#9ca3af' }} />
-                            <YAxis tick={{ fill: '#9ca3af' }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES', { notation: "compact" })}`} />
+                            <XAxis dataKey="month" tick={{ fill: '#9ca3af', fontSize: 10 }} />
+                            <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES', { notation: "compact" })}`} />
                             <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF', borderRadius: '8px' }} formatter={(value: number) => formatCurrency(value)} />
                             <Area type="monotone" dataKey="Ingresos" stroke="#8B5CF6" fillOpacity={1} fill="url(#colorIncome)" />
-                            <Area type="monotone" dataKey="Gastos" stroke="#EF4444" fillOpacity={1} fill="url(#colorCost)" />
+                            <Area type="monotone" dataKey="Gastos" stroke="#EF4444" fillOpacity={0.1} fill="#EF4444" />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
             </div>
-            {/* Otros componentes del dashboard... */}
         </div>
     );
 };
