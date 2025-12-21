@@ -21,6 +21,14 @@ interface DashboardProps {
 
 const COLORS = ['#8B5CF6', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#4B5563'];
 
+// Helper centralizado para formato de moneda con punto en millares
+const formatCurrency = (v: number, decimals: number = 0) => {
+    return v.toLocaleString('es-ES', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    }) + '€';
+};
+
 const StatCard: React.FC<{ 
     title: string; 
     value: string | number; 
@@ -75,10 +83,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 let totalDebt = 0;
                 const enrollmentDate = new Date(student.enrollmentDate);
                 
-                // Revisamos desde el mes de alta hasta el mes actual
                 for (let m = 0; m <= currentMonth; m++) {
                     const monthDate = new Date(currentYear, m, 1);
-                    // Solo contamos si ya estaba matriculado
                     if (monthDate < new Date(enrollmentDate.getFullYear(), enrollmentDate.getMonth(), 1)) continue;
 
                     const paymentsForMonth = payments.filter(p => {
@@ -107,8 +113,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         : '100';
 
     // --- DATOS DE GRÁFICOS ---
-    
-    // 1. Evolución Clientes
     const activeStudentsHistory = monthNames.map((name, m) => {
         const date = new Date(currentYear, m + 1, 0);
         const count = students.filter(s => {
@@ -123,18 +127,15 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         return { name, Alumnos: count };
     });
 
-    // 2. Rentabilidad por Clase (Mejorado)
     const rentabilidadData = useMemo(() => {
         return classes.map(c => {
             const studentsInClass = students.filter(s => s.enrolledClassIds.includes(c.id));
-            // Ingresos: cuota proporcional del alumno
             const ingresosEstimados = studentsInClass.reduce((sum, s) => {
                 const proportion = s.enrolledClassIds.length > 0 ? 1 / s.enrolledClassIds.length : 0;
                 return sum + (s.monthlyFee * proportion);
             }, 0);
             
             const instructor = instructors.find(i => i.id === c.instructorId);
-            // Gastos: Pago profesor por clases al mes (asumiendo 4 semanas)
             const gastosEstimados = (instructor?.ratePerClass ?? 25) * c.days.length * 4; 
 
             return {
@@ -145,7 +146,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         }).sort((a, b) => b.Ingresos - a.Ingresos).slice(0, 30);
     }, [classes, students, instructors]);
 
-    // 3. Top Clases Populares
     const popularClasses = useMemo(() => {
         return classes.map(c => ({
             name: c.name,
@@ -153,7 +153,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         })).sort((a, b) => b.alumnos - a.alumnos).slice(0, 10);
     }, [classes, students]);
 
-    // 4. Demografía (Colores Ajustados)
     const demografiaData = useMemo(() => {
         const counts = { 'Infantil (3-11)': 0, 'Junior (12-17)': 0, 'Adultos (18-60)': 0, 'Senior (60+)': 0 };
         students.filter(s => s.active && s.birthDate).forEach(s => {
@@ -166,14 +165,12 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [students]);
 
-    // 5. Evolución Financiera
     const finanzasHistory = monthNames.map((name, m) => {
         const monthIncome = payments.filter(p => new Date(p.date).getMonth() === m && new Date(p.date).getFullYear() === currentYear).reduce((s, p) => s + p.amount, 0);
         const monthCost = costs.filter(c => new Date(c.paymentDate).getMonth() === m && new Date(c.paymentDate).getFullYear() === currentYear).reduce((s, c) => s + c.amount, 0);
         return { name: name.toLowerCase(), Ingresos: monthIncome, Gastos: monthCost };
     });
 
-    // 6. Próximos Cumpleaños (Ajustado a Captura)
     const upcomingBirthdays = useMemo(() => {
         const today = new Date();
         return students
@@ -194,14 +191,14 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 
             {/* FILA 1: KPIs (8 tarjetas) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard title="Alumnos Activos" value={activeStudents.length} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197" /></svg>} color="blue" />
-                <StatCard title="Nuevos (Mes)" value={newStudentsThisMonth} subtext="Crecimiento mensual" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>} color="emerald" />
+                <StatCard title="Alumnos Activos" value={activeStudents.length.toLocaleString('es-ES')} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197" /></svg>} color="blue" />
+                <StatCard title="Nuevos (Mes)" value={newStudentsThisMonth.toLocaleString('es-ES')} subtext="Crecimiento mensual" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>} color="emerald" />
                 <StatCard title="Ocupación Global" value={`${globalOccupancy}%`} subtext="Capacidad utilizada" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>} color="purple" />
-                <StatCard title="Beneficio Total" value={`€${(profit / 1000).toFixed(0)} mil`} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} color="indigo" />
+                <StatCard title="Beneficio Total" value={formatCurrency(profit)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} color="indigo" />
                 
                 <StatCard title="ROI (Global)" value={`${roi}%`} subtext="Retorno inversión" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>} color="indigo" />
                 <StatCard title="Tasa de Cobro" value={`${collectionRate}%`} subtext="Año actual" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} color="emerald" />
-                <StatCard title="Pendiente Cobro" value={`€${totalPendingAmount.toFixed(0)}`} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} color="rose" />
+                <StatCard title="Pendiente Cobro" value={formatCurrency(totalPendingAmount)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} color="rose" />
                 <StatCard title="Profesores" value={instructors.length} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>} color="blue" />
             </div>
 
@@ -246,8 +243,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     <ComposedChart data={rentabilidadData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                         <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 9, fontWeight: 700}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `€${v}`} />
-                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px' }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `€${v.toLocaleString('es-ES')}`} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px' }} formatter={(v: number) => formatCurrency(v)} />
                         <Legend verticalAlign="top" align="center" iconType="circle" wrapperStyle={{paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase'}} />
                         <Bar dataKey="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} name="Gastos Estimados" />
                         <Bar dataKey="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} name="Ingresos Estimados" />
@@ -281,8 +278,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         <AreaChart data={finanzasHistory}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} />
-                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `€${v/1000} mil`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `${v.toLocaleString('es-ES')}€`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} formatter={(v: number) => formatCurrency(v)} />
                             <Legend verticalAlign="bottom" iconType="diamond" wrapperStyle={{fontSize: '10px', fontWeight: 'bold'}} />
                             <Area type="monotone" dataKey="Ingresos" stroke="#8b5cf6" strokeWidth={3} fill="#8b5cf6" fillOpacity={0.2} />
                             <Area type="monotone" dataKey="Gastos" stroke="#f43f5e" strokeWidth={3} fill="#f43f5e" fillOpacity={0.15} />
@@ -303,7 +300,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         <LineChart data={finanzasHistory.map(f => ({...f, ratio: (f.Ingresos / (activeStudents.length || 1)).toFixed(1)}))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} />
-                            <YAxis domain={[10, 40]} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `€${v}`} />
+                            <YAxis domain={[10, 40]} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `${v}€`} />
                             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} />
                             <Line type="monotone" dataKey="ratio" stroke="#a78bfa" strokeWidth={4} dot={{r: 4, fill: '#fff', stroke: '#a78bfa', strokeWidth: 2}} />
                         </LineChart>
@@ -332,7 +329,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                 >
                                     {COLORS.map((entry, index) => <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#2563eb', '#f59e0b'][index % 4]} stroke="none" />)}
                                 </Pie>
-                                <Tooltip formatter={(v: number) => `€${v.toFixed(0)}`} />
+                                <Tooltip formatter={(v: number) => formatCurrency(v)} />
                                 <Legend layout="vertical" align="right" verticalAlign="middle" iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 'bold'}} />
                             </PieChart>
                         </ResponsiveContainer>
@@ -396,12 +393,12 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                 <Cell fill="#8b5cf6" />
                                 <Cell fill="#f43f5e" />
                             </Pie>
-                            <Tooltip />
+                            <Tooltip formatter={(v: number) => formatCurrency(v)} />
                         </PieChart>
                     </ResponsiveContainer>
                     <div className="flex gap-4 mt-4 text-[9px] font-black uppercase tracking-widest">
-                        <span className="text-rose-500">■ Costes: €{totalCosts.toFixed(0)}</span>
-                        <span className="text-purple-500">■ Ingresos: €{totalRevenue.toFixed(0)}</span>
+                        <span className="text-rose-500">■ Costes: {formatCurrency(totalCosts)}</span>
+                        <span className="text-purple-500">■ Ingresos: {formatCurrency(totalRevenue)}</span>
                     </div>
                 </div>
 
@@ -426,8 +423,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         </PieChart>
                     </ResponsiveContainer>
                     <div className="flex gap-4 mt-4 text-[9px] font-black uppercase tracking-widest">
-                        <span className="text-emerald-500">■ Activos: {activeStudents.length}</span>
-                        <span className="text-gray-500">■ Inactivos: {students.length - activeStudents.length}</span>
+                        <span className="text-emerald-500">■ Activos: {activeStudents.length.toLocaleString('es-ES')}</span>
+                        <span className="text-gray-500">■ Inactivos: {(students.length - activeStudents.length).toLocaleString('es-ES')}</span>
                     </div>
                 </div>
 
@@ -489,10 +486,10 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                             ))}
                                         </div>
                                     </td>
-                                    <td className="px-5 py-4 text-right font-black text-rose-400 text-base">€{student.totalDebt.toFixed(2)}</td>
+                                    <td className="px-5 py-4 text-right font-black text-rose-400 text-base">{formatCurrency(student.totalDebt, 2)}</td>
                                     <td className="px-5 py-4 text-right">
                                         <button 
-                                            onClick={() => window.open(`https://wa.me/${student.phone}?text=Hola%20${student.name},%20te%20escribimos%20de%20Xen%20Dance%20Space%20porque%20hemos%20visto%20que%20tienes%20un%20pendiente%20de%20€${student.totalDebt.toFixed(2)}.%20¿Podrías%20revisarlo?%20¡Gracias!`, '_blank')}
+                                            onClick={() => window.open(`https://wa.me/${student.phone}?text=Hola%20${student.name},%20te%20escribimos%20de%20Xen%20Dance%20Space%20porque%20hemos%20visto%20que%20tienes%20un%20pendiente%20de%20${formatCurrency(student.totalDebt, 2)}.%20¿Podrías%20revisarlo?%20¡Gracias!`, '_blank')}
                                             className="bg-[#10b981]/10 text-[#10b981] px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border border-[#10b981]/20 hover:bg-[#10b981] hover:text-white transition-all flex items-center gap-2 ml-auto shadow-lg"
                                         >
                                             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.038 3.284l-.569 2.103 2.2-.547c.946.517 2.012.808 3.103.81 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.766-5.772-5.766zm3.385 8.195c-.145.407-.847.742-1.18.806-.323.063-.734.086-1.18-.086-.233-.086-.531-.205-.913-.371-1.63-.709-2.701-2.381-2.783-2.493-.082-.111-.669-.888-.669-1.693 0-.805.423-1.199.573-1.362.15-.163.323-.205.431-.205s.215.003.308.008c.099.005.233-.037.363.27.145.342.494 1.201.537 1.29s.072.18.012.301-.09.18-.18.286c-.09.106-.188.238-.269.319-.09.09-.184.188-.08.363.104.175.465.766 1 1.242.686.611 1.263.801 1.438.887.175.086.276.072.378-.045s.443-.516.562-.693c.12-.177.239-.15.401-.09s1.026.484 1.206.574c.18.09.3.135.342.21s.042.54-.103.947z"/></svg>
