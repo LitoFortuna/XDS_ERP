@@ -99,6 +99,11 @@ export interface NuptialDance {
 
 export type EventType = 'Competición' | 'Exhibición' | 'Taller' | 'Otro';
 
+export interface EventParticipant {
+  studentId: string;
+  ticketCount: number;
+}
+
 export interface DanceEvent {
   id: string;
   name: string;
@@ -107,7 +112,7 @@ export interface DanceEvent {
   time: string; // HH:MM
   location: string;
   price: number;
-  participantIds: string[];
+  participants: EventParticipant[];
   notes?: string;
   imageUrl?: string; // Nuevo campo para el cartel del evento
 }

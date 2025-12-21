@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { DanceEvent, Student, EventType } from '../types';
+import { DanceEvent, Student, EventType, EventParticipant } from '../types';
 import Modal from './Modal';
 
 interface EventManagementProps {
@@ -24,7 +24,7 @@ const EventForm: React.FC<{
         time: event?.time || '10:00',
         location: event?.location || '',
         price: event?.price || 0,
-        participantIds: event?.participantIds || [],
+        participants: event?.participants || [] as EventParticipant[],
         notes: event?.notes || '',
         imageUrl: event?.imageUrl || '',
     });
@@ -50,7 +50,6 @@ const EventForm: React.FC<{
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validar tamaño (máx 2MB para Base64 eficiente en Firestore)
         if (file.size > 2 * 1024 * 1024) {
             alert("La imagen es demasiado grande. El máximo permitido es 2MB.");
             return;
@@ -67,17 +66,29 @@ const EventForm: React.FC<{
 
     const toggleParticipant = (studentId: string) => {
         setFormData(prev => {
-            const newParticipants = prev.participantIds.includes(studentId)
-                ? prev.participantIds.filter(id => id !== studentId)
-                : [...prev.participantIds, studentId];
-            return { ...prev, participantIds: newParticipants };
+            const exists = prev.participants.find(p => p.studentId === studentId);
+            const newParticipants = exists
+                ? prev.participants.filter(p => p.studentId !== studentId)
+                : [...prev.participants, { studentId, ticketCount: 1 }];
+            return { ...prev, participants: newParticipants };
         });
+    };
+
+    const updateTicketCount = (studentId: string, count: number) => {
+        setFormData(prev => ({
+            ...prev,
+            participants: prev.participants.map(p => 
+                p.studentId === studentId ? { ...p, ticketCount: Math.max(1, count) } : p
+            )
+        }));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onSubmit(event ? { ...event, ...formData } : formData);
     };
+
+    const totalTickets = formData.participants.reduce((sum, p) => sum + p.ticketCount, 0);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -142,7 +153,7 @@ const EventForm: React.FC<{
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-300">Precio de Inscripción (€)</label>
+                    <label className="block text-sm font-medium text-gray-300">Precio por Entrada (€)</label>
                     <input type="number" step="0.01" name="price" value={formData.price} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500" required min="0" />
                 </div>
                 <div>
@@ -159,7 +170,13 @@ const EventForm: React.FC<{
                 </div>
 
                 <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-300 mb-2 font-bold text-purple-400">Seleccionar Participantes ({formData.participantIds.length})</label>
+                    <div className="flex justify-between items-end mb-2">
+                        <label className="block text-sm font-medium text-purple-400 font-bold">Seleccionar Participantes y Entradas</label>
+                        <div className="text-right">
+                             <span className="text-[10px] text-gray-500 uppercase font-bold">Total Entradas:</span>
+                             <span className="ml-2 text-sm font-black text-white">{totalTickets}</span>
+                        </div>
+                    </div>
                     <input
                         type="text"
                         placeholder="Buscar alumna por nombre..."
@@ -167,26 +184,45 @@ const EventForm: React.FC<{
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="mb-2 block w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-sm text-gray-300 focus:ring-purple-500 focus:border-purple-500 shadow-inner"
                     />
-                    <div className="bg-gray-900 border border-gray-700 rounded-md p-2 h-56 overflow-y-auto custom-scrollbar">
+                    <div className="bg-gray-900 border border-gray-700 rounded-md p-2 h-64 overflow-y-auto custom-scrollbar">
                         {filteredStudents.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {filteredStudents.map(s => (
-                                    <label key={s.id} className={`flex items-center p-2 rounded-md cursor-pointer transition-all ${formData.participantIds.includes(s.id) ? 'bg-purple-600/40 border border-purple-500/50 shadow-sm' : 'hover:bg-gray-700/50 border border-transparent'}`}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.participantIds.includes(s.id)}
-                                            onChange={() => toggleParticipant(s.id)}
-                                            className="mr-3 h-5 w-5 text-purple-600 bg-gray-600 border-gray-500 rounded focus:ring-purple-500"
-                                        />
-                                        <div className="flex flex-col">
-                                            <span className={`text-sm ${formData.participantIds.includes(s.id) ? 'text-white font-bold' : 'text-gray-300'}`}>{s.name}</span>
-                                            {formData.participantIds.includes(s.id) && s.phone && <span className="text-[10px] text-purple-300 font-mono">{s.phone}</span>}
+                            <div className="space-y-1">
+                                {filteredStudents.map(s => {
+                                    const participant = formData.participants.find(p => p.studentId === s.id);
+                                    const isSelected = !!participant;
+                                    return (
+                                        <div key={s.id} className={`flex items-center justify-between p-2 rounded-md transition-all ${isSelected ? 'bg-purple-600/20 border border-purple-500/30' : 'hover:bg-gray-700/50 border border-transparent'}`}>
+                                            <label className="flex items-center flex-grow cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleParticipant(s.id)}
+                                                    className="mr-3 h-5 w-5 text-purple-600 bg-gray-600 border-gray-500 rounded focus:ring-purple-500"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <span className={`text-sm ${isSelected ? 'text-white font-bold' : 'text-gray-300'}`}>{s.name}</span>
+                                                    {isSelected && s.phone && <span className="text-[10px] text-purple-300 font-mono">{s.phone}</span>}
+                                                </div>
+                                            </label>
+                                            
+                                            {isSelected && (
+                                                <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-lg border border-purple-500/20">
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase">Entradas:</span>
+                                                    <input 
+                                                        type="number" 
+                                                        min="1" 
+                                                        value={participant.ticketCount}
+                                                        onChange={(e) => updateTicketCount(s.id, parseInt(e.target.value) || 1)}
+                                                        className="w-12 bg-transparent text-center text-sm font-black text-white focus:outline-none"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
-                                    </label>
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
-                            <p className="text-gray-500 text-center py-16">No se encontraron alumnas activas.</p>
+                            <p className="text-gray-500 text-center py-20">No se encontraron alumnas activas.</p>
                         )}
                     </div>
                 </div>
@@ -210,7 +246,6 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
     const [editingEvent, setEditingEvent] = useState<DanceEvent | undefined>(undefined);
     const [filterType, setFilterType] = useState<EventType | 'Todos'>('Todos');
     
-    // View Participants Modal
     const [viewingParticipantsEvent, setViewingParticipantsEvent] = useState<DanceEvent | null>(null);
 
     const filteredEvents = useMemo(() => {
@@ -245,22 +280,27 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
     };
 
     const handleExportCSV = (event: DanceEvent) => {
-        const participantList = event.participantIds
-            .map(id => students.find(s => s.id === id))
-            .filter(Boolean)
-            .sort((a, b) => a!.name.localeCompare(b!.name));
+        const participantList = event.participants
+            .map(p => {
+                const s = students.find(stud => stud.id === p.studentId);
+                return s ? { student: s, tickets: p.ticketCount } : null;
+            })
+            .filter((item): item is { student: Student, tickets: number } => item !== null)
+            .sort((a, b) => a.student.name.localeCompare(b.student.name));
 
         if (participantList.length === 0) {
             alert("No hay participantes para exportar.");
             return;
         }
 
-        const headers = ['Nombre', 'Teléfono', 'Email', 'Suscripción'];
-        const rows = participantList.map(s => [
-            s!.name, 
-            s!.phone || '-', 
-            s!.email || '-', 
-            s!.active ? 'Activo' : 'Inactivo'
+        const headers = ['Nombre', 'Entradas', 'Importe (€)', 'Teléfono', 'Email', 'Suscripción'];
+        const rows = participantList.map(item => [
+            item.student.name,
+            String(item.tickets),
+            (item.tickets * event.price).toFixed(2),
+            item.student.phone || '-', 
+            item.student.email || '-', 
+            item.student.active ? 'Activo' : 'Inactivo'
         ]);
         
         const csvContent = [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
@@ -309,9 +349,11 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredEvents.length > 0 ? (
-                    filteredEvents.map(event => (
+                    filteredEvents.map(event => {
+                        const totalTickets = event.participants?.reduce((sum, p) => sum + p.ticketCount, 0) || 0;
+                        const totalRevenue = totalTickets * event.price;
+                        return (
                         <div key={event.id} className="bg-gray-800 rounded-2xl overflow-hidden shadow-xl border border-gray-700/50 hover:border-purple-500/50 transition-all group flex flex-col h-full">
-                            {/* IMAGEN DEL EVENTO */}
                             <div className="relative h-48 bg-gray-900">
                                 {event.imageUrl ? (
                                     <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -332,7 +374,7 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                                     <h3 className="text-xl font-black text-white group-hover:text-purple-300 transition-colors line-clamp-2">{event.name}</h3>
                                     <div className="text-right shrink-0">
                                         <p className="text-green-400 font-bold text-xl leading-none">€{event.price.toFixed(0)}</p>
-                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">por alumna</p>
+                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">por entrada</p>
                                     </div>
                                 </div>
                                 
@@ -359,8 +401,8 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197" /></svg>
                                         </div>
                                         <div>
-                                            <p className="text-white font-bold">{event.participantIds.length} Alumnas</p>
-                                            <p className="text-[11px] text-green-400 uppercase font-bold">Total: €{(event.price * event.participantIds.length).toLocaleString()}</p>
+                                            <p className="text-white font-bold">{totalTickets} Entradas ({event.participants?.length || 0} Alumnas)</p>
+                                            <p className="text-[11px] text-green-400 uppercase font-bold">Total: €{totalRevenue.toLocaleString()}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -396,7 +438,7 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                                 </div>
                             </div>
                         </div>
-                    ))
+                    )})
                 ) : (
                     <div className="col-span-full py-32 text-center bg-gray-800/20 border-2 border-dashed border-gray-700/50 rounded-3xl">
                         <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-600 border border-gray-700">
@@ -409,46 +451,57 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                 )}
             </div>
 
-            {/* FORM MODAL */}
             <Modal isOpen={isFormModalOpen} onClose={handleCloseFormModal} title={editingEvent ? 'Editar Detalles del Evento' : 'Crear Nuevo Evento'}>
                 <EventForm event={editingEvent} students={students} onSubmit={handleSubmit} onCancel={handleCloseFormModal} />
             </Modal>
 
-            {/* VIEW PARTICIPANTS MODAL */}
             <Modal 
                 isOpen={!!viewingParticipantsEvent} 
                 onClose={() => setViewingParticipantsEvent(null)} 
-                title={`Participantes: ${viewingParticipantsEvent?.name}`}
+                title={`Detalle de Participantes: ${viewingParticipantsEvent?.name}`}
             >
                 {viewingParticipantsEvent && (
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center bg-gray-900/50 p-4 rounded-xl border border-gray-700">
-                             <div className="flex flex-col">
-                                <span className="text-[10px] text-gray-500 uppercase font-bold">Total Alumnas</span>
-                                <span className="text-2xl font-black text-white">{viewingParticipantsEvent.participantIds.length}</span>
-                             </div>
-                             <div className="flex flex-col text-right">
-                                <span className="text-[10px] text-gray-500 uppercase font-bold">Recaudación Prevista</span>
-                                <span className="text-2xl font-black text-green-400">€{(viewingParticipantsEvent.price * viewingParticipantsEvent.participantIds.length).toLocaleString()}</span>
-                             </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700 flex flex-col items-center">
+                                <span className="text-[10px] text-gray-500 uppercase font-bold">Alumnas</span>
+                                <span className="text-2xl font-black text-white">{viewingParticipantsEvent.participants?.length || 0}</span>
+                            </div>
+                            <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700 flex flex-col items-center">
+                                <span className="text-[10px] text-gray-500 uppercase font-bold">Entradas Totales</span>
+                                <span className="text-2xl font-black text-purple-400">{viewingParticipantsEvent.participants?.reduce((s, p) => s + p.ticketCount, 0) || 0}</span>
+                            </div>
+                            <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700 flex flex-col items-center">
+                                <span className="text-[10px] text-gray-500 uppercase font-bold">Recaudación</span>
+                                <span className="text-2xl font-black text-green-400">€{((viewingParticipantsEvent.participants?.reduce((s, p) => s + p.ticketCount, 0) || 0) * viewingParticipantsEvent.price).toLocaleString()}</span>
+                            </div>
                         </div>
 
                         <div className="max-h-96 overflow-y-auto custom-scrollbar bg-gray-900 rounded-xl border border-gray-700">
-                            {viewingParticipantsEvent.participantIds.length > 0 ? (
+                            {viewingParticipantsEvent.participants?.length > 0 ? (
                                 <table className="w-full text-left">
                                     <thead className="sticky top-0 bg-gray-800 text-[10px] uppercase font-black text-gray-500 border-b border-gray-700">
                                         <tr>
                                             <th className="px-4 py-3">Nombre Alumna</th>
-                                            <th className="px-4 py-3">Teléfono</th>
+                                            <th className="px-4 py-3 text-center">Entradas</th>
+                                            <th className="px-4 py-3 text-right">Subtotal</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-800">
-                                        {viewingParticipantsEvent.participantIds.map(id => {
-                                            const student = students.find(s => s.id === id);
+                                        {viewingParticipantsEvent.participants.map(p => {
+                                            const student = students.find(s => s.id === p.studentId);
                                             return (
-                                                <tr key={id} className="hover:bg-gray-800/40">
-                                                    <td className="px-4 py-3 font-bold text-white text-sm">{student?.name || 'Alumna eliminada'}</td>
-                                                    <td className="px-4 py-3 font-mono text-xs text-purple-400">{student?.phone || '—'}</td>
+                                                <tr key={p.studentId} className="hover:bg-gray-800/40">
+                                                    <td className="px-4 py-3">
+                                                        <p className="font-bold text-white text-sm">{student?.name || 'Alumna eliminada'}</p>
+                                                        <p className="text-[10px] text-gray-500 font-mono">{student?.phone || '—'}</p>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className="bg-purple-900/30 text-purple-300 px-2 py-1 rounded text-xs font-black">{p.ticketCount}</span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-bold text-gray-300">
+                                                        €{(p.ticketCount * viewingParticipantsEvent.price).toFixed(2)}
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
