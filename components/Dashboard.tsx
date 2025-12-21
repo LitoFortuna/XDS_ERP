@@ -274,7 +274,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 <ResponsiveContainer width="100%" height={280}>
                     <AreaChart data={activeStudentsHistory}>
                         <defs>
-                            <linearGradient id="colorStudents" x1="0" y1="0" x2="0" y2="1">
+                            <linearGradient id="colorStudents" x1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4}/>
                                 <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
                             </linearGradient>
@@ -550,9 +550,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         />
                     </div>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
-                        <thead className="text-[10px] uppercase font-black text-gray-500 border-b border-gray-800">
+                {/* Contenedor con altura máxima para aprox 10 filas (aprox 550px) y scroll vertical */}
+                <div className="overflow-x-auto max-h-[550px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-xs text-left border-collapse">
+                        {/* thead con sticky para mantener visibilidad al hacer scroll */}
+                        <thead className="text-[10px] uppercase font-black text-gray-500 border-b border-gray-800 sticky top-0 bg-[#1a2233] z-10">
                             <tr>
                                 <th className="px-5 py-4">Alumna</th>
                                 <th className="px-5 py-4 text-center">Meses Pendientes</th>
@@ -577,6 +579,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                             onClick={() => window.open(`https://wa.me/${student.phone}?text=Hola%20${student.name},%20te%20escribimos%20de%20Xen%20Dance%20Space%20porque%20hemos%20visto%20que%20tienes%20un%20pendiente%20de%20${formatCurrency(student.totalDebt, 2)}.%20¿Podrías%20revisarlo?%20¡Gracias!`, '_blank')}
                                             className="bg-[#10b981]/10 text-[#10b981] px-5 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest border border-[#10b981]/20 hover:bg-[#10b981] hover:text-white transition-all flex items-center gap-4 ml-auto shadow-lg group"
                                         >
+                                            {/* Icono w-8 h-8 mantenido grande */}
                                             <svg className="w-8 h-8 transition-transform group-hover:scale-110" fill="currentColor" viewBox="0 0 24 24">
                                                 <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.038 3.284l-.569 2.103 2.2-.547c.946.517 2.012.808 3.103.81 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.766-5.772-5.766zm3.385 8.195c-.145.407-.847.742-1.18.806-.323.063-.734.086-1.18-.086-.233-.086-.531-.205-.913-.371-1.63-.709-2.701-2.381-2.783-2.493-.082-.111-.669-.888-.669-1.693 0-.805.423-1.199.573-1.362.15-.163.323-.205.431-.205s.215.003.308.008c.099.005.233-.037.363.27.145.342.494 1.201.537 1.29s.072.18.012.301-.09.18-.18.286c-.09.106-.188.238-.269.319-.09.09-.184.188-.08.363.104.175.465.766 1 1.242.686.611 1.263.801 1.438.887.175.086.276.072.378-.045s.443-.516.562-.693c.12-.177.239-.15.401-.09s1.026.484 1.206.574c.18.09.3.135.342.21s.042.54-.103.947z"/>
                                             </svg>
