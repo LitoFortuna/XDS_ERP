@@ -212,8 +212,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     title="Alumnos Activos" 
                     value={activeStudents.length.toLocaleString('es-ES')} 
                     icon={
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197" />
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                     } 
                     color="blue" 
@@ -244,11 +244,11 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     title="Beneficio Total" 
                     value={formatCurrency(profit)} 
                     icon={
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" />
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                     } 
-                    color="indigo" 
+                    color="emerald" 
                 />
                 
                 <StatCard title="ROI (Global)" value={`${roi}%`} subtext="Retorno inversión" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>} color="indigo" />
@@ -496,7 +496,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     </div>
                     <div className="space-y-4">
                         {upcomingBirthdays.map(s => {
-                            const age = new Date().getFullYear() - new Date(s.birthDate!).getFullYear();
+                            const age = s.birthDate ? new Date().getFullYear() - new Date(s.birthDate).getFullYear() : '?';
                             return (
                             <div key={s.id} className="flex items-center justify-between group">
                                 <div className="flex items-center gap-3">
