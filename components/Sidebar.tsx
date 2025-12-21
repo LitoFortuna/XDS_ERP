@@ -25,16 +25,15 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOpen, onLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // He movido 'Eventos' a la parte superior para que sea más visible
   const navItems = [
     { view: View.DASHBOARD, label: 'Dashboard', icon: DashboardIcon },
-    { view: View.EVENTS, label: 'Eventos', icon: StarIcon, isNew: true },
     { view: View.ATTENDANCE, label: 'Asistencia', icon: ClipboardCheckIcon },
     { view: View.STUDENTS, label: 'Alumnos', icon: UsersIcon },
     { view: View.CLASSES, label: 'Clases', icon: BookIcon },
     { view: View.INSTRUCTORS, label: 'Profesores', icon: IdentificationIcon },
     { view: View.INTERACTIVE_SCHEDULE, label: 'Horario', icon: CalendarIcon },
     { view: View.NUPTIAL_DANCES, label: 'Bailes Nupciales', icon: HeartIcon },
+    { view: View.EVENTS, label: 'Eventos', icon: StarIcon },
     { view: View.BILLING, label: 'Facturación', icon: CreditCardIcon },
     { view: View.QUARTERLY_INVOICING, label: 'Facturas Trim.', icon: DocumentTextIcon },
     { view: View.MERCHANDISING, label: 'Merchandising', icon: ShoppingBagIcon },
@@ -43,18 +42,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
 
   const handleNavItemClick = (view: View) => {
     setView(view);
-    setIsOpen(false); // Cierra el sidebar en móvil al seleccionar
+    setIsOpen(false);
   };
 
   return (
     <>
-      {/* Overlay para móvil */}
       <div
         className={`fixed inset-0 bg-black bg-opacity-60 z-20 lg:hidden transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsOpen(false)}
       ></div>
 
-      {/* Sidebar */}
       <aside 
         className={`
             fixed inset-y-0 left-0 bg-gray-800 shadow-md flex-shrink-0 flex flex-col 
@@ -64,7 +61,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
             ${isCollapsed ? 'w-20' : 'w-64'}
         `}
       >
-        {/* Header / Logo */}
         <div className="h-16 flex items-center justify-center border-b border-gray-700 relative">
            {!isCollapsed ? (
                <h1 className="text-2xl font-bold text-white tracking-wider whitespace-nowrap overflow-hidden transition-all duration-300 px-4">Xen Dance Space</h1>
@@ -72,7 +68,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
                <h1 className="text-xl font-bold text-white tracking-widest">XDS</h1>
            )}
            
-           {/* Desktop Toggle Button */}
            <button 
              onClick={() => setIsCollapsed(!isCollapsed)}
              className="absolute -right-3 top-1/2 transform -translate-y-1/2 bg-gray-700 text-gray-400 hover:text-white rounded-full p-1 border border-gray-600 hidden lg:flex shadow-md z-40 transition-transform hover:scale-110"
@@ -90,7 +85,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
            </button>
         </div>
 
-        {/* Navegación */}
         <nav className="flex-1 px-2 py-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
           <ul>
             {navItems.map((item) => (
@@ -108,9 +102,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
                   {!isCollapsed && (
                       <div className="ml-3 flex items-center justify-between flex-1">
                           <span className="whitespace-nowrap">{item.label}</span>
-                          {(item as any).isNew && (
-                            <span className="bg-yellow-500 text-[9px] font-black text-gray-900 px-1.5 py-0.5 rounded-sm animate-pulse">NUEVO</span>
-                          )}
                       </div>
                   )}
                 </button>
@@ -119,7 +110,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
           </ul>
         </nav>
         
-        {/* Footer / Logout */}
         <div className="p-4 border-t border-gray-700 space-y-4">
           <button 
             onClick={onLogout}

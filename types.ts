@@ -97,6 +97,21 @@ export interface NuptialDance {
   notes?: string;
 }
 
+// Fixed missing exports for Event Management
+export type EventType = 'Competición' | 'Exhibición' | 'Taller' | 'Otro';
+
+export interface DanceEvent {
+  id: string;
+  name: string;
+  type: EventType;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  location: string;
+  price: number;
+  participantIds: string[];
+  notes?: string;
+}
+
 export interface MerchandiseItem {
   id: string;
   name: string;
@@ -126,20 +141,6 @@ export interface AttendanceRecord {
   classId: string;
   date: string; // YYYY-MM-DD
   presentStudentIds: string[]; // List of students present
-  notes?: string;
-}
-
-export type EventType = 'Competición' | 'Exhibición' | 'Taller' | 'Otro';
-
-export interface DanceEvent {
-  id: string;
-  name: string;
-  type: EventType;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM
-  location: string;
-  participantIds: string[];
-  price: number;
   notes?: string;
 }
 

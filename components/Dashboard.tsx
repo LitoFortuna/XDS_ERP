@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, ReferenceLine } from 'recharts';
-import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance, DayOfWeek, DanceEvent } from '../types';
+import { Student, DanceClass, Instructor, Payment, Cost, View, NuptialDance, DayOfWeek } from '../types';
 import Modal from './Modal';
 import { PaymentForm } from './Billing';
 
@@ -12,7 +12,6 @@ interface DashboardProps {
   payments: Payment[];
   costs: Cost[];
   nuptialDances: NuptialDance[];
-  events: DanceEvent[];
   setView: (view: View) => void;
   addPayment: (payment: Omit<Payment, 'id'>) => void;
 }
@@ -61,14 +60,13 @@ const StatCard: React.FC<{ title: string; value: string | number; subtext?: stri
     return <div className="w-full h-full">{cardContent}</div>;
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, events, setView, addPayment }) => {
+const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, setView, addPayment }) => {
     const activeStudentsCount = students.filter(s => s.active).length;
     
     const totalRegularRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
     const totalNuptialRevenue = nuptialDances.reduce((acc, d) => acc + (d.paidAmount || 0), 0);
-    const totalEventRevenue = (events || []).reduce((acc, e) => acc + (e.price * e.participantIds.length), 0);
     
-    const totalRevenue = totalRegularRevenue + totalNuptialRevenue + totalEventRevenue;
+    const totalRevenue = totalRegularRevenue + totalNuptialRevenue;
     const totalCosts = costs.reduce((acc, c) => acc + c.amount, 0);
     const totalProfit = totalRevenue - totalCosts;
 
@@ -77,16 +75,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const currentYear = currentDate.getFullYear();
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-    // Upcoming Events Logic
-    const upcomingEvents = useMemo(() => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        return (events || [])
-            .filter(e => e.date >= todayStr)
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(0, 4);
-    }, [events]);
-
-    // Upcoming Rehearsals Logic
     const upcomingRehearsals = useMemo(() => {
         const todayStr = new Date().toISOString().split('T')[0];
         return (nuptialDances || [])
@@ -147,8 +135,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 
     const monthlyData = [
         ...payments.map(p => ({ type: 'income', date: p.date, amount: p.amount })),
-        ...costs.map(c => ({ type: 'cost', date: c.paymentDate, amount: c.amount })),
-        ...(events || []).map(e => ({ type: 'income', date: e.date, amount: e.price * e.participantIds.length }))
+        ...costs.map(c => ({ type: 'cost', date: c.paymentDate, amount: c.amount }))
     ].reduce((acc: any, item) => {
         const date = new Date(item.date);
         const month = date.toLocaleString('es-ES', { month: 'short' });
@@ -184,41 +171,19 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 <StatCard title="Beneficio Total" value={`€${totalProfit.toLocaleString('es-ES', { notation: "compact" })}`} color={totalProfit >= 0 ? "purple" : "red"} onClick={() => setView(View.BILLING)}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>
                 </StatCard>
-                <StatCard title="Ingresos Eventos" value={`€${totalEventRevenue.toLocaleString('es-ES')}`} subtext="Talleres y Compes" color="yellow" onClick={() => setView(View.EVENTS)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>
-                </StatCard>
                 <StatCard title="Pendiente Cobro" value={`€${totalPendingAmount.toLocaleString('es-ES')}`} color="red">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </StatCard>
+                 <StatCard title="Ensayos Boda" value={upcomingRehearsals.length} color="pink" onClick={() => setView(View.NUPTIAL_DANCES)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                </StatCard>
             </div>
 
-            {/* UPCOMING ACTIVITIES ROW */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className={containerClass}>
-                    <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
-                        <span className="w-2 h-6 bg-yellow-500 rounded-full shadow-[0_0_10px_#eab308]"></span>
-                        Próximos Eventos
-                    </h3>
-                    <div className="space-y-3">
-                        {upcomingEvents.length > 0 ? upcomingEvents.map(e => (
-                            <div key={e.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-700">
-                                <div>
-                                    <p className="font-bold text-white text-sm">{e.name}</p>
-                                    <p className="text-xs text-gray-400">{new Date(e.date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} • {e.location}</p>
-                                </div>
-                                <span className="text-[10px] uppercase font-bold px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded border border-yellow-500/30">{e.type}</span>
-                            </div>
-                        )) : (
-                            <p className="text-gray-500 text-sm italic text-center py-4">No hay eventos programados.</p>
-                        )}
-                        <button onClick={() => setView(View.EVENTS)} className="w-full mt-2 text-xs text-purple-400 hover:text-purple-300 font-medium text-center">Ver todos los eventos →</button>
-                    </div>
-                </div>
-
-                <div className={containerClass}>
+                 <div className={containerClass}>
                     <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
                         <span className="w-2 h-6 bg-pink-500 rounded-full shadow-[0_0_10px_#ec4899]"></span>
-                        Ensayos de Boda
+                        Ensayos de Boda Pendientes
                     </h3>
                     <div className="space-y-3">
                         {upcomingRehearsals.length > 0 ? upcomingRehearsals.map((r, idx) => (
@@ -237,9 +202,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         <button onClick={() => setView(View.NUPTIAL_DANCES)} className="w-full mt-2 text-xs text-purple-400 hover:text-purple-300 font-medium text-center">Gestionar bailes nupciales →</button>
                     </div>
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className={containerClass}>
                     <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
                         <span className="w-2 h-6 bg-blue-500 rounded-full shadow-[0_0_10px_#3b82f6]"></span>
@@ -261,29 +224,29 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
+            </div>
 
-                <div className={containerClass}>
-                    <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
-                         <span className="w-2 h-6 bg-green-500 rounded-full shadow-[0_0_10px_#22c55e]"></span>
-                         Finanzas Mensuales
-                    </h3>
-                     <ResponsiveContainer width="100%" height={250}>
-                        <AreaChart data={sortedMonthlyData}>
-                            <defs>
-                                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#374151"/>
-                            <XAxis dataKey="month" tick={{ fill: '#9ca3af', fontSize: 10 }} />
-                            <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES', { notation: "compact" })}`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF', borderRadius: '8px' }} formatter={(value: number) => formatCurrency(value)} />
-                            <Area type="monotone" dataKey="Ingresos" stroke="#8B5CF6" fillOpacity={1} fill="url(#colorIncome)" />
-                            <Area type="monotone" dataKey="Gastos" stroke="#EF4444" fillOpacity={0.1} fill="#EF4444" />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
+            <div className={containerClass}>
+                <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
+                     <span className="w-2 h-6 bg-green-500 rounded-full shadow-[0_0_10px_#22c55e]"></span>
+                     Finanzas Mensuales
+                </h3>
+                 <ResponsiveContainer width="100%" height={250}>
+                    <AreaChart data={sortedMonthlyData}>
+                        <defs>
+                            <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151"/>
+                        <XAxis dataKey="month" tick={{ fill: '#9ca3af', fontSize: 10 }} />
+                        <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickFormatter={(value) => `€${Number(value).toLocaleString('es-ES', { notation: "compact" })}`} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#FFFFFF', borderRadius: '8px' }} formatter={(value: number) => formatCurrency(value)} />
+                        <Area type="monotone" dataKey="Ingresos" stroke="#8B5CF6" fillOpacity={1} fill="url(#colorIncome)" />
+                        <Area type="monotone" dataKey="Gastos" stroke="#EF4444" fillOpacity={0.1} fill="#EF4444" />
+                    </AreaChart>
+                </ResponsiveContainer>
             </div>
         </div>
     );

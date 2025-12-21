@@ -16,7 +16,7 @@ import QuarterlyInvoicing from './components/QuarterlyInvoicing';
 import Attendance from './components/Attendance';
 import EventManagement from './components/EventManagement';
 import Login from './components/Login';
-import Modal from './components/Modal'; // Import Modal
+import Modal from './components/Modal'; 
 import { auth } from './src/config/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import {
@@ -49,6 +49,10 @@ import {
     addNuptialDance as addNuptialDanceToDb,
     updateNuptialDance as updateNuptialDanceInDb,
     deleteNuptialDance as deleteNuptialDanceFromDb,
+    subscribeToEvents,
+    addEvent as addEventToDb,
+    updateEvent as updateEventInDb,
+    deleteEvent as deleteEventFromDb,
     subscribeToMerchandiseItems,
     addMerchandiseItem as addMerchandiseItemToDb,
     updateMerchandiseItem as updateMerchandiseItemInDb,
@@ -60,70 +64,54 @@ import {
     subscribeToAttendance,
     addAttendance as addAttendanceToDb,
     updateAttendance as updateAttendanceInDb,
-    subscribeToEvents,
-    addEvent as addEventToDb,
-    updateEvent as updateEventInDb,
-    deleteEvent as deleteEventToDb,
 } from './src/services/firestoreService';
 
-// --- SATURN LOADER COMPONENT ---
 const SaturnLoader = () => (
     <div className="relative w-24 h-24 flex items-center justify-center">
-        {/* Planet Body */}
         <div className="absolute w-10 h-10 bg-purple-600 rounded-full shadow-[0_0_20px_rgba(147,51,234,0.6)] z-10"></div>
-        
-        {/* Ring Wrapper - Fixed Tilt */}
         <div className="absolute inset-0 flex items-center justify-center rotate-[-20deg]">
-             {/* Spinning Ring - Blue Halo */}
              <div className="w-20 h-6 border-[3px] border-blue-900/30 border-t-cyan-400 border-l-blue-500 rounded-[50%] animate-[spin_1s_linear_infinite] shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
         </div>
     </div>
 );
 
 const App: React.FC = () => {
-    // Auth State
     const [user, setUser] = useState<User | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
 
-    // App State
     const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [dataLoading, setDataLoading] = useState(true);
     
-    // Birthday Notification State
     const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
     const [birthdaysToday, setBirthdaysToday] = useState<Student[]>([]);
     const [hasCheckedBirthdays, setHasCheckedBirthdays] = useState(false);
 
-    // Data State
     const [students, setStudents] = useState<Student[]>([]);
     const [instructors, setInstructors] = useState<Instructor[]>([]);
     const [classes, setClasses] = useState<DanceClass[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [costs, setCosts] = useState<Cost[]>([]);
     const [nuptialDances, setNuptialDances] = useState<NuptialDance[]>([]);
+    const [events, setEvents] = useState<DanceEvent[]>([]);
     const [merchandiseItems, setMerchandiseItems] = useState<MerchandiseItem[]>([]);
     const [merchandiseSales, setMerchandiseSales] = useState<MerchandiseSale[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-    const [events, setEvents] = useState<DanceEvent[]>([]);
 
-    // 1. Check Authentication Status
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             setAuthLoading(false);
-            // Reset loading when user logs out so it spins again on next login
             if (!currentUser) {
                 setDataLoading(true);
-                setHasCheckedBirthdays(false); // Reset check on logout
+                setHasCheckedBirthdays(false);
             }
         });
         return () => unsubscribe();
     }, []);
 
-    // 2. Subscribe to Data ONLY if Authenticated
     useEffect(() => {
-        if (!user) return; // Do not fetch data if not logged in
+        if (!user) return;
 
         const unsubscribers = [
             subscribeToStudents(setStudents),
@@ -132,13 +120,12 @@ const App: React.FC = () => {
             subscribeToPayments(setPayments),
             subscribeToCosts(setCosts),
             subscribeToNuptialDances(setNuptialDances),
+            subscribeToEvents(setEvents),
             subscribeToMerchandiseItems(setMerchandiseItems),
             subscribeToMerchandiseSales(setMerchandiseSales),
             subscribeToAttendance(setAttendanceRecords),
-            subscribeToEvents(setEvents),
         ];
 
-        // Fake minimum loading time for better UX
         const timer = setTimeout(() => {
             setDataLoading(false);
         }, 1500);
@@ -149,7 +136,6 @@ const App: React.FC = () => {
         };
     }, [user]);
 
-    // 3. Check for Birthdays on Load
     useEffect(() => {
         if (!dataLoading && students.length > 0 && !hasCheckedBirthdays) {
             const today = new Date();
@@ -170,7 +156,6 @@ const App: React.FC = () => {
         }
     }, [dataLoading, students, hasCheckedBirthdays]);
 
-    // Student Handlers
     const addStudent = async (student: Omit<Student, 'id'>) => {
         await addStudentToDb({ 
             ...student, 
@@ -187,7 +172,6 @@ const App: React.FC = () => {
         await deleteStudentFromDb(studentId);
     };
 
-    // Instructor Handlers
     const addInstructor = async (instructor: Omit<Instructor, 'id'>) => {
         await addInstructorToDb({ 
             ...instructor,
@@ -207,7 +191,6 @@ const App: React.FC = () => {
         await deleteInstructorFromDb(instructorId);
     };
 
-    // Class Handlers
     const addClass = async (danceClass: Omit<DanceClass, 'id'>) => {
         await addClassToDb(danceClass);
     };
@@ -227,7 +210,6 @@ const App: React.FC = () => {
         await deleteClassFromDb(classId);
     };
     
-    // Payment Handlers
     const addPayment = async (payment: Omit<Payment, 'id'>) => {
         await addPaymentToDb(payment);
     };
@@ -238,7 +220,6 @@ const App: React.FC = () => {
         await deletePaymentFromDb(paymentId);
     };
 
-    // Cost Handlers
     const addCost = async (cost: Omit<Cost, 'id'>) => {
         await addCostToDb(cost);
     };
@@ -249,7 +230,6 @@ const App: React.FC = () => {
         await deleteCostFromDb(costId);
     };
 
-    // Nuptial Dance Handlers
     const addNuptialDance = async (dance: Omit<NuptialDance, 'id'>) => {
         await addNuptialDanceToDb(dance);
     };
@@ -260,7 +240,16 @@ const App: React.FC = () => {
         await deleteNuptialDanceFromDb(danceId);
     };
 
-    // Merchandise Handlers
+    const addEvent = async (event: Omit<DanceEvent, 'id'>) => {
+        await addEventToDb(event);
+    };
+    const updateEvent = async (updatedEvent: DanceEvent) => {
+        await updateEventInDb(updatedEvent);
+    };
+    const deleteEvent = async (eventId: string) => {
+        await deleteEventFromDb(eventId);
+    };
+
     const addMerchandiseItem = async (item: Omit<MerchandiseItem, 'id'>) => {
         await addMerchandiseItemToDb(item);
     };
@@ -287,7 +276,6 @@ const App: React.FC = () => {
         }
     };
 
-    // Attendance Handler
     const saveAttendance = async (record: Omit<AttendanceRecord, 'id'> | AttendanceRecord) => {
         if ('id' in record) {
             await updateAttendanceInDb(record);
@@ -296,29 +284,15 @@ const App: React.FC = () => {
         }
     };
 
-    // Event Handlers
-    const addEvent = async (event: Omit<DanceEvent, 'id'>) => {
-        await addEventToDb(event);
-    };
-    const updateEvent = async (event: DanceEvent) => {
-        await updateEventInDb(event);
-    };
-    const deleteEvent = async (eventId: string) => {
-        await deleteEventToDb(eventId);
-    };
-    
     const handleLogout = async () => {
         try {
             await signOut(auth);
-            setCurrentView(View.DASHBOARD); // Reset view on logout
+            setCurrentView(View.DASHBOARD);
         } catch (error) {
             console.error("Error signing out: ", error);
         }
     };
 
-    // --- RENDER LOGIC ---
-
-    // 1. Checking if user is logged in
     if (authLoading) {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-900 text-gray-200">
@@ -327,12 +301,10 @@ const App: React.FC = () => {
         );
     }
 
-    // 2. Not logged in -> Show Login Screen
     if (!user) {
         return <Login />;
     }
 
-    // 3. Logged in, but fetching data
     if (dataLoading) {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-900 text-gray-200">
@@ -345,7 +317,6 @@ const App: React.FC = () => {
         );
     }
 
-    // 4. Logged in and Data Loaded -> Show App
     const renderView = () => {
         switch (currentView) {
             case View.DASHBOARD:
@@ -356,7 +327,6 @@ const App: React.FC = () => {
                             payments={payments} 
                             costs={costs} 
                             nuptialDances={nuptialDances}
-                            events={events}
                             setView={setCurrentView} 
                             addPayment={addPayment}
                         />;
@@ -375,8 +345,6 @@ const App: React.FC = () => {
                 return <InteractiveSchedule classes={classes} instructors={instructors} students={students} updateClass={updateClass} />;
             case View.INSTRUCTORS:
                 return <InstructorList instructors={instructors} classes={classes} addInstructor={addInstructor} updateInstructor={updateInstructor} deleteInstructor={deleteInstructor} />;
-            case View.EVENTS:
-                return <EventManagement events={events} students={students} addEvent={addEvent} updateEvent={updateEvent} deleteEvent={deleteEvent} />;
             case View.BILLING:
                 return <Billing 
                     payments={payments} 
@@ -409,7 +377,7 @@ const App: React.FC = () => {
                     updateItem={updateMerchandiseItem} 
                     deleteItem={deleteMerchandiseItem} 
                     addSale={addMerchandiseSale} 
-                    deleteSale={deleteMerchandiseSale} 
+                    deleteSale={deleteSale} 
                 />;
             case View.NUPTIAL_DANCES:
                 return <NuptialDances 
@@ -418,6 +386,14 @@ const App: React.FC = () => {
                     addNuptialDance={addNuptialDance} 
                     updateNuptialDance={updateNuptialDance} 
                     deleteNuptialDance={deleteNuptialDance} 
+                />;
+            case View.EVENTS:
+                return <EventManagement 
+                    events={events} 
+                    students={students} 
+                    addEvent={addEvent} 
+                    updateEvent={updateEvent} 
+                    deleteEvent={deleteEvent} 
                 />;
             case View.DATA_MANAGEMENT:
                 return <DataManagement 
@@ -440,7 +416,6 @@ const App: React.FC = () => {
                             payments={payments} 
                             costs={costs} 
                             nuptialDances={nuptialDances}
-                            events={events}
                             setView={setCurrentView} 
                             addPayment={addPayment}
                         />;
@@ -464,7 +439,6 @@ const App: React.FC = () => {
                 </main>
             </div>
 
-            {/* NOTIFICACIÓN DE CUMPLEAÑOS */}
             <Modal 
                 isOpen={isBirthdayModalOpen} 
                 onClose={() => setIsBirthdayModalOpen(false)} 
