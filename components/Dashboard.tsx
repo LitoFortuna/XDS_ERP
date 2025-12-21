@@ -27,7 +27,7 @@ const COLORS = ['#8B5CF6', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#6366F1'
 const formatCurrency = (v: number, decimals: number = 0) => {
     const parts = v.toFixed(decimals).split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return parts.join(',') + '€';
+    return (decimals > 0 ? parts.join(',') : parts[0]) + '€';
 };
 
 const StatCard: React.FC<{ 
@@ -58,7 +58,10 @@ const StatCard: React.FC<{
 const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, events, setView, addPayment }) => {
     const currentYear = 2025; 
     const currentMonth = new Date().getMonth();
-    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const monthShortNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    const [selectedRentMonth, setSelectedRentMonth] = useState(currentMonth);
 
     // --- CÁLCULOS DE KPIs ---
     const activeStudents = students.filter(s => s.active);
@@ -98,7 +101,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     const expected = student.feeExceptions?.[exceptionKey] ?? student.monthlyFee;
 
                     if (paid < expected) {
-                        unpaidMonths.push(monthNames[m]);
+                        unpaidMonths.push(monthShortNames[m]);
                         totalDebt += (expected - paid);
                     }
                 }
@@ -114,7 +117,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         : '100';
 
     // --- DATOS DE GRÁFICOS ---
-    const activeStudentsHistory = monthNames.map((name, m) => {
+    const activeStudentsHistory = monthShortNames.map((name, m) => {
         const date = new Date(currentYear, m + 1, 0);
         const count = students.filter(s => {
             const start = new Date(s.enrollmentDate);
@@ -131,12 +134,25 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const rentabilidadData = useMemo(() => {
         return classes.map(c => {
             const studentsInClass = students.filter(s => s.enrolledClassIds.includes(c.id));
+            
+            // Ingresos del mes seleccionado: Cuota proporcional de los alumnos inscritos
             const ingresosEstimados = studentsInClass.reduce((sum, s) => {
+                // Si el alumno está dado de baja antes del mes seleccionado o se dio de alta después, no cuenta
+                const enrollDate = new Date(s.enrollmentDate);
+                const targetDate = new Date(currentYear, selectedRentMonth, 1);
+                const nextMonthDate = new Date(currentYear, selectedRentMonth + 1, 1);
+                
+                if (enrollDate >= nextMonthDate) return sum;
+                if (s.deactivationDate && new Date(s.deactivationDate) < targetDate) return sum;
+
+                const exceptionKey = `${currentYear}-${selectedRentMonth}`;
+                const fee = s.feeExceptions?.[exceptionKey] ?? s.monthlyFee;
                 const proportion = s.enrolledClassIds.length > 0 ? 1 / s.enrolledClassIds.length : 0;
-                return sum + (s.monthlyFee * proportion);
+                return sum + (fee * proportion);
             }, 0);
             
             const instructor = instructors.find(i => i.id === c.instructorId);
+            // Gastos del mes seleccionado: Pago profesor por clases al mes (asumiendo 4 semanas)
             const gastosEstimados = (instructor?.ratePerClass ?? 25) * c.days.length * 4; 
 
             return {
@@ -145,7 +161,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 Gastos: Math.round(gastosEstimados)
             };
         }).sort((a, b) => b.Ingresos - a.Ingresos).slice(0, 30);
-    }, [classes, students, instructors]);
+    }, [classes, students, instructors, selectedRentMonth, currentYear]);
 
     const popularClasses = useMemo(() => {
         return classes.map(c => ({
@@ -166,7 +182,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [students]);
 
-    const finanzasHistory = monthNames.map((name, m) => {
+    const finanzasHistory = monthShortNames.map((name, m) => {
         const monthIncome = payments.filter(p => new Date(p.date).getMonth() === m && new Date(p.date).getFullYear() === currentYear).reduce((s, p) => s + p.amount, 0);
         const monthCost = costs.filter(c => new Date(c.paymentDate).getMonth() === m && new Date(c.paymentDate).getFullYear() === currentYear).reduce((s, c) => s + c.amount, 0);
         return { name: name.toLowerCase(), Ingresos: monthIncome, Gastos: monthCost };
@@ -236,8 +252,14 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         </h3>
                         <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">Ingresos vs Gastos estimados por grupo</p>
                     </div>
-                    <select className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none">
-                        <option>Diciembre {currentYear}</option>
+                    <select 
+                        value={selectedRentMonth}
+                        onChange={(e) => setSelectedRentMonth(parseInt(e.target.value))}
+                        className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                        {monthNames.map((name, index) => (
+                            <option key={name} value={index}>{name} {currentYear}</option>
+                        ))}
                     </select>
                 </div>
                 <ResponsiveContainer width="100%" height={320}>
@@ -453,7 +475,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                         <p className="text-[10px] text-gray-500 font-bold mt-0.5">Cumple {age} años</p>
                                     </div>
                                 </div>
-                                <p className="text-[10px] font-black text-purple-400 bg-purple-500/5 px-2 py-1 rounded-lg border border-purple-500/10">{s.nextBday.getDate()} {monthNames[s.nextBday.getMonth()]}</p>
+                                <p className="text-[10px] font-black text-purple-400 bg-purple-500/5 px-2 py-1 rounded-lg border border-purple-500/10">{s.nextBday.getDate()} {monthShortNames[s.nextBday.getMonth()]}</p>
                             </div>
                         )})}
                     </div>
