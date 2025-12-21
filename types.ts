@@ -109,6 +109,7 @@ export interface DanceEvent {
   price: number;
   participantIds: string[];
   notes?: string;
+  imageUrl?: string; // Nuevo campo para el cartel del evento
 }
 
 export interface MerchandiseItem {

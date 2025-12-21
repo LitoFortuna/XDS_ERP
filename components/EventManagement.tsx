@@ -26,9 +26,11 @@ const EventForm: React.FC<{
         price: event?.price || 0,
         participantIds: event?.participantIds || [],
         notes: event?.notes || '',
+        imageUrl: event?.imageUrl || '',
     });
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
 
     const filteredStudents = useMemo(() => {
         return students
@@ -42,6 +44,25 @@ const EventForm: React.FC<{
             ...prev,
             [name]: name === 'price' ? parseFloat(value) || 0 : value
         }));
+    };
+
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validar tamaño (máx 2MB para Base64 eficiente en Firestore)
+        if (file.size > 2 * 1024 * 1024) {
+            alert("La imagen es demasiado grande. El máximo permitido es 2MB.");
+            return;
+        }
+
+        setIsUploading(true);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
+            setIsUploading(false);
+        };
+        reader.readAsDataURL(file);
     };
 
     const toggleParticipant = (studentId: string) => {
@@ -61,6 +82,52 @@ const EventForm: React.FC<{
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Cartel del Evento</label>
+                    <div className="flex items-center gap-4">
+                        <div className="relative w-32 h-44 bg-gray-900 border-2 border-dashed border-gray-700 rounded-xl overflow-hidden flex items-center justify-center shrink-0 group">
+                            {formData.imageUrl ? (
+                                <>
+                                    <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setFormData(prev => ({...prev, imageUrl: ''}))}
+                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold"
+                                    >
+                                        Eliminar
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="text-center p-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto text-gray-600 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Sin Cartel</p>
+                                </div>
+                            )}
+                            {isUploading && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                    <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex-grow">
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={handleImageChange} 
+                                className="hidden" 
+                                id="event-image-upload" 
+                            />
+                            <label 
+                                htmlFor="event-image-upload" 
+                                className="inline-block bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg border border-gray-700 cursor-pointer text-sm font-bold transition-all"
+                            >
+                                {formData.imageUrl ? 'Cambiar Imagen' : 'Subir Cartel'}
+                            </label>
+                            <p className="text-[10px] text-gray-500 mt-2 italic leading-tight">Formatos: JPG, PNG. Recomendado vertical 2:3. Máx 2MB.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-300">Nombre del Evento</label>
                     <input type="text" name="name" value={formData.name} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500" required />
@@ -244,18 +311,30 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                 {filteredEvents.length > 0 ? (
                     filteredEvents.map(event => (
                         <div key={event.id} className="bg-gray-800 rounded-2xl overflow-hidden shadow-xl border border-gray-700/50 hover:border-purple-500/50 transition-all group flex flex-col h-full">
-                            <div className="p-6 flex-grow">
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className={`px-2.5 py-1 rounded-lg border text-[10px] uppercase font-black tracking-widest ${getTypeColor(event.type)}`}>
+                            {/* IMAGEN DEL EVENTO */}
+                            <div className="relative h-48 bg-gray-900">
+                                {event.imageUrl ? (
+                                    <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 opacity-50">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    </div>
+                                )}
+                                <div className="absolute top-4 left-4">
+                                    <span className={`px-2.5 py-1 rounded-lg border text-[10px] uppercase font-black tracking-widest shadow-lg ${getTypeColor(event.type)}`}>
                                         {event.type}
                                     </span>
-                                    <div className="text-right">
+                                </div>
+                            </div>
+
+                            <div className="p-6 flex-grow">
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="text-xl font-black text-white group-hover:text-purple-300 transition-colors line-clamp-2">{event.name}</h3>
+                                    <div className="text-right shrink-0">
                                         <p className="text-green-400 font-bold text-xl leading-none">€{event.price.toFixed(0)}</p>
                                         <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">por alumna</p>
                                     </div>
                                 </div>
-                                
-                                <h3 className="text-xl font-black text-white mb-4 group-hover:text-purple-300 transition-colors line-clamp-2">{event.name}</h3>
                                 
                                 <div className="space-y-3 text-sm text-gray-400">
                                     <div className="flex items-center">
