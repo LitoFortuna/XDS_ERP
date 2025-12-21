@@ -12,8 +12,21 @@ interface StudentListProps {
   deleteStudent: (id: string) => void;
 }
 
-type SortKey = keyof Student | 'enrolledClasses';
+type SortKey = keyof Student | 'enrolledClasses' | 'age';
 type SortDirection = 'asc' | 'desc';
+
+// Función auxiliar para calcular la edad exacta
+const calculateAge = (birthDate?: string) => {
+    if (!birthDate) return null;
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
+};
 
 export const StudentForm: React.FC<{ 
     student?: Student, 
@@ -53,8 +66,6 @@ export const StudentForm: React.FC<{
     const { name, value, type } = e.target;
     
     if (name === 'deactivationDate') {
-        // Si se establece una fecha de baja, desmarcar automáticamente "Activo"
-        // Si se borra la fecha de baja, no cambiamos el estado automáticamente (el usuario decide)
         setFormData(prev => ({
             ...prev,
             deactivationDate: value,
@@ -188,7 +199,6 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
-  // Changed default state from 'all' to 'active'
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [classFilter, setClassFilter] = useState<string>('');
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
@@ -204,15 +214,12 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
   
   const sortedAndFilteredStudents = useMemo(() => {
     let sortableStudents = [...students].filter(student => {
-      // 1. Text Search
       const matchesName = student.name.toLowerCase().includes(searchQuery.toLowerCase());
       
-      // 2. Status Filter
       let matchesStatus = true;
       if (statusFilter === 'active') matchesStatus = student.active;
       if (statusFilter === 'inactive') matchesStatus = !student.active;
 
-      // 3. Class Filter
       let matchesClass = true;
       if (classFilter) {
           matchesClass = student.enrolledClassIds.includes(classFilter);
@@ -223,15 +230,25 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
 
     sortableStudents.sort((a, b) => {
       const key = sortConfig.key;
-      let aValue: any = key === 'enrolledClasses' ? getEnrolledClassNames(a.enrolledClassIds) : a[key as keyof Student];
-      let bValue: any = key === 'enrolledClasses' ? getEnrolledClassNames(b.enrolledClassIds) : b[key as keyof Student];
+      let aValue: any;
+      let bValue: any;
+
+      if (key === 'enrolledClasses') {
+          aValue = getEnrolledClassNames(a.enrolledClassIds);
+          bValue = getEnrolledClassNames(b.enrolledClassIds);
+      } else if (key === 'age') {
+          aValue = calculateAge(a.birthDate) ?? -1;
+          bValue = calculateAge(b.birthDate) ?? -1;
+      } else {
+          aValue = a[key as keyof Student];
+          bValue = b[key as keyof Student];
+      }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
         const comparison = aValue.localeCompare(bValue, 'es', { sensitivity: 'base' });
         return sortConfig.direction === 'asc' ? comparison : -comparison;
       }
       
-      // Fallback for non-string types
       if (aValue < bValue) {
         return sortConfig.direction === 'asc' ? -1 : 1;
       }
@@ -308,12 +325,13 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
 
   const handleExportCSV = () => {
     const headers = [
-      'Nombre', 'DNI', 'Fecha de Alta', 'Fecha de Baja', 'Fecha de Nacimiento', 'Teléfono', 'Email', 
+      'Nombre', 'Edad', 'DNI', 'Fecha de Alta', 'Fecha de Baja', 'Fecha de Nacimiento', 'Teléfono', 'Email', 
       'Clases Inscritas', 'Cuota Mensual (€)', 'Forma de Pago', 'IBAN', 'Activo', 'Observaciones'
     ];
     
     const dataToExport = sortedAndFilteredStudents.map(student => ([
       student.name,
+      calculateAge(student.birthDate) ?? '-',
       student.dni || '',
       new Date(student.enrollmentDate).toLocaleDateString('es-ES'),
       student.deactivationDate ? new Date(student.deactivationDate).toLocaleDateString('es-ES') : '',
@@ -337,12 +355,13 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
   };
   
   const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode; }> = ({ sortKey, children }) => (
-    <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600" onClick={() => requestSort(sortKey)}>
-      {children} {getSortIndicator(sortKey)}
+    <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600 transition-colors" onClick={() => requestSort(sortKey)}>
+      <div className="flex items-center gap-1">
+        {children} {getSortIndicator(sortKey)}
+      </div>
     </th>
   );
 
-  // Helper for sorting classes in dropdown
   const sortedClassesForFilter = useMemo(() => 
     [...classes].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
   [classes]);
@@ -353,15 +372,14 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Alumnos</h2>
         <div className="flex items-center gap-4">
-            <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center">
+            <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 Exportar a CSV
             </button>
-            <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Alumno</button>
+            <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors shadow-md">Añadir Alumno</button>
         </div>
       </div>
       
-      {/* FILTERS SECTION */}
       <div className="mb-6 flex flex-col md:flex-row gap-4 bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700/50">
         <div className="flex-1">
             <label className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
@@ -400,40 +418,48 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
         </div>
       </div>
 
-      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
+      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto border border-gray-700">
         <table className="w-full text-sm text-left text-gray-400">
-          <thead className="text-xs text-gray-300 uppercase bg-gray-700">
+          <thead className="text-xs text-gray-300 uppercase bg-gray-700/50">
             <tr>
               <SortableHeader sortKey="name">Nombre</SortableHeader>
+              <SortableHeader sortKey="age">Edad</SortableHeader>
               <SortableHeader sortKey="enrollmentDate">Fecha de Alta</SortableHeader>
               <th scope="col" className="px-6 py-3">Teléfono</th>
               <SortableHeader sortKey="enrolledClasses">Clases Inscritas</SortableHeader>
-              <SortableHeader sortKey="monthlyFee">Cuota Mensual</SortableHeader>
-              <SortableHeader sortKey="paymentMethod">Forma de Pago</SortableHeader>
+              <SortableHeader sortKey="monthlyFee">Cuota</SortableHeader>
+              <SortableHeader sortKey="paymentMethod">Pago</SortableHeader>
               <SortableHeader sortKey="active">Estado</SortableHeader>
               <th scope="col" className="px-6 py-3">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {sortedAndFilteredStudents.map(student => (
-              <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
+            {sortedAndFilteredStudents.map(student => {
+              const age = calculateAge(student.birthDate);
+              return (
+              <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50 transition-colors">
                 <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
-                <td className="px-6 py-4">{new Date(student.enrollmentDate).toLocaleDateString('es-ES')}</td>
-                <td className="px-6 py-4">{student.phone || '-'}</td>
-                <td className="px-6 py-4">{getEnrolledClassNames(student.enrolledClassIds)}</td>
-                <td className="px-6 py-4">€{student.monthlyFee.toFixed(2)}</td>
-                <td className="px-6 py-4">{student.paymentMethod}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${student.active ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-                    {student.active ? 'Activo' : 'Inactivo'}
+                  {age !== null ? (
+                    <span className="bg-gray-700 text-gray-200 px-2 py-0.5 rounded text-xs font-bold">{age}</span>
+                  ) : '-'}
+                </td>
+                <td className="px-6 py-4">{new Date(student.enrollmentDate).toLocaleDateString('es-ES')}</td>
+                <td className="px-6 py-4 font-mono text-xs">{student.phone || '-'}</td>
+                <td className="px-6 py-4 max-w-xs truncate" title={getEnrolledClassNames(student.enrolledClassIds)}>{getEnrolledClassNames(student.enrolledClassIds)}</td>
+                <td className="px-6 py-4 text-purple-300 font-bold whitespace-nowrap">€{student.monthlyFee.toFixed(0)}</td>
+                <td className="px-6 py-4 text-xs">{student.paymentMethod}</td>
+                <td className="px-6 py-4">
+                  <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-black tracking-tighter ${student.active ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                    {student.active ? 'Activo' : 'Baja'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <button onClick={() => handleOpenModal(student)} className="font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
-                  <button onClick={() => handleDeleteRequest(student)} className="ml-4 font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
+                  <button onClick={() => handleOpenModal(student)} className="font-bold text-xs uppercase tracking-widest text-purple-400 hover:text-purple-300">Editar</button>
+                  <button onClick={() => handleDeleteRequest(student)} className="ml-4 font-bold text-xs uppercase tracking-widest text-red-500 hover:text-red-400">Borrar</button>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
