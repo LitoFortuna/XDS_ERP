@@ -21,7 +21,10 @@ interface DashboardProps {
 
 const COLORS = ['#8B5CF6', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#4B5563'];
 
-// Helper centralizado para formato de moneda con punto en millares
+/**
+ * Helper centralizado para formato de moneda.
+ * Formato solicitado: 32.650€ (punto para millares, euro al final)
+ */
 const formatCurrency = (v: number, decimals: number = 0) => {
     return v.toLocaleString('es-ES', {
         minimumFractionDigits: decimals,
@@ -55,7 +58,7 @@ const StatCard: React.FC<{
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, instructors, costs, nuptialDances, events, setView, addPayment }) => {
-    const currentYear = 2025; // Fijado según captura
+    const currentYear = 2025; 
     const currentMonth = new Date().getMonth();
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
@@ -189,7 +192,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
         <div className="p-6 bg-[#0f172a] min-h-screen text-gray-200 pb-24 space-y-8 font-sans">
             <h2 className="text-3xl font-black text-white tracking-tight">Dashboard General</h2>
 
-            {/* FILA 1: KPIs (8 tarjetas) */}
+            {/* FILA 1: KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard title="Alumnos Activos" value={activeStudents.length.toLocaleString('es-ES')} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197" /></svg>} color="blue" />
                 <StatCard title="Nuevos (Mes)" value={newStudentsThisMonth.toLocaleString('es-ES')} subtext="Crecimiento mensual" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>} color="emerald" />
@@ -233,7 +236,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             <span className="w-1 h-4 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>
                             Rentabilidad por Clase
                         </h3>
-                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">Ingresos: Suma proporcional cuotas. Gastos: Pago profesor + estimado operativo.</p>
+                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">Ingresos vs Gastos estimados por grupo</p>
                     </div>
                     <select className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none">
                         <option>Diciembre {currentYear}</option>
@@ -243,7 +246,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     <ComposedChart data={rentabilidadData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                         <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 9, fontWeight: 700}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `€${v.toLocaleString('es-ES')}`} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `${v.toLocaleString('es-ES')}€`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px' }} formatter={(v: number) => formatCurrency(v)} />
                         <Legend verticalAlign="top" align="center" iconType="circle" wrapperStyle={{paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase'}} />
                         <Bar dataKey="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} name="Gastos Estimados" />
@@ -295,13 +298,13 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         <span className="w-1 h-4 bg-purple-500 rounded-full"></span>
                         Ingreso Medio por Alumno/Clase
                     </h3>
-                    <p className="text-[9px] text-gray-500 mb-6 italic uppercase tracking-tighter">Cálculo: (Pago mensual del alumno / Nº Clases inscritas) promediado entre todos los alumnos.</p>
+                    <p className="text-[9px] text-gray-500 mb-6 italic uppercase tracking-tighter">Cálculo: Promedio de cuotas por clase inscrita.</p>
                     <ResponsiveContainer width="100%" height={240}>
                         <LineChart data={finanzasHistory.map(f => ({...f, ratio: (f.Ingresos / (activeStudents.length || 1)).toFixed(1)}))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} />
-                            <YAxis domain={[10, 40]} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `${v}€`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} />
+                            <YAxis domain={[10, 40]} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `${v.toLocaleString('es-ES')}€`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} formatter={(v: any) => `${parseFloat(v).toLocaleString('es-ES')}€`} />
                             <Line type="monotone" dataKey="ratio" stroke="#a78bfa" strokeWidth={4} dot={{r: 4, fill: '#fff', stroke: '#a78bfa', strokeWidth: 2}} />
                         </LineChart>
                     </ResponsiveContainer>
@@ -334,42 +337,6 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
-                </div>
-            </div>
-
-            {/* FILA: Demografía + Profesores */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
-                    <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
-                        <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
-                        Demografía: Distribución por Edad
-                    </h3>
-                    <ResponsiveContainer width="100%" height={260}>
-                        <BarChart data={demografiaData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 9, fontWeight: 700}} />
-                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} cursor={{fill: '#1e293b'}} />
-                            <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={45}>
-                                {demografiaData.map((entry, index) => <Cell key={`cell-${index}`} fill={['#ec4899', '#8b5cf6', '#3b82f6', '#10b981'][index]} />)}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
-                    <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
-                        <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
-                        Top 5 Profesores (por nº alumnos)
-                    </h3>
-                    <ResponsiveContainer width="100%" height={260}>
-                        <BarChart layout="vertical" data={instructors.map(i => ({ name: i.name, value: students.filter(s => classes.filter(c => c.instructorId === i.id).some(c => s.enrolledClassIds.includes(c.id))).length })).sort((a,b) => b.value - a.value).slice(0, 5)}>
-                            <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} cursor={{fill: '#1e293b'}} />
-                            <Bar dataKey="value" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={25} />
-                        </BarChart>
-                    </ResponsiveContainer>
                 </div>
             </div>
 
@@ -459,7 +426,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 </div>
             </div>
 
-            {/* TABLA: Alumnos con Pagos Pendientes (Mejorada) */}
+            {/* TABLA: Alumnos con Pagos Pendientes */}
             <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/50 shadow-2xl overflow-hidden">
                 <h3 className="text-sm font-black text-white mb-6 flex items-center gap-2 uppercase tracking-tight">
                     <span className="w-1.5 h-5 bg-rose-500 rounded-full shadow-[0_0_12px_#f43f5e]"></span>
