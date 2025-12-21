@@ -62,6 +62,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const monthShortNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
     const [selectedRentMonth, setSelectedRentMonth] = useState(currentMonth);
+    const [unpaidSearchQuery, setUnpaidSearchQuery] = useState('');
 
     // --- CÁLCULOS DE KPIs ---
     const activeStudents = students.filter(s => s.active);
@@ -110,6 +111,13 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             .filter(info => info.totalDebt > 0)
             .sort((a, b) => b.totalDebt - a.totalDebt);
     }, [students, payments, currentMonth, currentYear]);
+
+    // --- FILTRADO DE IMPAGADOS POR BÚSQUEDA ---
+    const filteredUnpaidStudents = useMemo(() => {
+        return unpaidStudentsInfo.filter(student => 
+            student.name.toLowerCase().includes(unpaidSearchQuery.toLowerCase())
+        );
+    }, [unpaidStudentsInfo, unpaidSearchQuery]);
 
     const totalPendingAmount = unpaidStudentsInfo.reduce((sum, info) => sum + info.totalDebt, 0);
     const collectionRate = (totalRevenue + totalPendingAmount) > 0 
@@ -522,10 +530,26 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 
             {/* TABLA: Alumnos con Pagos Pendientes */}
             <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/50 shadow-2xl overflow-hidden">
-                <h3 className="text-sm font-black text-white mb-6 flex items-center gap-2 uppercase tracking-tight">
-                    <span className="w-1.5 h-5 bg-rose-500 rounded-full shadow-[0_0_12px_#f43f5e]"></span>
-                    Alumnos con Pagos Pendientes ({currentYear})
-                </h3>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-tight">
+                        <span className="w-1.5 h-5 bg-rose-500 rounded-full shadow-[0_0_12px_#f43f5e]"></span>
+                        Alumnos con Pagos Pendientes ({currentYear})
+                    </h3>
+                    <div className="relative w-full md:w-64">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </span>
+                        <input 
+                            type="text" 
+                            placeholder="Buscar alumna..." 
+                            value={unpaidSearchQuery}
+                            onChange={(e) => setUnpaidSearchQuery(e.target.value)}
+                            className="w-full bg-[#0f172a] border border-gray-800 rounded-xl py-2 pl-10 pr-4 text-xs text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all font-bold placeholder-gray-600"
+                        />
+                    </div>
+                </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
                         <thead className="text-[10px] uppercase font-black text-gray-500 border-b border-gray-800">
@@ -537,7 +561,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/40">
-                            {unpaidStudentsInfo.map(student => (
+                            {filteredUnpaidStudents.map(student => (
                                 <tr key={student.id} className="hover:bg-gray-800/30 transition-all duration-150">
                                     <td className="px-5 py-4 font-black text-white text-sm">{student.name}</td>
                                     <td className="px-5 py-4">
@@ -561,6 +585,13 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                                     </td>
                                 </tr>
                             ))}
+                            {filteredUnpaidStudents.length === 0 && (
+                                <tr>
+                                    <td colSpan={4} className="px-5 py-10 text-center text-gray-500 italic font-medium">
+                                        No se encontraron alumnas pendientes con ese nombre.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
