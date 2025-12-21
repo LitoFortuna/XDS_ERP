@@ -4,6 +4,15 @@ import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod,
 import Modal from './Modal';
 import { StudentForm } from './StudentList';
 
+/**
+ * Formateador de moneda robusto que garantiza el formato 12.056€
+ */
+const formatCurrency = (v: number, decimals: number = 2) => {
+    const parts = v.toFixed(decimals).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return parts.join(',') + '€';
+};
+
 // --- COMPONENTE MODAL DE GESTIÓN MENSUAL ---
 interface MonthlyDetailModalProps {
     isOpen: boolean;
@@ -26,34 +35,27 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
     const monthName = months[monthIndex];
     const exceptionKey = `${year}-${monthIndex}`;
     
-    // Determine the current expected fee for THIS specific month
-    // If an exception exists, use it. Otherwise use the global monthlyFee.
     const currentMonthFee = student.feeExceptions?.[exceptionKey] !== undefined 
         ? student.feeExceptions[exceptionKey] 
         : student.monthlyFee;
 
-    // State for override fee editing
     const [monthSpecificFee, setMonthSpecificFee] = useState(currentMonthFee);
     const [isFeeDirty, setIsFeeDirty] = useState(false);
 
-    // State for new payment
     const [newPayment, setNewPayment] = useState({
         amount: 0,
-        date: `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`, // Default to 1st of selected month
+        date: `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`,
         method: student.paymentMethod as PaymentMethod,
         concept: `Cuota ${monthName}`
     });
 
-    // State for editing existing payment
     const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
     const [editPaymentData, setEditPaymentData] = useState<Partial<Payment>>({});
 
-    // Calculations
     const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
     const remaining = monthSpecificFee - totalPaid;
 
-    // Reset/Update when modal opens or month changes
-    React.useEffect(() => {
+    useEffect(() => {
         if (isOpen) {
             const feeForThisMonth = student.feeExceptions?.[`${year}-${monthIndex}`] !== undefined 
                 ? student.feeExceptions[`${year}-${monthIndex}`] 
@@ -76,15 +78,11 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
 
     const handleSaveSpecificFee = () => {
         const updatedExceptions = { ...student.feeExceptions };
-        
-        // If the specific fee matches the global fee, remove the exception (cleanup)
         if (monthSpecificFee === student.monthlyFee) {
             delete updatedExceptions[exceptionKey];
         } else {
-            // Otherwise, save the exception
             updatedExceptions[exceptionKey] = monthSpecificFee;
         }
-
         onUpdateStudent({ ...student, feeExceptions: updatedExceptions });
         setIsFeeDirty(false);
     };
@@ -99,7 +97,6 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
             concept: newPayment.concept,
             notes: ''
         });
-        // Reset form slightly but keep context
         setNewPayment(prev => ({ ...prev, amount: 0 }));
     };
 
@@ -118,8 +115,6 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Gestión: ${student.name}`}>
             <div className="space-y-6">
-                
-                {/* NAVIGATION HEADER */}
                 <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg border border-gray-600">
                     <button 
                         onClick={() => onNavigateMonth('prev')}
@@ -142,11 +137,10 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
                     </button>
                 </div>
 
-                {/* 1. EXPECTED AMOUNT (Cuota Mensual Específica) */}
                 <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
                     <div className="flex justify-between items-start mb-2">
                         <h4 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Importe Esperado ({monthName})</h4>
-                        <span className="text-xs text-gray-500">Cuota Global: €{student.monthlyFee}</span>
+                        <span className="text-xs text-gray-500">Cuota Global: {formatCurrency(student.monthlyFee)}</span>
                     </div>
                     
                     <div className="flex items-end gap-4">
@@ -181,12 +175,11 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
                     </p>
                 </div>
 
-                {/* 2. PAID AMOUNT (Lista de Pagos) */}
                 <div>
                     <h4 className="text-sm font-semibold text-gray-300 mb-2 uppercase tracking-wide flex justify-between items-center">
                         <span>Pagos Realizados</span>
                         <span className={`text-lg font-bold ${totalPaid >= monthSpecificFee ? 'text-green-400' : 'text-orange-400'}`}>
-                            Total: €{totalPaid.toFixed(2)}
+                            Total: {formatCurrency(totalPaid)}
                         </span>
                     </h4>
                     
@@ -205,7 +198,6 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
                                     {payments.map(payment => (
                                         <tr key={payment.id} className="hover:bg-gray-800/50">
                                             {editingPaymentId === payment.id ? (
-                                                // EDIT MODE ROW
                                                 <>
                                                     <td className="px-2 py-2">
                                                         <input type="date" value={editPaymentData.date} onChange={e => setEditPaymentData({...editPaymentData, date: e.target.value})} className="w-full bg-gray-700 border-gray-600 rounded text-xs px-2 py-1 text-white" />
@@ -224,11 +216,10 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
                                                     </td>
                                                 </>
                                             ) : (
-                                                // VIEW MODE ROW
                                                 <>
                                                     <td className="px-4 py-3">{new Date(payment.date).toLocaleDateString()}</td>
                                                     <td className="px-4 py-3">{payment.paymentMethod}</td>
-                                                    <td className="px-4 py-3 text-white font-medium">€{payment.amount.toFixed(2)}</td>
+                                                    <td className="px-4 py-3 text-white font-medium">{formatCurrency(payment.amount)}</td>
                                                     <td className="px-4 py-3 text-right space-x-2">
                                                         <button onClick={() => startEditPayment(payment)} className="text-purple-400 hover:text-purple-300 text-xs">Editar</button>
                                                         <button onClick={() => { if(window.confirm('¿Borrar pago?')) onDeletePayment(payment.id) }} className="text-red-400 hover:text-red-300 text-xs">Borrar</button>
@@ -245,7 +236,6 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
                     </div>
                 </div>
 
-                {/* 3. ADD NEW PAYMENT */}
                 <div className="bg-gray-700/30 p-4 rounded-lg border border-gray-600 border-dashed">
                     <h4 className="text-sm font-semibold text-gray-300 mb-3 uppercase tracking-wide">Registrar Nuevo Pago</h4>
                     <form onSubmit={handleAddPaymentSubmit} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
@@ -270,10 +260,9 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
                         </div>
                     </form>
                     {remaining > 0 && (
-                        <p className="text-xs text-gray-400 mt-2 text-right">Faltan <span className="text-orange-400 font-bold">€{remaining.toFixed(2)}</span> para completar la cuota.</p>
+                        <p className="text-xs text-gray-400 mt-2 text-right">Faltan <span className="text-orange-400 font-bold">{formatCurrency(remaining)}</span> para completar la cuota.</p>
                     )}
                 </div>
-
             </div>
         </Modal>
     );
@@ -300,7 +289,6 @@ export const PaymentForm: React.FC<{
             setFormData(prev => ({
                 ...prev,
                 ...initialValues,
-                // Ensure defaults if partial initialValues are missing
                 date: initialValues.date || prev.date,
                 studentId: initialValues.studentId || prev.studentId,
                 concept: initialValues.concept || prev.concept,
@@ -344,7 +332,6 @@ export const PaymentForm: React.FC<{
             .filter(s => s.active)
             .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
     [students]);
-
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -410,28 +397,22 @@ const CostForm: React.FC<{
         relatedInstructorId: cost?.relatedInstructorId || '',
     });
     
-    // State to handle multiple future months selection if recurring is checked for a NEW cost
     const [selectedRecurringDates, setSelectedRecurringDates] = useState<Set<string>>(new Set());
     const [futureDates, setFutureDates] = useState<{date: string, label: string}[]>([]);
 
     useEffect(() => {
         if (!formData.paymentDate) return;
-        
         try {
-            // Generate next 11 months based on selected payment date
             const baseDate = new Date(formData.paymentDate);
-            if (isNaN(baseDate.getTime())) return; // Avoid invalid dates
+            if (isNaN(baseDate.getTime())) return;
 
             const dates = [];
             for (let i = 1; i <= 11; i++) {
                 const nextDate = new Date(baseDate);
                 nextDate.setMonth(baseDate.getMonth() + i);
-                
-                // Handle edge cases (e.g., Jan 31 -> Feb 28)
                 if (nextDate.getDate() !== baseDate.getDate()) {
                      nextDate.setDate(0); 
                 }
-                
                 const dateStr = nextDate.toISOString().split('T')[0];
                 const label = nextDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric', day: 'numeric' });
                 dates.push({ date: dateStr, label });
@@ -466,7 +447,6 @@ const CostForm: React.FC<{
         }
     };
     
-    // Auto-fill beneficiary if instructor is selected
     const handleInstructorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const instructorId = e.target.value;
         const selectedInstructor = (instructors || []).find(i => i.id === instructorId);
@@ -479,21 +459,12 @@ const CostForm: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
-        const baseCost = {
-            ...formData,
-            // If we are editing, we preserve ID outside this form handler usually, but here we return Omit<Cost, 'id'>
-            // The parent handles ID if editing.
-        };
-
+        const baseCost = { ...formData };
         if (cost) {
-            // Editing existing cost
              onSubmit({ ...cost, ...baseCost });
         } else {
-            // Creating new cost
             if (formData.isRecurring && selectedRecurringDates.size > 0) {
-                // Batch create
-                const costsToCreate = [baseCost]; // Add the main one
+                const costsToCreate = [baseCost];
                 selectedRecurringDates.forEach(dateStr => {
                     costsToCreate.push({
                         ...baseCost,
@@ -502,7 +473,6 @@ const CostForm: React.FC<{
                 });
                 onSubmit(costsToCreate);
             } else {
-                // Single create
                 onSubmit(baseCost);
             }
         }
@@ -526,7 +496,6 @@ const CostForm: React.FC<{
                     </select>
                 </div>
 
-                {/* Instructor Selection if Category is Profesores */}
                 {formData.category === 'Profesores' && (
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-300">Seleccionar Profesor (Vincular)</label>
@@ -573,7 +542,6 @@ const CostForm: React.FC<{
                         <label htmlFor="isRecurring" className="ml-2 block text-sm text-gray-200">Gasto Recurrente</label>
                     </div>
 
-                    {/* Show future month selection only if recurring is checked AND we are creating a new cost */}
                     {formData.isRecurring && !cost && (
                         <div className="bg-gray-700/50 p-3 rounded-md border border-gray-600">
                             <p className="text-xs text-gray-300 mb-2 font-semibold">Repetir gasto para los siguientes meses:</p>
@@ -619,7 +587,6 @@ const CostForm: React.FC<{
     );
 };
 
-
 // --- COMPONENTE PRINCIPAL DE FACTURACIÓN ---
 interface BillingProps {
     payments: Payment[];
@@ -627,7 +594,7 @@ interface BillingProps {
     students: Student[];
     classes: DanceClass[];
     merchandiseSales: MerchandiseSale[];
-    instructors: Instructor[]; // Added instructors prop
+    instructors: Instructor[];
     addPayment: (payment: Omit<Payment, 'id'>) => void;
     updatePayment: (payment: Payment) => void;
     deletePayment: (id: string) => void;
@@ -648,45 +615,31 @@ const Billing: React.FC<BillingProps> = ({
     const [editingCost, setEditingCost] = useState<Cost | undefined>(undefined);
     const [costToDuplicate, setCostToDuplicate] = useState<Partial<Cost> | undefined>(undefined);
     const [searchQuery, setSearchQuery] = useState('');
-    
-    // Cost Filters
     const [costSearchQuery, setCostSearchQuery] = useState('');
     const [costCategoryFilter, setCostCategoryFilter] = useState<CostCategory | ''>('');
     const [costStartDate, setCostStartDate] = useState('');
     const [costEndDate, setCostEndDate] = useState('');
-
-    // State for Monthly Detail Modal
     const [selectedMonthCell, setSelectedMonthCell] = useState<{ studentId: string, monthIndex: number, year: number } | null>(null);
-
-    // State for Student Editing Modal
     const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
     const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
     const totalIncome = payments.reduce((sum, p) => sum + p.amount, 0);
     const totalCosts = costs.reduce((sum, c) => sum + c.amount, 0);
-    const netMargin = totalIncome - totalCosts;
 
-    // --- Lógica para la tabla de Ingresos ---
     const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const currentYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth();
 
     const getPaymentStatusForMonth = (student: Student, monthIndex: number) => {
-        // Verificar si se dio de baja
         if (student.deactivationDate) {
             const deactivationDate = new Date(student.deactivationDate);
             const deactivationYear = deactivationDate.getFullYear();
             const deactivationMonth = deactivationDate.getMonth();
-
-            // Si el año actual es posterior al de baja, o es el mismo año y el mes es posterior al de baja
             if (currentYear > deactivationYear || (currentYear === deactivationYear && monthIndex > deactivationMonth)) {
                 return { text: '-', color: 'text-gray-600 hover:bg-gray-700 cursor-pointer opacity-50' };
             }
         }
-
-        if (!student.enrollmentDate) {
-             return { text: 'N/A', color: 'text-gray-600' };
-        }
+        if (!student.enrollmentDate) return { text: 'N/A', color: 'text-gray-600' };
 
         const enrollmentDate = new Date(student.enrollmentDate);
         const enrollmentYear = enrollmentDate.getFullYear();
@@ -696,12 +649,10 @@ const Billing: React.FC<BillingProps> = ({
             return { text: 'N/A', color: 'text-gray-600' };
         }
 
-        // --- EXCEPTION CHECK START ---
         const exceptionKey = `${currentYear}-${monthIndex}`;
         const expectedFee = student.feeExceptions?.[exceptionKey] !== undefined 
             ? student.feeExceptions[exceptionKey] 
             : student.monthlyFee;
-        // --- EXCEPTION CHECK END ---
 
         const paymentsForMonth = payments.filter(p => {
             const paymentDate = new Date(p.date);
@@ -710,17 +661,14 @@ const Billing: React.FC<BillingProps> = ({
         const totalPaid = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
 
         const baseClasses = "cursor-pointer transition-colors hover:brightness-110";
-        
-        // If expected fee is 0 and they paid nothing (or anything), it's "OK" / Exempt
         if (expectedFee === 0) {
-            return { text: totalPaid > 0 ? `€${totalPaid.toFixed(2)}` : 'Exento', color: `${baseClasses} bg-gray-600 text-gray-300` };
+            return { text: totalPaid > 0 ? formatCurrency(totalPaid) : 'Exento', color: `${baseClasses} bg-gray-600 text-gray-300` };
         }
-
         if (totalPaid >= expectedFee) {
-            return { text: `€${totalPaid.toFixed(2)}`, color: `${baseClasses} bg-green-500/20 text-green-300` };
+            return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-green-500/20 text-green-300` };
         }
         if (totalPaid > 0) {
-            return { text: `€${totalPaid.toFixed(2)}`, color: `${baseClasses} bg-orange-500/20 text-orange-300` };
+            return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-orange-500/20 text-orange-300` };
         }
         if (monthIndex < currentMonthIndex) {
             return { text: 'Impagado', color: `${baseClasses} bg-red-500/20 text-red-300` };
@@ -728,7 +676,6 @@ const Billing: React.FC<BillingProps> = ({
         return { text: '-', color: `${baseClasses} text-gray-500 hover:bg-gray-700` };
     };
     
-    // --- Handlers para modales de Costes ---
     const handleOpenCostModal = (cost?: Cost) => {
         setEditingCost(cost);
         setCostToDuplicate(undefined);
@@ -739,7 +686,7 @@ const Billing: React.FC<BillingProps> = ({
         setEditingCost(undefined);
         setCostToDuplicate({
             ...cost,
-            paymentDate: new Date().toISOString().split('T')[0] // Default to today for the new entry
+            paymentDate: new Date().toISOString().split('T')[0]
         });
         setIsCostModalOpen(true);
     };
@@ -752,7 +699,6 @@ const Billing: React.FC<BillingProps> = ({
     
     const handleCostSubmit = (costData: Omit<Cost, 'id'> | Cost | Omit<Cost, 'id'>[]) => {
         if (Array.isArray(costData)) {
-            // Batch create (Recurring costs)
             costData.forEach(c => addCost(c));
         } else if ('id' in costData) {
             updateCost(costData);
@@ -768,7 +714,6 @@ const Billing: React.FC<BillingProps> = ({
         }
     };
     
-    // --- Handlers para modal de Edición de Alumno ---
     const handleEditStudent = (student: Student) => {
         setEditingStudent(student);
         setIsStudentModalOpen(true);
@@ -782,47 +727,32 @@ const Billing: React.FC<BillingProps> = ({
         setEditingStudent(undefined);
     };
 
-
     const filteredStudents = students
         .filter(student => (student.active || searchQuery !== '') && student.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
 
-    // --- Filtered Costs Logic ---
     const filteredCosts = useMemo(() => {
         return costs.filter(cost => {
-            // 1. Text Search
             const searchString = `${cost.concept} ${cost.beneficiary} ${cost.notes || ''}`.toLowerCase();
             const matchesSearch = searchString.includes(costSearchQuery.toLowerCase());
-
-            // 2. Category Filter
             const matchesCategory = costCategoryFilter ? cost.category === costCategoryFilter : true;
-
-            // 3. Date Range Filter
             let matchesDate = true;
             if (costStartDate || costEndDate) {
                 const costDate = new Date(cost.paymentDate);
-                if (costStartDate) {
-                    matchesDate = matchesDate && costDate >= new Date(costStartDate);
-                }
-                if (costEndDate) {
-                    matchesDate = matchesDate && costDate <= new Date(costEndDate);
-                }
+                if (costStartDate) matchesDate = matchesDate && costDate >= new Date(costStartDate);
+                if (costEndDate) matchesDate = matchesDate && costDate <= new Date(costEndDate);
             }
-
             return matchesSearch && matchesCategory && matchesDate;
         });
     }, [costs, costSearchQuery, costCategoryFilter, costStartDate, costEndDate]);
 
-    // Prepare data for Monthly Detail Modal
     const selectedStudent = selectedMonthCell ? students.find(s => s.id === selectedMonthCell.studentId) : null;
     const selectedMonthPayments = useMemo(() => {
         if (!selectedMonthCell) return [];
         const { studentId, monthIndex, year } = selectedMonthCell;
         return payments.filter(p => {
             const d = new Date(p.date);
-            return p.studentId === studentId && 
-                   d.getMonth() === monthIndex && 
-                   d.getFullYear() === year;
+            return p.studentId === studentId && d.getMonth() === monthIndex && d.getFullYear() === year;
         });
     }, [selectedMonthCell, payments]);
 
@@ -830,46 +760,25 @@ const Billing: React.FC<BillingProps> = ({
         <div className="p-4 sm:p-8">
             <h2 className="text-3xl font-bold mb-6">Facturación</h2>
 
-            {/* TABS */}
             <div className="flex space-x-4 border-b border-gray-700 mb-6">
-                <button 
-                    className={`pb-2 px-4 ${activeTab === 'income' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`}
-                    onClick={() => setActiveTab('income')}
-                >
-                    Ingresos (Cuotas)
-                </button>
-                <button 
-                    className={`pb-2 px-4 ${activeTab === 'costs' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`}
-                    onClick={() => setActiveTab('costs')}
-                >
-                    Gastos (Costes)
-                </button>
+                <button className={`pb-2 px-4 ${activeTab === 'income' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`} onClick={() => setActiveTab('income')}>Ingresos (Cuotas)</button>
+                <button className={`pb-2 px-4 ${activeTab === 'costs' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`} onClick={() => setActiveTab('costs')}>Gastos (Costes)</button>
             </div>
 
-            {/* INCOME VIEW */}
             {activeTab === 'income' && (
                 <div>
                      <div className="flex justify-between items-center mb-4">
                         <div className="w-1/3">
-                             <input 
-                                type="text" 
-                                placeholder="Buscar alumno..." 
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
-                            />
+                             <input type="text" placeholder="Buscar alumno..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="text-right">
                                 <p className="text-sm text-gray-400">Ingresos Totales</p>
-                                <p className="text-xl font-bold text-green-400">€{totalIncome.toFixed(2)}</p>
+                                <p className="text-xl font-bold text-green-400">{formatCurrency(totalIncome)}</p>
                             </div>
-                            <button onClick={() => setIsIncomeModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                                Registrar Cobro
-                            </button>
+                            <button onClick={() => setIsIncomeModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Registrar Cobro</button>
                         </div>
                     </div>
-
                     <div className="bg-gray-800 rounded-lg shadow overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
@@ -882,18 +791,12 @@ const Billing: React.FC<BillingProps> = ({
                                 {filteredStudents.map(student => (
                                     <tr key={student.id} className="border-b border-gray-700 hover:bg-gray-700/50">
                                         <td className="px-4 py-3 font-medium text-white bg-gray-800 sticky left-0">
-                                            <button onClick={() => handleEditStudent(student)} className="hover:text-purple-400 text-left">
-                                                {student.name}
-                                            </button>
+                                            <button onClick={() => handleEditStudent(student)} className="hover:text-purple-400 text-left">{student.name}</button>
                                         </td>
                                         {months.map((_, i) => {
                                             const status = getPaymentStatusForMonth(student, i);
                                             return (
-                                                <td 
-                                                    key={i} 
-                                                    className={`px-2 py-3 text-center border-l border-gray-700/50 ${status.color}`}
-                                                    onClick={() => setSelectedMonthCell({ studentId: student.id, monthIndex: i, year: currentYear })}
-                                                >
+                                                <td key={i} className={`px-2 py-3 text-center border-l border-gray-700/50 ${status.color}`} onClick={() => setSelectedMonthCell({ studentId: student.id, monthIndex: i, year: currentYear })}>
                                                     {status.text}
                                                 </td>
                                             );
@@ -906,7 +809,6 @@ const Billing: React.FC<BillingProps> = ({
                 </div>
             )}
 
-            {/* COSTS VIEW */}
             {activeTab === 'costs' && (
                 <div>
                      <div className="flex flex-wrap gap-4 mb-4 bg-gray-800 p-4 rounded-lg">
@@ -918,17 +820,13 @@ const Billing: React.FC<BillingProps> = ({
                         <input type="date" value={costStartDate} onChange={e => setCostStartDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
                         <input type="date" value={costEndDate} onChange={e => setCostEndDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
                      </div>
-
                      <div className="flex justify-between items-center mb-4">
                         <div className="text-right">
                              <p className="text-sm text-gray-400">Gastos Totales</p>
-                             <p className="text-xl font-bold text-red-400">€{totalCosts.toFixed(2)}</p>
+                             <p className="text-xl font-bold text-red-400">{formatCurrency(totalCosts)}</p>
                         </div>
-                        <button onClick={() => handleOpenCostModal()} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-                            Registrar Gasto
-                        </button>
+                        <button onClick={() => handleOpenCostModal()} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Registrar Gasto</button>
                      </div>
-
                      <div className="bg-gray-800 rounded-lg shadow overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700">
@@ -948,7 +846,7 @@ const Billing: React.FC<BillingProps> = ({
                                         <td className="px-6 py-4">{cost.concept}</td>
                                         <td className="px-6 py-4"><span className="bg-gray-700 px-2 py-1 rounded text-xs">{cost.category}</span></td>
                                         <td className="px-6 py-4">{cost.beneficiary}</td>
-                                        <td className="px-6 py-4 font-bold text-white">€{cost.amount.toFixed(2)}</td>
+                                        <td className="px-6 py-4 font-bold text-white">{formatCurrency(cost.amount)}</td>
                                         <td className="px-6 py-4 space-x-2">
                                             <button onClick={() => handleOpenCostModal(cost)} className="text-purple-400 hover:text-purple-300">Editar</button>
                                             <button onClick={() => handleDuplicateCost(cost)} className="text-blue-400 hover:text-blue-300">Duplicar</button>
@@ -962,37 +860,15 @@ const Billing: React.FC<BillingProps> = ({
                 </div>
             )}
 
-            {/* MODALS */}
             <Modal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} title="Registrar Cobro">
-                <PaymentForm 
-                    students={students} 
-                    onSubmit={(p) => { addPayment(p); setIsIncomeModalOpen(false); }} 
-                    onCancel={() => setIsIncomeModalOpen(false)} 
-                />
+                <PaymentForm students={students} onSubmit={(p) => { addPayment(p); setIsIncomeModalOpen(false); }} onCancel={() => setIsIncomeModalOpen(false)} />
             </Modal>
-
             <Modal isOpen={isCostModalOpen} onClose={handleCloseCostModal} title={editingCost ? 'Editar Coste' : 'Registrar Coste'}>
-                <CostForm 
-                    cost={editingCost} 
-                    instructors={instructors}
-                    initialValues={costToDuplicate}
-                    onSubmit={handleCostSubmit} 
-                    onCancel={handleCloseCostModal} 
-                />
+                <CostForm cost={editingCost} instructors={instructors} initialValues={costToDuplicate} onSubmit={handleCostSubmit} onCancel={handleCloseCostModal} />
             </Modal>
-            
             <Modal isOpen={isStudentModalOpen} onClose={() => setIsStudentModalOpen(false)} title="Editar Alumno">
-                {editingStudent && (
-                    <StudentForm 
-                        student={editingStudent} 
-                        classes={classes} 
-                        merchandiseSales={merchandiseSales}
-                        onSubmit={handleStudentUpdateSubmit} 
-                        onCancel={() => setIsStudentModalOpen(false)} 
-                    />
-                )}
+                {editingStudent && <StudentForm student={editingStudent} classes={classes} merchandiseSales={merchandiseSales} onSubmit={handleStudentUpdateSubmit} onCancel={() => setIsStudentModalOpen(false)} />}
             </Modal>
-
             {selectedStudent && selectedMonthCell && (
                 <MonthlyDetailModal 
                     isOpen={!!selectedMonthCell}

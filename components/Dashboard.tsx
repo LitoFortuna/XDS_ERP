@@ -22,14 +22,12 @@ interface DashboardProps {
 const COLORS = ['#8B5CF6', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#4B5563'];
 
 /**
- * Helper centralizado para formato de moneda.
- * Formato solicitado: 32.650€ (punto para millares, euro al final)
+ * Formateador de moneda robusto que garantiza el formato 12.056€
  */
 const formatCurrency = (v: number, decimals: number = 0) => {
-    return v.toLocaleString('es-ES', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-    }) + '€';
+    const parts = v.toFixed(decimals).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return parts.join(',') + '€';
 };
 
 const StatCard: React.FC<{ 
@@ -246,7 +244,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                     <ComposedChart data={rentabilidadData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                         <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 9, fontWeight: 700}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `${v.toLocaleString('es-ES')}€`} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => formatCurrency(v)} />
                         <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px' }} formatter={(v: number) => formatCurrency(v)} />
                         <Legend verticalAlign="top" align="center" iconType="circle" wrapperStyle={{paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase'}} />
                         <Bar dataKey="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} name="Gastos Estimados" />
@@ -281,7 +279,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         <AreaChart data={finanzasHistory}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} />
-                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `${v.toLocaleString('es-ES')}€`} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => formatCurrency(v)} />
                             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} formatter={(v: number) => formatCurrency(v)} />
                             <Legend verticalAlign="bottom" iconType="diamond" wrapperStyle={{fontSize: '10px', fontWeight: 'bold'}} />
                             <Area type="monotone" dataKey="Ingresos" stroke="#8b5cf6" strokeWidth={3} fill="#8b5cf6" fillOpacity={0.2} />
@@ -303,8 +301,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         <LineChart data={finanzasHistory.map(f => ({...f, ratio: (f.Ingresos / (activeStudents.length || 1)).toFixed(1)}))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} />
-                            <YAxis domain={[10, 40]} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => `${v.toLocaleString('es-ES')}€`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} formatter={(v: any) => `${parseFloat(v).toLocaleString('es-ES')}€`} />
+                            <YAxis domain={[10, 40]} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => formatCurrency(v)} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} formatter={(v: any) => formatCurrency(parseFloat(v), 2)} />
                             <Line type="monotone" dataKey="ratio" stroke="#a78bfa" strokeWidth={4} dot={{r: 4, fill: '#fff', stroke: '#a78bfa', strokeWidth: 2}} />
                         </LineChart>
                     </ResponsiveContainer>
@@ -337,6 +335,42 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
+                </div>
+            </div>
+
+            {/* FILA: Demografía + Profesores */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
+                    <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                        <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+                        Demografía: Distribución por Edad
+                    </h3>
+                    <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={demografiaData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 9, fontWeight: 700}} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} cursor={{fill: '#1e293b'}} />
+                            <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={45}>
+                                {demografiaData.map((entry, index) => <Cell key={`cell-${index}`} fill={['#ec4899', '#8b5cf6', '#3b82f6', '#10b981'][index]} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
+                    <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                        <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
+                        Top 5 Profesores (por nº alumnos)
+                    </h3>
+                    <ResponsiveContainer width="100%" height={260}>
+                        <BarChart layout="vertical" data={instructors.map(i => ({ name: i.name, value: students.filter(s => classes.filter(c => c.instructorId === i.id).some(c => s.enrolledClassIds.includes(c.id))).length })).sort((a,b) => b.value - a.value).slice(0, 5)}>
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} cursor={{fill: '#1e293b'}} />
+                            <Bar dataKey="value" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={25} />
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 

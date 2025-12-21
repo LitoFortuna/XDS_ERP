@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Payment, Student, DanceClass, MerchandiseSale } from '../types';
 
@@ -8,12 +9,18 @@ interface QuarterlyInvoicingProps {
     merchandiseSales: MerchandiseSale[];
 }
 
+/**
+ * Formateador de moneda robusto que garantiza el formato 12.056€
+ */
+const formatCurrency = (v: number, decimals: number = 2) => {
+    const parts = v.toFixed(decimals).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return parts.join(',') + '€';
+};
+
 const InfoCard: React.FC<{ title: string; total: number }> = ({ title, total }) => {
     const base = total / 1.21;
     const iva = total - base;
-
-    const formatCurrency = (value: number) => 
-        `€${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-sm w-full">
@@ -61,7 +68,6 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
     const quarterlyData = useMemo(() => {
         const year = selectedYear;
         const quarter = selectedQuarter;
-        
         const quarterMonths = [ (quarter - 1) * 3, (quarter - 1) * 3 + 1, (quarter - 1) * 3 + 2 ];
 
         const filteredPayments = payments.filter(p => {
@@ -81,17 +87,14 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
         let baileTotal = 0;
         let fitnessTotal = 0;
 
-        // 1. Add merchandise sales to Fitness
         for (const sale of filteredSales) {
             fitnessTotal += sale.totalAmount;
         }
 
-        // 2. Process payments
         for (const payment of filteredPayments) {
             const student = studentMap.get(payment.studentId);
             if (!student) continue;
 
-            // 2a. Handle monthly fees
             if (payment.concept.toLowerCase().includes('cuota')) {
                 const enrolledClasses = student.enrolledClassIds
                     .map(id => classMap.get(id))
@@ -104,17 +107,14 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
                 if (hasBaileClass) {
                     baileTotal += payment.amount;
                 } else {
-                    // if only fitness/specialized, or no classes, goes to fitness
                     fitnessTotal += payment.amount;
                 }
             } else {
-                // 2b. Other concepts (workshops etc.) go to Fitness
                 fitnessTotal += payment.amount;
             }
         }
 
         return { baileTotal, fitnessTotal };
-
     }, [selectedYear, selectedQuarter, payments, merchandiseSales, studentMap, classMap]);
 
     const availableYears = useMemo(() => {
@@ -127,7 +127,6 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
     return (
         <div className="p-4 sm:p-8">
             <h2 className="text-3xl font-bold mb-6">Facturación Trimestral</h2>
-
             <div className="flex flex-col sm:flex-row gap-4 items-center mb-8 bg-gray-800 p-4 rounded-lg">
                 <div className="flex items-center gap-2">
                     <label htmlFor="year-select" className="text-gray-300 font-medium">Año:</label>
@@ -146,7 +145,6 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
                     </div>
                 </div>
             </div>
-            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <InfoCard title="Factura 1: Baile" total={quarterlyData.baileTotal} />
                 <InfoCard title="Factura 2: Fitness y Otros" total={quarterlyData.fitnessTotal} />
