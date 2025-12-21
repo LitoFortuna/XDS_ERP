@@ -16,7 +16,6 @@ import { db } from '../config/firebase';
 import { Student, Instructor, DanceClass, Payment, Cost, NuptialDance, MerchandiseItem, MerchandiseSale, AttendanceRecord, DanceEvent } from '../../types';
 
 // --- Students ---
-
 export const subscribeToStudents = (callback: (students: Student[]) => void): Unsubscribe => {
   const q = query(collection(db, 'students'), orderBy('name'));
   return onSnapshot(q, (snapshot) => {
@@ -54,7 +53,6 @@ export const deleteStudent = async (studentId: string) => {
 };
 
 // --- Instructors ---
-
 export const subscribeToInstructors = (callback: (instructors: Instructor[]) => void): Unsubscribe => {
   const q = query(collection(db, 'instructors'), orderBy('name'));
   return onSnapshot(q, (snapshot) => {
@@ -92,7 +90,6 @@ export const deleteInstructor = async (instructorId: string) => {
 };
 
 // --- Classes ---
-
 export const subscribeToClasses = (callback: (classes: DanceClass[]) => void): Unsubscribe => {
   const q = query(collection(db, 'classes'), orderBy('name'));
   return onSnapshot(q, (snapshot) => {
@@ -130,7 +127,6 @@ export const deleteClass = async (classId: string) => {
 };
 
 // --- Payments ---
-
 export const subscribeToPayments = (callback: (payments: Payment[]) => void): Unsubscribe => {
   const q = query(collection(db, 'payments'), orderBy('date', 'desc'));
   return onSnapshot(q, (snapshot) => {
@@ -168,7 +164,6 @@ export const batchAddPayments = async (payments: Omit<Payment, 'id'>[]) => {
 };
 
 // --- Costs ---
-
 export const subscribeToCosts = (callback: (costs: Cost[]) => void): Unsubscribe => {
   const q = query(collection(db, 'costs'), orderBy('paymentDate', 'desc'));
   return onSnapshot(q, (snapshot) => {
@@ -206,7 +201,6 @@ export const deleteCost = async (costId: string) => {
 };
 
 // --- Nuptial Dances ---
-
 export const subscribeToNuptialDances = (callback: (dances: NuptialDance[]) => void): Unsubscribe => {
   const q = query(collection(db, 'nuptialDances'), orderBy('weddingDate', 'desc'));
   return onSnapshot(q, (snapshot) => {
@@ -234,7 +228,6 @@ export const deleteNuptialDance = async (danceId: string) => {
 };
 
 // --- Events ---
-
 export const subscribeToEvents = (callback: (events: DanceEvent[]) => void): Unsubscribe => {
   const q = query(collection(db, 'events'), orderBy('date', 'desc'));
   return onSnapshot(q, (snapshot) => {
@@ -262,7 +255,6 @@ export const deleteEvent = async (eventId: string) => {
 };
 
 // --- Merchandise Items ---
-
 export const subscribeToMerchandiseItems = (callback: (items: MerchandiseItem[]) => void): Unsubscribe => {
   const q = query(collection(db, 'merchandiseItems'), orderBy('name'));
   return onSnapshot(q, (snapshot) => {
@@ -300,7 +292,6 @@ export const deleteMerchandiseItem = async (itemId: string) => {
 };
 
 // --- Merchandise Sales ---
-
 export const subscribeToMerchandiseSales = (callback: (sales: MerchandiseSale[]) => void): Unsubscribe => {
   const q = query(collection(db, 'merchandiseSales'), orderBy('saleDate', 'desc'));
   return onSnapshot(q, (snapshot) => {
@@ -322,7 +313,6 @@ export const deleteMerchandiseSale = async (saleId: string) => {
 };
 
 // --- Attendance ---
-
 export const subscribeToAttendance = (callback: (records: AttendanceRecord[]) => void): Unsubscribe => {
   const q = query(collection(db, 'attendance'), orderBy('date', 'desc'));
   return onSnapshot(q, (snapshot) => {

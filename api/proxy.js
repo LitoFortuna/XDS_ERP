@@ -54,8 +54,9 @@ export default async function handler(req, res) {
       Consulta del usuario: ${prompt}
     `;
 
+    // Always use recommended model names from guidelines
     const response = await ai.models.generateContent({
-      model: modelName || "gemini-2.5-flash",
+      model: modelName || "gemini-3-flash-preview",
       contents: finalPrompt,
     });
 

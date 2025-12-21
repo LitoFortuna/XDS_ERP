@@ -14,7 +14,8 @@ export async function obtenerRespuestaGemini(promptUsuario: string) {
       },
       body: JSON.stringify({
         prompt: promptUsuario,
-        modelName: "gemini-2.5-flash"
+        // Update to recommended gemini-3-flash-preview model
+        modelName: "gemini-3-flash-preview"
       }),
     });
 

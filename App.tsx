@@ -220,6 +220,7 @@ const App: React.FC = () => {
         await deletePaymentFromDb(paymentId);
     };
 
+    // Fixed: Using imported addCostToDb service instead of missing/undefined Firestore imports
     const addCost = async (cost: Omit<Cost, 'id'>) => {
         await addCostToDb(cost);
     };
@@ -243,8 +244,8 @@ const App: React.FC = () => {
     const addEvent = async (event: Omit<DanceEvent, 'id'>) => {
         await addEventToDb(event);
     };
-    const updateEvent = async (updatedEvent: DanceEvent) => {
-        await updateEventInDb(updatedEvent);
+    const updateEvent = async (event: DanceEvent) => {
+        await updateEventInDb(event);
     };
     const deleteEvent = async (eventId: string) => {
         await deleteEventFromDb(eventId);
@@ -327,6 +328,7 @@ const App: React.FC = () => {
                             payments={payments} 
                             costs={costs} 
                             nuptialDances={nuptialDances}
+                            events={events}
                             setView={setCurrentView} 
                             addPayment={addPayment}
                         />;
@@ -377,7 +379,7 @@ const App: React.FC = () => {
                     updateItem={updateMerchandiseItem} 
                     deleteItem={deleteMerchandiseItem} 
                     addSale={addMerchandiseSale} 
-                    deleteSale={deleteSale} 
+                    deleteSale={deleteMerchandiseSale} 
                 />;
             case View.NUPTIAL_DANCES:
                 return <NuptialDances 
@@ -416,6 +418,7 @@ const App: React.FC = () => {
                             payments={payments} 
                             costs={costs} 
                             nuptialDances={nuptialDances}
+                            events={events}
                             setView={setCurrentView} 
                             addPayment={addPayment}
                         />;

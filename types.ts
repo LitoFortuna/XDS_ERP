@@ -97,7 +97,6 @@ export interface NuptialDance {
   notes?: string;
 }
 
-// Fixed missing exports for Event Management
 export type EventType = 'Competición' | 'Exhibición' | 'Taller' | 'Otro';
 
 export interface DanceEvent {
