@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../src/config/firebase';
@@ -35,10 +36,12 @@ const Login: React.FC = () => {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4 sm:px-6 lg:px-8 font-sans text-gray-200">
       <div className="max-w-md w-full space-y-8 bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-purple-600 rounded-full flex items-center justify-center mb-4">
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 text-white">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
+          <div className="mx-auto mb-6 flex justify-center">
+             <img 
+               src="https://www.xendance.space/wp-content/uploads/2020/03/Xen-Dance-Logo-2024-para-fondo-oscuro.png" 
+               alt="Xen Dance Space Logo" 
+               className="h-24 w-auto drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]"
+             />
           </div>
           <h2 className="mt-2 text-3xl font-extrabold text-white tracking-wider">
             Xen Dance ERP
