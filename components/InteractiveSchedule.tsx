@@ -61,7 +61,8 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
         }
     };
     
-    const daysOfWeek: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    // Eliminado el Domingo
+    const daysOfWeek: DayOfWeek[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
     const timeToMinutes = (time: string) => {
         if (!time) return 0;
@@ -132,7 +133,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                 <div className="overflow-x-auto custom-scrollbar">
                     <div style={{ 
                             display: 'grid', 
-                            gridTemplateColumns: '60px repeat(7, 1fr)', 
+                            gridTemplateColumns: '60px repeat(6, 1fr)', 
                             gridTemplateRows: `40px repeat(${totalRows}, ${rowHeight})` 
                         }} 
                         className="relative min-w-[1000px] p-2 bg-[#0f172a]"

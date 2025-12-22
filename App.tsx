@@ -66,13 +66,8 @@ import {
     updateAttendance as updateAttendanceInDb,
 } from './src/services/firestoreService';
 
-const SaturnLoader = () => (
-    <div className="relative w-24 h-24 flex items-center justify-center">
-        <div className="absolute w-10 h-10 bg-purple-600 rounded-full shadow-[0_0_20px_rgba(147,51,234,0.6)] z-10"></div>
-        <div className="absolute inset-0 flex items-center justify-center rotate-[-20deg]">
-             <div className="w-20 h-6 border-[3px] border-blue-900/30 border-t-cyan-400 border-l-blue-500 rounded-[50%] animate-[spin_1s_linear_infinite] shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
-        </div>
-    </div>
+const Loader = () => (
+    <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin"></div>
 );
 
 const App: React.FC = () => {
@@ -220,7 +215,6 @@ const App: React.FC = () => {
         await deletePaymentFromDb(paymentId);
     };
 
-    // Fixed: Using imported addCostToDb service instead of missing/undefined Firestore imports
     const addCost = async (cost: Omit<Cost, 'id'>) => {
         await addCostToDb(cost);
     };
@@ -297,7 +291,7 @@ const App: React.FC = () => {
     if (authLoading) {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-900 text-gray-200">
-                <SaturnLoader />
+                <Loader />
             </div>
         );
     }
@@ -310,7 +304,7 @@ const App: React.FC = () => {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-900 text-gray-200">
                 <div className="text-center flex flex-col items-center">
-                    <SaturnLoader />
+                    <Loader />
                     <h2 className="mt-6 text-2xl font-semibold">Bienvenido, Admin</h2>
                     <p className="text-gray-400 mt-2">Cargando ERP...</p>
                 </div>
