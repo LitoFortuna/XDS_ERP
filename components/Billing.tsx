@@ -610,6 +610,9 @@ const Billing: React.FC<BillingProps> = ({
     addCost, updateCost, deleteCost, updateStudent 
 }) => {
     const [activeTab, setActiveTab] = useState<'income' | 'costs'>('income');
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const availableYears = [2024, 2025, 2026, 2027];
+
     const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
     const [isCostModalOpen, setIsCostModalOpen] = useState(false);
     const [editingCost, setEditingCost] = useState<Cost | undefined>(undefined);
@@ -623,19 +626,23 @@ const Billing: React.FC<BillingProps> = ({
     const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
     const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
-    const totalIncome = payments.reduce((sum, p) => sum + p.amount, 0);
-    const totalCosts = costs.reduce((sum, c) => sum + c.amount, 0);
+    // Filtrado por año seleccionado
+    const yearPayments = useMemo(() => payments.filter(p => new Date(p.date).getFullYear() === selectedYear), [payments, selectedYear]);
+    const yearCosts = useMemo(() => costs.filter(c => new Date(c.paymentDate).getFullYear() === selectedYear), [costs, selectedYear]);
+
+    const totalIncome = yearPayments.reduce((sum, p) => sum + p.amount, 0);
+    const totalCosts = yearCosts.reduce((sum, c) => sum + c.amount, 0);
 
     const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const currentYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth();
+    const realCurrentYear = new Date().getFullYear();
 
     const getPaymentStatusForMonth = (student: Student, monthIndex: number) => {
         if (student.deactivationDate) {
             const deactivationDate = new Date(student.deactivationDate);
             const deactivationYear = deactivationDate.getFullYear();
             const deactivationMonth = deactivationDate.getMonth();
-            if (currentYear > deactivationYear || (currentYear === deactivationYear && monthIndex > deactivationMonth)) {
+            if (selectedYear > deactivationYear || (selectedYear === deactivationYear && monthIndex > deactivationMonth)) {
                 return { text: '-', color: 'text-gray-600 hover:bg-gray-700 cursor-pointer opacity-50' };
             }
         }
@@ -645,18 +652,18 @@ const Billing: React.FC<BillingProps> = ({
         const enrollmentYear = enrollmentDate.getFullYear();
         const enrollmentMonth = enrollmentDate.getMonth();
 
-        if (currentYear < enrollmentYear || (currentYear === enrollmentYear && monthIndex < enrollmentMonth)) {
+        if (selectedYear < enrollmentYear || (selectedYear === enrollmentYear && monthIndex < enrollmentMonth)) {
             return { text: 'N/A', color: 'text-gray-600' };
         }
 
-        const exceptionKey = `${currentYear}-${monthIndex}`;
+        const exceptionKey = `${selectedYear}-${monthIndex}`;
         const expectedFee = student.feeExceptions?.[exceptionKey] !== undefined 
             ? student.feeExceptions[exceptionKey] 
             : student.monthlyFee;
 
-        const paymentsForMonth = payments.filter(p => {
+        const paymentsForMonth = yearPayments.filter(p => {
             const paymentDate = new Date(p.date);
-            return p.studentId === student.id && paymentDate.getMonth() === monthIndex && paymentDate.getFullYear() === currentYear;
+            return p.studentId === student.id && paymentDate.getMonth() === monthIndex;
         });
         const totalPaid = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
 
@@ -670,7 +677,9 @@ const Billing: React.FC<BillingProps> = ({
         if (totalPaid > 0) {
             return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-orange-500/20 text-orange-300` };
         }
-        if (monthIndex < currentMonthIndex) {
+        
+        // Determinar si mostrar impagado
+        if (selectedYear < realCurrentYear || (selectedYear === realCurrentYear && monthIndex < currentMonthIndex)) {
             return { text: 'Impagado', color: `${baseClasses} bg-red-500/20 text-red-300` };
         }
         return { text: '-', color: `${baseClasses} text-gray-500 hover:bg-gray-700` };
@@ -732,7 +741,7 @@ const Billing: React.FC<BillingProps> = ({
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
 
     const filteredCosts = useMemo(() => {
-        return costs.filter(cost => {
+        return yearCosts.filter(cost => {
             const searchString = `${cost.concept} ${cost.beneficiary} ${cost.notes || ''}`.toLowerCase();
             const matchesSearch = searchString.includes(costSearchQuery.toLowerCase());
             const matchesCategory = costCategoryFilter ? cost.category === costCategoryFilter : true;
@@ -744,7 +753,7 @@ const Billing: React.FC<BillingProps> = ({
             }
             return matchesSearch && matchesCategory && matchesDate;
         });
-    }, [costs, costSearchQuery, costCategoryFilter, costStartDate, costEndDate]);
+    }, [yearCosts, costSearchQuery, costCategoryFilter, costStartDate, costEndDate]);
 
     const selectedStudent = selectedMonthCell ? students.find(s => s.id === selectedMonthCell.studentId) : null;
     const selectedMonthPayments = useMemo(() => {
@@ -758,7 +767,23 @@ const Billing: React.FC<BillingProps> = ({
 
     return (
         <div className="p-4 sm:p-8">
-            <h2 className="text-3xl font-bold mb-6">Facturación</h2>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-3xl font-bold">Facturación</h2>
+                
+                {/* SELECTOR DE AÑO */}
+                <div className="flex items-center gap-2 bg-gray-800 p-1.5 rounded-xl border border-gray-700">
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2 mr-1">Ejercicio:</span>
+                    {availableYears.map(year => (
+                        <button 
+                            key={year}
+                            onClick={() => setSelectedYear(year)}
+                            className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${selectedYear === year ? 'bg-purple-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'}`}
+                        >
+                            {year}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
             <div className="flex space-x-4 border-b border-gray-700 mb-6">
                 <button className={`pb-2 px-4 ${activeTab === 'income' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`} onClick={() => setActiveTab('income')}>Ingresos (Cuotas)</button>
@@ -773,7 +798,7 @@ const Billing: React.FC<BillingProps> = ({
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="text-right">
-                                <p className="text-sm text-gray-400">Ingresos Totales</p>
+                                <p className="text-sm text-gray-400">Ingresos {selectedYear}</p>
                                 <p className="text-xl font-bold text-green-400">{formatCurrency(totalIncome)}</p>
                             </div>
                             <button onClick={() => setIsIncomeModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Registrar Cobro</button>
@@ -796,7 +821,7 @@ const Billing: React.FC<BillingProps> = ({
                                         {months.map((_, i) => {
                                             const status = getPaymentStatusForMonth(student, i);
                                             return (
-                                                <td key={i} className={`px-2 py-3 text-center border-l border-gray-700/50 ${status.color}`} onClick={() => setSelectedMonthCell({ studentId: student.id, monthIndex: i, year: currentYear })}>
+                                                <td key={i} className={`px-2 py-3 text-center border-l border-gray-700/50 ${status.color}`} onClick={() => setSelectedMonthCell({ studentId: student.id, monthIndex: i, year: selectedYear })}>
                                                     {status.text}
                                                 </td>
                                             );
@@ -822,7 +847,7 @@ const Billing: React.FC<BillingProps> = ({
                      </div>
                      <div className="flex justify-between items-center mb-4">
                         <div className="text-right">
-                             <p className="text-sm text-gray-400">Gastos Totales</p>
+                             <p className="text-sm text-gray-400">Gastos {selectedYear}</p>
                              <p className="text-xl font-bold text-red-400">{formatCurrency(totalCosts)}</p>
                         </div>
                         <button onClick={() => handleOpenCostModal()} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Registrar Gasto</button>
