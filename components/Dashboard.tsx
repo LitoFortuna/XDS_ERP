@@ -67,8 +67,28 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const filteredPayments = useMemo(() => payments.filter(p => new Date(p.date).getFullYear() === selectedYear), [payments, selectedYear]);
     const filteredCosts = useMemo(() => costs.filter(c => new Date(c.paymentDate).getFullYear() === selectedYear), [costs, selectedYear]);
 
-    // --- CÁLCULOS DE KPIs ---
-    const activeStudents = students.filter(s => s.active);
+    // --- LÓGICA UNIFICADA DE ALUMNOS ACTIVOS EN EL PERIODO ---
+    // Determinamos quién es activo basándonos en la fecha fin del periodo actual (hoy o fin de año)
+    const activeStudentsAtEndOfPeriod = useMemo(() => {
+        const referenceDate = selectedYear === realToday.getFullYear() 
+            ? realToday 
+            : new Date(selectedYear, 11, 31);
+
+        return students.filter(s => {
+            const enrollDate = new Date(s.enrollmentDate);
+            if (enrollDate > referenceDate) return false;
+            if (s.deactivationDate) {
+                const deactivation = new Date(s.deactivationDate);
+                if (deactivation <= referenceDate) return false;
+            }
+            // Si el año es el actual, también respetamos el flag manual 'active' por seguridad
+            if (selectedYear === realToday.getFullYear() && !s.active) return false;
+            return true;
+        });
+    }, [students, selectedYear, realToday]);
+
+    const activeStudentsCount = activeStudentsAtEndOfPeriod.length;
+
     const newStudentsThisYearMonth = students.filter(s => {
         const d = new Date(s.enrollmentDate);
         return d.getMonth() === currentMonth && d.getFullYear() === selectedYear;
@@ -80,14 +100,20 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const roi = totalCosts > 0 ? ((profit / totalCosts) * 100).toFixed(1) : '0';
 
     const globalCapacity = classes.reduce((acc, c) => acc + c.capacity, 0);
-    const globalOccupancy = globalCapacity > 0 ? ((activeStudents.length / globalCapacity) * 100).toFixed(1) : '0';
+    const globalOccupancy = globalCapacity > 0 ? ((activeStudentsCount / globalCapacity) * 100).toFixed(1) : '0';
 
     // --- LÓGICA DE IMPAGADOS FILTRADA POR AÑO ---
     const unpaidStudentsInfo = useMemo(() => {
         const maxMonthToCheck = selectedYear < realToday.getFullYear() ? 11 : (selectedYear === realToday.getFullYear() ? currentMonth : -1);
 
         return students
-            .filter(s => s.active && s.monthlyFee > 0)
+            .filter(s => {
+                // Para impagados históricos, comprobamos si estuvo activo en algún momento del año seleccionado
+                const enroll = new Date(s.enrollmentDate);
+                if (enroll.getFullYear() > selectedYear) return false;
+                if (s.deactivationDate && new Date(s.deactivationDate).getFullYear() < selectedYear) return false;
+                return s.monthlyFee > 0;
+            })
             .map(student => {
                 const unpaidMonths: string[] = [];
                 let totalDebt = 0;
@@ -175,13 +201,13 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const popularClasses = useMemo(() => {
         return classes.map(c => ({
             name: c.name,
-            alumnos: students.filter(s => s.enrolledClassIds.includes(c.id)).length
+            alumnos: students.filter(s => s.enrolledClassIds.includes(c.id) && s.active).length
         })).sort((a, b) => b.alumnos - a.alumnos).slice(0, 10);
     }, [classes, students]);
 
     const demografiaData = useMemo(() => {
         const counts = { 'Infantil (3-11)': 0, 'Junior (12-17)': 0, 'Adultos (18-60)': 0, 'Senior (60+)': 0 };
-        students.filter(s => s.active && s.birthDate).forEach(s => {
+        activeStudentsAtEndOfPeriod.filter(s => s.birthDate).forEach(s => {
             const age = new Date().getFullYear() - new Date(s.birthDate!).getFullYear();
             if (age < 12) counts['Infantil (3-11)']++;
             else if (age < 18) counts['Junior (12-17)']++;
@@ -189,7 +215,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
             else counts['Senior (60+)']++;
         });
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
-    }, [students]);
+    }, [activeStudentsAtEndOfPeriod]);
 
     const finanzasHistory = monthShortNames.map((name, m) => {
         const monthIncome = filteredPayments.filter(p => new Date(p.date).getMonth() === m).reduce((s, p) => s + p.amount, 0);
@@ -200,7 +226,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
     const upcomingBirthdays = useMemo(() => {
         const today = new Date();
         return students
-            .filter(s => s.birthDate)
+            .filter(s => s.birthDate && s.active)
             .map(s => {
                 const bday = new Date(s.birthDate!);
                 let nextBday = new Date(today.getFullYear(), bday.getMonth(), bday.getDate());
@@ -231,7 +257,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
 
             {/* FILA 1: KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard title="Alumnos Activos" value={activeStudents.length.toLocaleString('es-ES')} icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} color="blue" />
+                <StatCard title="Alumnos Activos" value={activeStudentsCount.toLocaleString('es-ES')} subtext={`Estado al final de ${selectedYear}`} icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} color="blue" />
                 <StatCard title={`Ingresos (${selectedYear})`} value={formatCurrency(totalRevenue)} subtext="Facturación anual" icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} color="emerald" />
                 <StatCard title="Ocupación Global" value={`${globalOccupancy}%`} subtext="Capacidad utilizada" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>} color="purple" />
                 <StatCard title={`Beneficio (${selectedYear})`} value={formatCurrency(profit)} icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} color="emerald" />
@@ -341,9 +367,9 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         <span className="w-1 h-4 bg-purple-500 rounded-full"></span>
                         Ingreso Medio por Alumno/Clase ({selectedYear})
                     </h3>
-                    <p className="text-[9px] text-gray-500 mb-6 italic uppercase tracking-tighter">Cálculo: Promedio de cuotas por clase inscrita.</p>
+                    <p className="text-[9px] text-gray-500 mb-6 italic uppercase tracking-tighter">Cálculo: Promedio de cuotas por alumno activo.</p>
                     <ResponsiveContainer width="100%" height={240}>
-                        <LineChart data={finanzasHistory.map(f => ({...f, ratio: (f.Ingresos / (activeStudents.length || 1)).toFixed(1)}))}>
+                        <LineChart data={finanzasHistory.map(f => ({...f, ratio: (f.Ingresos / (activeStudentsCount || 1)).toFixed(1)}))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} />
                             <YAxis domain={[10, 40]} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={v => formatCurrency(v)} />
@@ -409,7 +435,7 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         Top 5 Profesores (por nº alumnos)
                     </h3>
                     <ResponsiveContainer width="100%" height={260}>
-                        <BarChart layout="vertical" data={instructors.map(i => ({ name: i.name, value: students.filter(s => classes.filter(c => c.instructorId === i.id).some(c => s.enrolledClassIds.includes(c.id))).length })).sort((a,b) => b.value - a.value).slice(0, 5)}>
+                        <BarChart layout="vertical" data={instructors.map(i => ({ name: i.name, value: students.filter(s => s.active && classes.filter(c => c.instructorId === i.id).some(c => s.enrolledClassIds.includes(c.id))).length })).sort((a,b) => b.value - a.value).slice(0, 5)}>
                             <XAxis type="number" hide />
                             <YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} />
                             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} cursor={{fill: '#1e293b'}} />
@@ -449,13 +475,13 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                 </div>
 
                 <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 flex flex-col items-center shadow-xl">
-                    <h3 className="text-xs font-black text-white mb-6 w-full text-left uppercase tracking-tighter">Estado de Matrículas</h3>
+                    <h3 className="text-xs font-black text-white mb-6 w-full text-left uppercase tracking-tighter">Estado de Matrículas ({selectedYear})</h3>
                     <ResponsiveContainer width="100%" height={160}>
                         <PieChart>
                             <Pie 
                                 data={[
-                                    { name: 'Activos', value: activeStudents.length },
-                                    { name: 'Inactivos', value: students.length - activeStudents.length }
+                                    { name: 'Activos', value: activeStudentsCount },
+                                    { name: 'Inactivos', value: Math.max(0, students.length - activeStudentsCount) }
                                 ]} 
                                 dataKey="value" 
                                 innerRadius={45} 
@@ -469,8 +495,8 @@ const Dashboard: React.FC<DashboardProps> = ({ students, classes, payments, inst
                         </PieChart>
                     </ResponsiveContainer>
                     <div className="flex gap-4 mt-4 text-[9px] font-black uppercase tracking-widest">
-                        <span className="text-emerald-500">■ Activos: {activeStudents.length.toLocaleString('es-ES')}</span>
-                        <span className="text-gray-500">■ Inactivos: {(students.length - activeStudents.length).toLocaleString('es-ES')}</span>
+                        <span className="text-emerald-500">■ Activos: {activeStudentsCount.toLocaleString('es-ES')}</span>
+                        <span className="text-gray-500">■ Otros: {Math.max(0, students.length - activeStudentsCount).toLocaleString('es-ES')}</span>
                     </div>
                 </div>
 
