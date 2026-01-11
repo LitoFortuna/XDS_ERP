@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Payment, Student, DanceClass, MerchandiseSale } from '../types';
+import { Payment, Student, DanceClass, MerchandiseSale } from '../../types';
 
 interface QuarterlyInvoicingProps {
     payments: Payment[];

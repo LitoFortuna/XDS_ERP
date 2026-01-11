@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { DanceEvent, Student, EventType, EventParticipant } from '../types';
+import { DanceEvent, Student, EventType, EventParticipant } from '../../types';
 import Modal from './Modal';
 
 interface EventManagementProps {

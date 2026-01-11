@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory } from '../types';
+import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory } from '../../types';
 import Modal from './Modal';
 
 interface ClassScheduleProps {

@@ -163,3 +163,12 @@ export enum View {
   ATTENDANCE = 'ATTENDANCE',
   EVENTS = 'EVENTS',
 }
+
+export type UserRole = 'Admin' | 'Editor' | 'Instructor' | 'Student';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  role: UserRole;
+  name?: string;
+}

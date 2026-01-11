@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Student, DanceClass, PaymentMethod, MerchandiseSale } from '../types';
+import { Student, DanceClass, PaymentMethod, MerchandiseSale } from '../../types';
 import Modal from './Modal';
 
 interface StudentListProps {

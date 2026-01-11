@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Instructor, DanceClass } from '../types';
+import { Instructor, DanceClass } from '../../types';
 import Modal from './Modal';
 
 interface InstructorListProps {

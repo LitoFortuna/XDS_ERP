@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { DanceClass, Instructor, Student, DayOfWeek } from '../types';
+import { DanceClass, Instructor, Student, DayOfWeek } from '../../types';
 import Modal from './Modal';
 import { ClassForm } from './ClassSchedule';
 import jsPDF from 'jspdf';

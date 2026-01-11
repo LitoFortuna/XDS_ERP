@@ -5,8 +5,8 @@ import {
     ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
     AreaChart, Area, ComposedChart
 } from 'recharts';
-import { useAppStore } from '../src/store/useAppStore';
-import { useAppActions } from '../src/hooks/useAppActions';
+import { useAppStore } from '../store/useAppStore';
+import { useAppActions } from '../hooks/useAppActions';
 
 interface DashboardProps {
     // Props handled via Zustand

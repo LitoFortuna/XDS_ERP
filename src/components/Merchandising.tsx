@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { MerchandiseItem, MerchandiseSale, Student, PaymentMethod } from '../types';
+import { MerchandiseItem, MerchandiseSale, Student, PaymentMethod } from '../../types';
 import Modal from './Modal';
 
 interface MerchandisingProps {

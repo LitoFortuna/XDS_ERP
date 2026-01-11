@@ -1,28 +1,28 @@
 
 import React, { Suspense, lazy } from 'react';
 import { View } from './types';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
-import Login from './components/Login';
-import Modal from './components/Modal';
+import Sidebar from './src/components/Sidebar';
+import Header from './src/components/Header';
+import Login from './src/components/Login';
+import Modal from './src/components/Modal';
 import { useAppStore } from './src/store/useAppStore';
 import { useInitializeData } from './src/hooks/useInitializeData';
 import { useAppActions } from './src/hooks/useAppActions';
 import { batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems } from './src/services/firestoreService';
 
 // Lazy Loaded Components
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const StudentList = lazy(() => import('./components/StudentList'));
-const ClassSchedule = lazy(() => import('./components/ClassSchedule'));
-const InstructorList = lazy(() => import('./components/InstructorList'));
-const Billing = lazy(() => import('./components/Billing'));
-const InteractiveSchedule = lazy(() => import('./components/InteractiveSchedule'));
-const NuptialDances = lazy(() => import('./components/NuptialDances'));
-const DataManagement = lazy(() => import('./components/DataManagement'));
-const Merchandising = lazy(() => import('./components/Merchandising'));
-const QuarterlyInvoicing = lazy(() => import('./components/QuarterlyInvoicing'));
-const Attendance = lazy(() => import('./components/Attendance'));
-const EventManagement = lazy(() => import('./components/EventManagement'));
+const Dashboard = lazy(() => import('./src/components/Dashboard'));
+const StudentList = lazy(() => import('./src/components/StudentList'));
+const ClassSchedule = lazy(() => import('./src/components/ClassSchedule'));
+const InstructorList = lazy(() => import('./src/components/InstructorList'));
+const Billing = lazy(() => import('./src/components/Billing'));
+const InteractiveSchedule = lazy(() => import('./src/components/InteractiveSchedule'));
+const NuptialDances = lazy(() => import('./src/components/NuptialDances'));
+const DataManagement = lazy(() => import('./src/components/DataManagement'));
+const Merchandising = lazy(() => import('./src/components/Merchandising'));
+const QuarterlyInvoicing = lazy(() => import('./src/components/QuarterlyInvoicing'));
+const Attendance = lazy(() => import('./src/components/Attendance'));
+const EventManagement = lazy(() => import('./src/components/EventManagement'));
 
 const Loader = () => (
     <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin"></div>

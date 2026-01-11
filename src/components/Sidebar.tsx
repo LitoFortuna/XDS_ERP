@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { View } from '../types';
+import { View } from '../../types';
 import { DashboardIcon } from './icons/DashboardIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { BookIcon } from './icons/BookIcon';

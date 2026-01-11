@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { DanceClass, Student, AttendanceRecord, DayOfWeek } from '../types';
+import { DanceClass, Student, AttendanceRecord, DayOfWeek } from '../../types';
 
 interface AttendanceProps {
     students: Student[];

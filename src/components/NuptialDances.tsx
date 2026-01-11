@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { NuptialDance, Instructor, Rehearsal } from '../types';
+import { NuptialDance, Instructor, Rehearsal } from '../../types';
 import Modal from './Modal';
 
 // --- PROPS ---

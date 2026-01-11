@@ -1,36 +1,32 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { 
-  Student, Instructor, DanceClass, Payment, Cost, 
-  NuptialDance, DanceEvent, MerchandiseItem, MerchandiseSale, 
-  AttendanceRecord, View 
-} from '../types';
+import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, View, MerchandiseItem, AttendanceRecord, MerchandiseSale, DanceEvent, NuptialDance, UserRole, UserProfile } from '../../types';
 import { User } from 'firebase/auth';
 
 interface AppState {
   // Auth
   user: User | null;
   authLoading: boolean;
-  
+
   // Navigation & UI
   currentView: View;
   isSidebarOpen: boolean;
   dataLoading: boolean;
-  
+
   // Birthdays
   isBirthdayModalOpen: boolean;
   birthdaysToday: Student[];
   hasCheckedBirthdays: boolean;
-  
+
   // Data
   students: Student[];
   instructors: Instructor[];
   classes: DanceClass[];
   payments: Payment[];
   costs: Cost[];
-  nuptialDances: NuptialDance[];
   events: DanceEvent[];
+  nuptialDances: NuptialDance[];
   merchandiseItems: MerchandiseItem[];
   merchandiseSales: MerchandiseSale[];
   attendanceRecords: AttendanceRecord[];
@@ -45,15 +41,15 @@ interface AppActions {
   setBirthdayModalOpen: (open: boolean) => void;
   setBirthdaysToday: (students: Student[]) => void;
   setHasCheckedBirthdays: (checked: boolean) => void;
-  
+
   // State Setters (for Firebase subscriptions)
   setStudents: (students: Student[]) => void;
   setInstructors: (instructors: Instructor[]) => void;
   setClasses: (classes: DanceClass[]) => void;
   setPayments: (payments: Payment[]) => void;
   setCosts: (costs: Cost[]) => void;
-  setNuptialDances: (dances: NuptialDance[]) => void;
   setEvents: (events: DanceEvent[]) => void;
+  setNuptialDances: (dances: NuptialDance[]) => void;
   setMerchandiseItems: (items: MerchandiseItem[]) => void;
   setMerchandiseSales: (sales: MerchandiseSale[]) => void;
   setAttendanceRecords: (records: AttendanceRecord[]) => void;
@@ -75,8 +71,8 @@ export const useAppStore = create<AppState & AppActions>()(
     classes: [],
     payments: [],
     costs: [],
-    nuptialDances: [],
     events: [],
+    nuptialDances: [],
     merchandiseItems: [],
     merchandiseSales: [],
     attendanceRecords: [],
@@ -90,14 +86,14 @@ export const useAppStore = create<AppState & AppActions>()(
     setBirthdayModalOpen: (open) => set((state) => { state.isBirthdayModalOpen = open; }),
     setBirthdaysToday: (students) => set((state) => { state.birthdaysToday = students; }),
     setHasCheckedBirthdays: (checked) => set((state) => { state.hasCheckedBirthdays = checked; }),
-    
+
     setStudents: (students) => set((state) => { state.students = students; }),
     setInstructors: (instructors) => set((state) => { state.instructors = instructors; }),
     setClasses: (classes) => set((state) => { state.classes = classes; }),
     setPayments: (payments) => set((state) => { state.payments = payments; }),
     setCosts: (costs) => set((state) => { state.costs = costs; }),
-    setNuptialDances: (dances) => set((state) => { state.nuptialDances = dances; }),
     setEvents: (events) => set((state) => { state.events = events; }),
+    setNuptialDances: (nuptialDances) => set((state) => { state.nuptialDances = nuptialDances; }),
     setMerchandiseItems: (items) => set((state) => { state.merchandiseItems = items; }),
     setMerchandiseSales: (sales) => set((state) => { state.merchandiseSales = sales; }),
     setAttendanceRecords: (records) => set((state) => { state.attendanceRecords = records; }),

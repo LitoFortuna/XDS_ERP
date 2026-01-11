@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem } from '../types';
+import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem } from '../../types';
 
 interface DataManagementProps {
     students: Student[];

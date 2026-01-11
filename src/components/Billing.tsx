@@ -1,11 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod, DanceClass, MerchandiseSale, Instructor } from '../types';
+import { Payment, Student, PaymentMethod, Cost, CostCategory, CostPaymentMethod, DanceClass, MerchandiseSale, Instructor } from '../../types';
 import Modal from './Modal';
 import { StudentForm } from './StudentList';
-import { useAppStore } from '../src/store/useAppStore';
-import { useAppActions } from '../src/hooks/useAppActions';
-import { exportPaymentsToCSV, exportCostsToCSV, downloadCSV } from '../src/utils/csvExportUtils';
+import { useAppStore } from '../store/useAppStore';
+import { useAppActions } from '../hooks/useAppActions';
+import { exportPaymentsToCSV, exportCostsToCSV, downloadCSV } from '../utils/csvExportUtils';
 
 
 /**
