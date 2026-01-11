@@ -5,6 +5,7 @@ import Modal from './Modal';
 import { StudentForm } from './StudentList';
 import { useAppStore } from '../src/store/useAppStore';
 import { useAppActions } from '../src/hooks/useAppActions';
+import { exportPaymentsToCSV, exportCostsToCSV, downloadCSV } from '../src/utils/csvExportUtils';
 
 
 /**
@@ -632,6 +633,16 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
     const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
+    const handleExportPayments = () => {
+        const csv = exportPaymentsToCSV(yearPayments, students);
+        downloadCSV(`ingresos_${selectedYear}.csv`, csv);
+    };
+
+    const handleExportCosts = () => {
+        const csv = exportCostsToCSV(filteredCosts);
+        downloadCSV(`gastos_${selectedYear}.csv`, csv);
+    };
+
     // Filtrado por año seleccionado
     const yearPayments = useMemo(() => payments.filter(p => new Date(p.date).getFullYear() === selectedYear), [payments, selectedYear]);
     const yearCosts = useMemo(() => costs.filter(c => new Date(c.paymentDate).getFullYear() === selectedYear), [costs, selectedYear]);
@@ -807,6 +818,12 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                                 <p className="text-sm text-gray-400">Ingresos {selectedYear}</p>
                                 <p className="text-xl font-bold text-green-400">{formatCurrency(totalIncome)}</p>
                             </div>
+                            <button onClick={handleExportPayments} className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600 flex items-center gap-2 border border-gray-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0L16.5 12M12 16.5V3" />
+                                </svg>
+                                Descargar CSV
+                            </button>
                             <button onClick={() => setIsIncomeModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Registrar Cobro</button>
                         </div>
                     </div>
@@ -856,7 +873,15 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                             <p className="text-sm text-gray-400">Gastos {selectedYear}</p>
                             <p className="text-xl font-bold text-red-400">{formatCurrency(totalCosts)}</p>
                         </div>
-                        <button onClick={() => handleOpenCostModal()} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Registrar Gasto</button>
+                        <div className="flex gap-2">
+                            <button onClick={handleExportCosts} className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600 flex items-center gap-2 border border-gray-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0L16.5 12M12 16.5V3" />
+                                </svg>
+                                Descargar CSV
+                            </button>
+                            <button onClick={() => handleOpenCostModal()} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Registrar Gasto</button>
+                        </div>
                     </div>
                     <div className="bg-gray-800 rounded-lg shadow overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
