@@ -1,0 +1,60 @@
+
+import React, { useRef } from 'react';
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const mouseDownTarget = useRef<EventTarget | null>(null);
+
+  if (!isOpen) return null;
+
+  // Capturamos dónde empieza el clic
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseDownTarget.current = e.target;
+  };
+
+  // Solo cerramos si el clic EMPEZÓ y TERMINÓ en el fondo oscuro (overlay)
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === overlayRef.current && mouseDownTarget.current === overlayRef.current) {
+      onClose();
+    }
+    // Reseteamos el target para evitar estados inconsistentes
+    mouseDownTarget.current = null;
+  };
+
+  return (
+    <div 
+      ref={overlayRef}
+      className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center"
+      onMouseDown={handleMouseDown}
+      onClick={handleBackdropClick}
+    >
+      <div 
+        className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl m-4"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()} // Importante: evita que el clic inicial dentro del modal se registre en el overlay
+      >
+        <div className="flex justify-between items-center p-4 border-b border-gray-700">
+          <h3 className="text-xl font-semibold text-white">{title}</h3>
+          <button 
+            onClick={onClose} 
+            className="text-gray-400 bg-transparent hover:bg-gray-700 hover:text-white rounded-lg text-sm p-1.5 ml-auto inline-flex items-center"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
+          </button>
+        </div>
+        <div className="p-6 max-h-[85vh] overflow-y-auto">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Modal;

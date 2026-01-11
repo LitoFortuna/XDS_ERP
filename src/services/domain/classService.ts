@@ -1,0 +1,31 @@
+
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, Unsubscribe } from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { DanceClass } from '../../../types';
+
+export const subscribeToClasses = (callback: (classes: DanceClass[]) => void): Unsubscribe => {
+    const q = query(collection(db, 'classes'), orderBy('name'));
+    return onSnapshot(q, (snapshot) => {
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DanceClass)));
+    });
+};
+
+export const addClass = async (danceClass: Omit<DanceClass, 'id'>) => {
+    await addDoc(collection(db, 'classes'), danceClass);
+};
+
+export const batchAddClasses = async (classes: Omit<DanceClass, 'id'>[]) => {
+    const batch = writeBatch(db);
+    const colRef = collection(db, 'classes');
+    classes.forEach(c => batch.set(doc(colRef), c));
+    await batch.commit();
+};
+
+export const updateClass = async (danceClass: DanceClass) => {
+    const { id, ...data } = danceClass;
+    await updateDoc(doc(db, 'classes', id), data);
+};
+
+export const deleteClass = async (classId: string) => {
+    await deleteDoc(doc(db, 'classes', classId));
+};

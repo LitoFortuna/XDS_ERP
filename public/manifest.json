@@ -1,0 +1,17 @@
+{
+    "name": "Xen Dance Space ERP",
+    "short_name": "XDS ERP",
+    "description": "Enterprise Resource Planning for Xen Dance Space",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#111827",
+    "theme_color": "#111827",
+    "icons": [
+        {
+            "src": "https://www.xendance.space/wp-content/uploads/2020/03/Xen-Dance-Logo-2024-para-fondo-oscuro.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
