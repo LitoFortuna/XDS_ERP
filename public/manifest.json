@@ -8,10 +8,10 @@
     "theme_color": "#111827",
     "icons": [
         {
-            "src": "https://www.xendance.space/wp-content/uploads/2020/03/Xen-Dance-Logo-2024-para-fondo-oscuro.png",
+            "src": "/logo.png",
             "sizes": "512x512",
             "type": "image/png",
-            "purpose": "any maskable"
+            "purpose": "any"
         }
     ]
 }
