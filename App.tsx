@@ -166,6 +166,8 @@ const App: React.FC = () => {
                     instructors={instructors}
                     classes={classes}
                     merchandiseItems={merchandiseItems}
+                    payments={payments}
+                    costs={costs}
                     batchAddStudents={batchAddStudents}
                     batchAddInstructors={batchAddInstructors}
                     batchAddClasses={batchAddClasses}

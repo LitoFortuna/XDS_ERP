@@ -1,12 +1,14 @@
-
 import React, { useState } from 'react';
 import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem } from '../../types';
+import { generateFullBackupZip } from '../utils/csvExportUtils';
 
 interface DataManagementProps {
     students: Student[];
     instructors: Instructor[];
     classes: DanceClass[];
     merchandiseItems: MerchandiseItem[];
+    payments: Payment[];
+    costs: Cost[];
     batchAddStudents: (students: Omit<Student, 'id'>[]) => Promise<void>;
     batchAddInstructors: (instructors: Omit<Instructor, 'id'>[]) => Promise<void>;
     batchAddClasses: (classes: Omit<DanceClass, 'id'>[]) => Promise<void>;
@@ -62,25 +64,25 @@ const ImporterSection: React.FC<{
                 const text = e.target?.result as string;
                 const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
                 if (lines.length <= 1) { // Header only or empty
-                     throw new Error('El archivo CSV está vacío o solo contiene la cabecera.');
+                    throw new Error('El archivo CSV está vacío o solo contiene la cabecera.');
                 }
-                
+
                 const rawHeaders = lines.shift()!.split(';').map(h => h.trim().replace(/"/g, ''));
                 rawHeaders[0] = rawHeaders[0].replace(/^\uFEFF/, ''); // Remove BOM from first header if present
 
                 const expectedHeaders = templateHeaders.map(h => h.split('(')[0].trim());
-                
+
                 if (JSON.stringify(rawHeaders) !== JSON.stringify(expectedHeaders)) {
                     console.error('Cabeceras esperadas:', expectedHeaders);
                     console.error('Cabeceras recibidas:', rawHeaders);
                     throw new Error('Las cabeceras del CSV no coinciden con la plantilla.');
                 }
-                
+
                 const data = lines.map(line => line.split(';').map(item => item.trim().replace(/"/g, '')));
                 await onImport(data);
                 setSuccess(`¡Se han importado ${data.length} registros de ${title.toLowerCase()} correctamente!`);
                 setFile(null);
-                 if (document.getElementById('file-input-' + title)) {
+                if (document.getElementById('file-input-' + title)) {
                     (document.getElementById('file-input-' + title) as HTMLInputElement).value = '';
                 }
             } catch (err: any) {
@@ -90,8 +92,8 @@ const ImporterSection: React.FC<{
             }
         };
         reader.onerror = () => {
-             setError('Error al leer el archivo.');
-             setIsLoading(false);
+            setError('Error al leer el archivo.');
+            setIsLoading(false);
         };
         reader.readAsText(file, 'UTF-8');
     };
@@ -126,17 +128,17 @@ const ImporterSection: React.FC<{
 };
 
 
-const DataManagement: React.FC<DataManagementProps> = ({ 
-    students, instructors, classes, merchandiseItems, batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems
+const DataManagement: React.FC<DataManagementProps> = ({
+    students, instructors, classes, merchandiseItems, payments, costs, batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems
 }) => {
-    
+
     const convertDateToISO = (dateStr: string): string => {
         if (!dateStr || !/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
             // Allow empty dates if field is optional in some contexts, but here we expect ISO format conversion 
             // If empty string comes in and it's optional, handle it outside or return empty string?
             // Current logic throws error, which is safer for required fields.
             // For optional fields, we check before calling this function.
-             throw new Error(`Formato de fecha inválido: "${dateStr}". Se esperaba DD-MM-YYYY.`);
+            throw new Error(`Formato de fecha inválido: "${dateStr}". Se esperaba DD-MM-YYYY.`);
         }
         const [day, month, year] = dateStr.split('-');
         return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
@@ -188,7 +190,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
         'Capacidad (número)',
         'Tarifa Base (número)'
     ];
-     const paymentHeaders = [
+    const paymentHeaders = [
         students.length > 20
             ? 'Nombre del Alumno'
             : `Nombre del Alumno (Opciones: ${students.map(s => s.name).join(' | ')})`,
@@ -315,7 +317,19 @@ const DataManagement: React.FC<DataManagementProps> = ({
 
     return (
         <div className="p-4 sm:p-8 space-y-8">
-            <h2 className="text-3xl font-bold">Gestión de Datos</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 className="text-3xl font-bold">Gestión de Datos</h2>
+                <button
+                    onClick={() => generateFullBackupZip({ students, instructors, classes, payments, costs, merchandiseItems })}
+                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all active:scale-95"
+                    title="Descarga todos los datos en un archivo ZIP con archivos CSV compatibles con el importador"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    Exportar Backup Completo (ZIP)
+                </button>
+            </div>
             <div className="space-y-6">
                 <ImporterSection title="Alumnos" templateHeaders={studentHeaders} onImport={handleStudentImport} />
                 <ImporterSection title="Profesores" templateHeaders={instructorHeaders} onImport={handleInstructorImport} />

@@ -1,12 +1,20 @@
 
-import { Payment, Cost, Student } from '../../types';
+import {
+    Payment, Cost, Student, Instructor, DanceClass, MerchandiseItem,
+    PaymentMethod, CostPaymentMethod, ClassCategory, DayOfWeek, CostCategory
+} from '../../types';
+import JSZip from 'jszip';
 
 /**
  * Formats a date string (YYYY-MM-DD) to the Spanish format (DD-MM-YYYY)
  */
-const formatDateForCSV = (dateStr: string): string => {
+const formatDateForCSV = (dateStr?: string): string => {
     if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
+    // Handle ISO date time strings too
+    const dateOnly = dateStr.split('T')[0];
+    const parts = dateOnly.split('-');
+    if (parts.length !== 3) return dateStr;
+    const [year, month, day] = parts;
     return `${day}-${month}-${year}`;
 };
 
@@ -44,10 +52,6 @@ export const exportPaymentsToCSV = (payments: Payment[], students: Student[]): s
         const student = students.find(s => s.id === p.studentId);
         return [
             student ? student.name : 'Alumno Desconocido',
-            p.amount.toString().replace('.', ','), // Match Spanish number format if needed? DataManagement uses parseFloat so '.' is safer, but user might want ',' for Excel. 
-            // Actually, DataManagement.tsx:parseFloat(row[1]) - parseFloat works better with . but Excel likes ,
-            // Let's stick to '.' as it's more standard for parsing code, or follow what the user might expect.
-            // DataManagement uses parseFloat(row[x]), which in JS expects '.'
             p.amount,
             formatDateForCSV(p.date),
             p.concept,
@@ -86,4 +90,168 @@ export const exportCostsToCSV = (costs: Cost[]): string => {
     ]);
 
     return [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
+};
+
+/**
+ * Converts a list of students to a CSV string following the import template
+ */
+export const exportStudentsToCSV = (students: Student[], classes: DanceClass[]): string => {
+    const headers = [
+        'Nombre Completo',
+        'DNI',
+        'Fecha de Alta',
+        'Fecha de Nacimiento',
+        'Teléfono',
+        'Email',
+        'Cuota Mensual',
+        'Forma de Pago',
+        'IBAN',
+        'Activo',
+        'Observaciones',
+        'Clases Inscritas'
+    ];
+
+    const rows = students.map(s => {
+        const enrolledClassNames = (s.enrolledClassIds || [])
+            .map(id => classes.find(c => c.id === id)?.name)
+            .filter(Boolean)
+            .join('; ');
+
+        return [
+            s.name,
+            s.dni || '',
+            formatDateForCSV(s.enrollmentDate),
+            formatDateForCSV(s.birthDate),
+            s.phone || '',
+            s.email || '',
+            s.monthlyFee,
+            s.paymentMethod,
+            s.iban || '',
+            s.active ? 'true' : 'false',
+            s.notes || '',
+            enrolledClassNames
+        ];
+    });
+
+    return [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
+};
+
+/**
+ * Converts a list of instructors to a CSV string following the import template
+ */
+export const exportInstructorsToCSV = (instructors: Instructor[]): string => {
+    const headers = [
+        'Nombre Completo',
+        'Email',
+        'Teléfono',
+        'Tarifa por Clase',
+        'Activo',
+        'Fecha de Alta',
+        'Observaciones'
+    ];
+
+    const rows = instructors.map(i => [
+        i.name,
+        i.email,
+        i.phone,
+        i.ratePerClass,
+        i.active ? 'true' : 'false',
+        formatDateForCSV(i.hireDate),
+        i.notes || ''
+    ]);
+
+    return [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
+};
+
+/**
+ * Converts a list of classes to a CSV string following the import template
+ */
+export const exportClassesToCSV = (classes: DanceClass[], instructors: Instructor[]): string => {
+    const headers = [
+        'Nombre de la Clase',
+        'Nombre del Profesor',
+        'Categoría',
+        'Días',
+        'Hora Inicio',
+        'Hora Fin',
+        'Capacidad',
+        'Tarifa Base'
+    ];
+
+    const rows = classes.map(c => {
+        const instructor = instructors.find(i => i.id === c.instructorId);
+        return [
+            c.name,
+            instructor ? instructor.name : 'Desconocido',
+            c.category,
+            (c.days || []).join('; '),
+            c.startTime,
+            c.endTime,
+            c.capacity,
+            c.baseRate
+        ];
+    });
+
+    return [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
+};
+
+/**
+ * Converts a list of merchandise items to a CSV string following the import template
+ */
+export const exportMerchandiseToCSV = (items: MerchandiseItem[]): string => {
+    const headers = [
+        'Nombre',
+        'Categoría',
+        'Talla',
+        'Precio Compra (€)',
+        'Precio Venta (€)',
+        'Stock Inicial',
+        'URL Imagen',
+        'Observaciones'
+    ];
+
+    const rows = items.map(i => [
+        i.name,
+        i.category,
+        i.size || '',
+        i.purchasePrice,
+        i.salePrice,
+        i.stock,
+        i.imageUrl || '',
+        i.notes || ''
+    ]);
+
+    return [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
+};
+
+/**
+ * Generates a full backup ZIP file containing all entities in CSV format
+ */
+export const generateFullBackupZip = async (data: {
+    students: Student[];
+    instructors: Instructor[];
+    classes: DanceClass[];
+    payments: Payment[];
+    costs: Cost[];
+    merchandiseItems: MerchandiseItem[];
+}) => {
+    const zip = new JSZip();
+
+    zip.file('01_alumnos.csv', '\uFEFF' + exportStudentsToCSV(data.students, data.classes));
+    zip.file('02_profesores.csv', '\uFEFF' + exportInstructorsToCSV(data.instructors));
+    zip.file('03_clases.csv', '\uFEFF' + exportClassesToCSV(data.classes, data.instructors));
+    zip.file('04_ingresos_cobros.csv', '\uFEFF' + exportPaymentsToCSV(data.payments, data.students));
+    zip.file('05_costes_gastos.csv', '\uFEFF' + exportCostsToCSV(data.costs));
+    zip.file('06_merchandising.csv', '\uFEFF' + exportMerchandiseToCSV(data.merchandiseItems));
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `backup_completo_xds_${timestamp}.zip`;
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(content);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };
