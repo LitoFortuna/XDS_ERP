@@ -42,7 +42,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         const list = [...classes].sort((a, b) => {
             const dayA = getFirstDayValue(a.days);
             const dayB = getFirstDayValue(b.days);
-            
+
             if (dayA !== dayB) {
                 return dayA - dayB;
             }
@@ -223,14 +223,43 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
     const totalEnrolled = enrolledStudents.length;
     const totalPresent = presentStudentIds.size;
 
+    // --- ABSENCE TRACKING LOGIC ---
+    const absenteeAlerts = useMemo(() => {
+        return students
+            .filter(s => s.active)
+            .map(student => {
+                // Get all attendance records for ANY class the student is enrolled in
+                const relevantRecords = attendanceRecords
+                    .filter(r => student.enrolledClassIds.includes(r.classId))
+                    .sort((a, b) => b.date.localeCompare(a.date)); // Descending by date
+
+                let consecutiveAbsences = 0;
+                for (const record of relevantRecords) {
+                    if (!record.presentStudentIds.includes(student.id)) {
+                        consecutiveAbsences++;
+                    } else {
+                        break; // Streak broken by presence
+                    }
+                }
+
+                return {
+                    student,
+                    count: consecutiveAbsences,
+                    lastDate: relevantRecords.length > 0 ? relevantRecords[0].date : null
+                };
+            })
+            .filter(alert => alert.count > 3)
+            .sort((a, b) => b.count - a.count);
+    }, [students, attendanceRecords]);
+
     return (
         <div className="p-4 sm:p-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h2 className="text-3xl font-bold text-white">Control de Asistencia</h2>
-                
+
                 <div className="flex gap-2">
                     {selectedClassId && (
-                        <button 
+                        <button
                             onClick={handleExportSpecificClass}
                             className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-md flex items-center transition-colors shadow-sm text-sm"
                             title="Exportar matriz de la clase seleccionada"
@@ -241,7 +270,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                             Exportar Clase
                         </button>
                     )}
-                    <button 
+                    <button
                         onClick={handleExportGlobal}
                         className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center transition-colors shadow-sm text-sm"
                         title="Exportar listado completo de todas las clases y fechas"
@@ -254,35 +283,71 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                 </div>
             </div>
 
+            {/* ALERTS SECTION (Above Controls) */}
+            {absenteeAlerts.length > 0 && (
+                <div className="mb-8 bg-red-900/20 border border-red-500/30 rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="bg-red-500/20 px-6 py-3 border-b border-red-500/20 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <h3 className="text-red-400 font-bold uppercase tracking-wider text-sm">Alertas de Absentismo</h3>
+                        </div>
+                        <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">Acción Requerida</span>
+                    </div>
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {absenteeAlerts.map(({ student, count, lastDate }) => (
+                            <div key={student.id} className="bg-gray-800/40 p-3 rounded-lg border border-red-500/10 flex items-center justify-between group hover:bg-gray-800/60 transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 font-bold border border-red-500/20">
+                                        {student.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <p className="text-white font-semibold text-sm leading-tight">{student.name}</p>
+                                        <p className="text-red-400/80 text-[10px] uppercase font-bold mt-0.5">
+                                            {count} faltas seguidas
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] text-gray-500 uppercase">Última clase</p>
+                                    <p className="text-[11px] text-gray-300 font-mono">{lastDate ? new Date(lastDate).toLocaleDateString('es-ES') : 'N/A'}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* CONTROLS */}
             <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Fecha</label>
-                        <input 
-                            type="date" 
-                            value={selectedDate} 
-                            onChange={(e) => setSelectedDate(e.target.value)} 
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
                             className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         />
                         <p className="text-xs text-gray-500 mt-2 font-medium uppercase tracking-wider">Hoy es {selectedDayName}</p>
                     </div>
                     <div>
                         <div className="flex justify-between items-center mb-2">
-                             <label className="block text-sm font-medium text-gray-300">Clase</label>
-                             <label className="flex items-center text-xs text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
-                                <input 
-                                    type="checkbox" 
-                                    checked={showAllClasses} 
+                            <label className="block text-sm font-medium text-gray-300">Clase</label>
+                            <label className="flex items-center text-xs text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={showAllClasses}
                                     onChange={(e) => setShowAllClasses(e.target.checked)}
                                     className="mr-2 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
                                 />
                                 Mostrar todas las de la semana
-                             </label>
+                            </label>
                         </div>
-                        <select 
-                            value={selectedClassId} 
-                            onChange={(e) => setSelectedClassId(e.target.value)} 
+                        <select
+                            value={selectedClassId}
+                            onChange={(e) => setSelectedClassId(e.target.value)}
                             className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         >
                             <option value="">-- {sortedClassesList.length > 0 ? 'Seleccionar Clase' : 'No hay clases este día'} --</option>
@@ -319,7 +384,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                                 <span className="text-xl font-bold text-red-400">{totalEnrolled - totalPresent}</span>
                             </div>
                         </div>
-                        
+
                         <div className="flex space-x-3">
                             <button onClick={handleMarkAll} className="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors">
                                 Marcar Todos
@@ -337,13 +402,13 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                                 {enrolledStudents.map(student => {
                                     const isPresent = presentStudentIds.has(student.id);
                                     return (
-                                        <div 
-                                            key={student.id} 
+                                        <div
+                                            key={student.id}
                                             onClick={() => handleToggleStudent(student.id)}
                                             className={`
                                                 cursor-pointer rounded-lg p-4 flex items-center justify-between border-2 transition-all duration-200
-                                                ${isPresent 
-                                                    ? 'bg-green-900/20 border-green-500/50 hover:bg-green-900/30' 
+                                                ${isPresent
+                                                    ? 'bg-green-900/20 border-green-500/50 hover:bg-green-900/30'
                                                     : 'bg-gray-700/30 border-transparent hover:bg-gray-700/50 hover:border-gray-500'
                                                 }
                                             `}
@@ -375,22 +440,22 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                     {/* NOTES & SAVE */}
                     <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
                         <label className="block text-sm font-medium text-gray-300 mb-2">Notas de la sesión (Opcional)</label>
-                        <textarea 
+                        <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             placeholder="Ej: Coreografía avanzada, faltó calentar bien, etc."
                             rows={3}
                             className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
                         ></textarea>
-                        
+
                         <div className="flex items-center justify-end space-x-4">
                             {showSuccess && (
                                 <span className="text-green-400 font-medium animate-pulse">
                                     ¡Asistencia guardada correctamente!
                                 </span>
                             )}
-                            <button 
-                                onClick={handleSave} 
+                            <button
+                                onClick={handleSave}
                                 className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transform transition hover:scale-105"
                             >
                                 Guardar Asistencia
