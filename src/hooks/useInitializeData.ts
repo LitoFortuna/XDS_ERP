@@ -15,6 +15,8 @@ import {
     subscribeToMerchandiseSales,
     subscribeToAttendance,
 } from '../services/firestoreService';
+import { scheduleAttendanceReminder } from '../utils/notificationUtils';
+import { DayOfWeek } from '../../types';
 
 export const useInitializeData = () => {
     const store = useAppStore();
@@ -77,4 +79,21 @@ export const useInitializeData = () => {
             store.setHasCheckedBirthdays(true);
         }
     }, [store.dataLoading, store.students, store.hasCheckedBirthdays]);
+
+    // Attendance Reminder Scheduling
+    useEffect(() => {
+        if (store.dataLoading || store.classes.length === 0) return;
+
+        const date = new Date();
+        const days: DayOfWeek[] = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const todayDayName = days[date.getDay()];
+
+        const todayClasses = store.classes.filter(c => c.days.includes(todayDayName));
+
+        console.log(`[Reminders] Analizando ${todayClasses.length} clases de hoy para recordatorios...`);
+
+        todayClasses.forEach(c => {
+            scheduleAttendanceReminder(c.name, c.startTime);
+        });
+    }, [store.dataLoading, store.classes]);
 };

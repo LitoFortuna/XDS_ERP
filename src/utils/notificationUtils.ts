@@ -54,3 +54,38 @@ export const subscribeToPush = async () => {
     }
     return null;
 };
+/**
+ * Schedules a local notification for a class attendance reminder
+ */
+export const scheduleAttendanceReminder = async (className: string, startTime: string) => {
+    if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+
+    const registration = await navigator.serviceWorker.ready;
+
+    // Parse start time (HH:MM)
+    const [hours, minutes] = startTime.split(':').map(Number);
+
+    const now = new Date();
+    const scheduledTime = new Date();
+    scheduledTime.setHours(hours, minutes + 5, 0, 0);
+
+    // If time is already passed today, don't schedule or schedule for tomorrow
+    // For simplicity, we only schedule if it's in the future today
+    const delay = scheduledTime.getTime() - now.getTime();
+
+    if (delay > 0) {
+        console.log(`[Notification] Programando recordatorio para ${className} en ${Math.round(delay / 60000)} min`);
+
+        // Note: Real "scheduling" for web usually requires a backend push.
+        // However, for the current session, we can use a timeout as a "live" reminder.
+        setTimeout(() => {
+            registration.showNotification('📝 Recordatorio de Asistencia', {
+                body: `La clase de "${className}" empezó hace 5 minutos. No olvides pasar lista.`,
+                icon: '/android-chrome-192x192.png',
+                badge: '/android-chrome-192x192.png',
+                tag: `attendance-${className}-${startTime}`,
+                data: { url: '/attendance' }
+            });
+        }, delay);
+    }
+};
