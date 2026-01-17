@@ -9,6 +9,9 @@ import { useAppStore } from './src/store/useAppStore';
 import { useInitializeData } from './src/hooks/useInitializeData';
 import { useAppActions } from './src/hooks/useAppActions';
 import { batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems } from './src/services/firestoreService';
+import NotificationPrompter from './src/components/NotificationPrompter';
+import { setBadge, clearBadge } from './src/utils/notificationUtils';
+import { useEffect } from 'react';
 
 // Lazy Loaded Components
 const Dashboard = lazy(() => import('./src/components/Dashboard'));
@@ -56,6 +59,15 @@ const App: React.FC = () => {
         merchandiseSales,
         attendanceRecords
     } = useAppStore();
+
+    // Handle App Badge
+    useEffect(() => {
+        if (birthdaysToday.length > 0) {
+            setBadge(birthdaysToday.length);
+        } else {
+            clearBadge();
+        }
+    }, [birthdaysToday]);
 
     if (authLoading) {
         return (
@@ -253,6 +265,8 @@ const App: React.FC = () => {
                     </div>
                 </div>
             </Modal>
+
+            <NotificationPrompter />
         </div>
     );
 };
