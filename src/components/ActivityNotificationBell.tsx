@@ -8,7 +8,7 @@ const ActivityNotificationBell: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
 
     // Only SuperAdmins see this component
-    if (!userProfile || userProfile.role !== 'SuperAdmin' || activityLogs.length === 0) {
+    if (!userProfile || userProfile.role !== 'SuperAdmin') {
         return null;
     }
 
@@ -38,34 +38,46 @@ const ActivityNotificationBell: React.FC = () => {
                 <div className="absolute right-0 mt-2 w-80 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-4 duration-200">
                     <div className="p-3 bg-gray-700/50 border-b border-gray-600 flex justify-between items-center">
                         <h3 className="text-white font-bold text-sm">Actividad Reciente</h3>
-                        <button
-                            onClick={handleMarkAllRead}
-                            className="text-[10px] text-purple-400 hover:text-purple-300 font-bold uppercase"
-                        >
-                            Marcar leídas
-                        </button>
+                        {activityLogs.length > 0 && (
+                            <button
+                                onClick={handleMarkAllRead}
+                                className="text-[10px] text-purple-400 hover:text-purple-300 font-bold uppercase"
+                            >
+                                Marcar leídas
+                            </button>
+                        )}
                     </div>
                     <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                        {activityLogs.map((log) => (
-                            <div key={log.id} className="p-3 border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
-                                <div className="flex items-start gap-3">
-                                    <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${log.type === 'payment' ? 'bg-green-500/20 text-green-400' :
+                        {activityLogs.length === 0 ? (
+                            <div className="p-6 text-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p className="text-gray-500 text-sm">No hay actividad reciente</p>
+                                <p className="text-gray-600 text-xs mt-1">Las acciones del Admin aparecerán aquí</p>
+                            </div>
+                        ) : (
+                            activityLogs.map((log) => (
+                                <div key={log.id} className="p-3 border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${log.type === 'payment' ? 'bg-green-500/20 text-green-400' :
                                             log.type === 'cost' ? 'bg-red-500/20 text-red-400' :
                                                 'bg-blue-500/20 text-blue-400'
-                                        }`}>
-                                        {log.type === 'payment' ? '💰' :
-                                            log.type === 'cost' ? '📤' :
-                                                '📋'}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-white text-sm leading-tight truncate">{log.description}</p>
-                                        <p className="text-gray-500 text-[10px] mt-1">
-                                            {log.actorEmail} · {new Date(log.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                        </p>
+                                            }`}>
+                                            {log.type === 'payment' ? '💰' :
+                                                log.type === 'cost' ? '📤' :
+                                                    '📋'}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white text-sm leading-tight truncate">{log.description}</p>
+                                            <p className="text-gray-500 text-[10px] mt-1">
+                                                {log.actorEmail} · {new Date(log.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
             )}
