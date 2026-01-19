@@ -35,7 +35,7 @@ const ActivityNotificationBell: React.FC = () => {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-4 duration-200">
+                <div className="absolute left-full top-0 ml-2 w-80 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-left-4 duration-200 lg:left-full lg:right-auto lg:ml-2 max-lg:right-0 max-lg:left-auto max-lg:top-full max-lg:mt-2">
                     <div className="p-3 bg-gray-700/50 border-b border-gray-600 flex justify-between items-center">
                         <h3 className="text-white font-bold text-sm">Actividad Reciente</h3>
                         {activityLogs.length > 0 && (
