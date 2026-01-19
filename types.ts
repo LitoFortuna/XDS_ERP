@@ -164,11 +164,23 @@ export enum View {
   EVENTS = 'EVENTS',
 }
 
-export type UserRole = 'Admin' | 'Editor' | 'Instructor' | 'Student';
+export type UserRole = 'SuperAdmin' | 'Admin' | 'Editor' | 'Instructor' | 'Student';
 
 export interface UserProfile {
   uid: string;
   email: string;
   role: UserRole;
   name?: string;
+  pushSubscription?: string; // JSON stringified PushSubscription for cross-device push
+}
+
+export interface ActivityLog {
+  id?: string;
+  type: 'attendance' | 'payment' | 'cost';
+  actorEmail: string;
+  actorName?: string;
+  description: string;
+  timestamp: string;
+  read: boolean;
+  targetRole: UserRole; // Who should receive this notification
 }

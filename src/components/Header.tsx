@@ -1,4 +1,5 @@
 import React from 'react';
+import ActivityNotificationBell from './ActivityNotificationBell';
 
 interface HeaderProps {
   setIsOpen: (isOpen: boolean) => void;
@@ -13,9 +14,9 @@ const Header: React.FC<HeaderProps> = ({ setIsOpen }) => {
         </svg>
       </button>
       <div className="flex-grow flex justify-center">
-         <h1 className="text-xl font-bold text-white tracking-wider">Xen Dance Space</h1>
+        <h1 className="text-xl font-bold text-white tracking-wider">Xen Dance Space</h1>
       </div>
-      <div className="w-6"></div> {/* Spacer to balance the hamburger icon */}
+      <ActivityNotificationBell />
     </header>
   );
 };

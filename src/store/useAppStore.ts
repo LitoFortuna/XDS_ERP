@@ -1,7 +1,7 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, View, MerchandiseItem, AttendanceRecord, MerchandiseSale, DanceEvent, NuptialDance, UserRole, UserProfile } from '../../types';
+import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, View, MerchandiseItem, AttendanceRecord, MerchandiseSale, DanceEvent, NuptialDance, UserRole, UserProfile, ActivityLog } from '../../types';
 import { User } from 'firebase/auth';
 
 interface AppState {
@@ -30,6 +30,10 @@ interface AppState {
   merchandiseItems: MerchandiseItem[];
   merchandiseSales: MerchandiseSale[];
   attendanceRecords: AttendanceRecord[];
+
+  // User Profile & Role
+  userProfile: UserProfile | null;
+  activityLogs: ActivityLog[];
 }
 
 interface AppActions {
@@ -53,6 +57,10 @@ interface AppActions {
   setMerchandiseItems: (items: MerchandiseItem[]) => void;
   setMerchandiseSales: (sales: MerchandiseSale[]) => void;
   setAttendanceRecords: (records: AttendanceRecord[]) => void;
+
+  // User Profile & Activity
+  setUserProfile: (profile: UserProfile | null) => void;
+  setActivityLogs: (logs: ActivityLog[]) => void;
 }
 
 export const useAppStore = create<AppState & AppActions>()(
@@ -76,6 +84,8 @@ export const useAppStore = create<AppState & AppActions>()(
     merchandiseItems: [],
     merchandiseSales: [],
     attendanceRecords: [],
+    userProfile: null,
+    activityLogs: [],
 
     // Actions
     setUser: (user) => set((state) => { state.user = user; }),
@@ -97,5 +107,7 @@ export const useAppStore = create<AppState & AppActions>()(
     setMerchandiseItems: (items) => set((state) => { state.merchandiseItems = items; }),
     setMerchandiseSales: (sales) => set((state) => { state.merchandiseSales = sales; }),
     setAttendanceRecords: (records) => set((state) => { state.attendanceRecords = records; }),
+    setUserProfile: (profile) => set((state) => { state.userProfile = profile; }),
+    setActivityLogs: (logs) => set((state) => { state.activityLogs = logs; }),
   }))
 );

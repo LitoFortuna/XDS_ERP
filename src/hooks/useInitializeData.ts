@@ -17,6 +17,8 @@ import {
 } from '../services/firestoreService';
 import { scheduleAttendanceReminder } from '../utils/notificationUtils';
 import { DayOfWeek } from '../../types';
+import { getUserProfile } from '../services/domain/userProfileService';
+import { subscribeToActivityLogs } from '../services/domain/activityLogService';
 
 export const useInitializeData = () => {
     const store = useAppStore();
@@ -28,6 +30,13 @@ export const useInitializeData = () => {
             if (!currentUser) {
                 store.setDataLoading(true);
                 store.setHasCheckedBirthdays(false);
+                store.setUserProfile(null);
+            } else {
+                // Load user profile with role
+                getUserProfile(currentUser.uid, currentUser.email || '').then(profile => {
+                    store.setUserProfile(profile);
+                    console.log('[Auth] User profile loaded:', profile.email, 'as', profile.role);
+                });
             }
         });
         return () => unsubscribeAuth();
@@ -96,4 +105,27 @@ export const useInitializeData = () => {
             scheduleAttendanceReminder(c.name, c.startTime);
         });
     }, [store.dataLoading, store.classes]);
+
+    // Activity Log Subscription (SuperAdmin gets notified of Admin actions)
+    useEffect(() => {
+        if (!store.userProfile) return;
+
+        // Only SuperAdmins receive activity notifications
+        if (store.userProfile.role === 'SuperAdmin') {
+            console.log('[ActivityLog] Subscribing to activity logs for SuperAdmin...');
+            const unsubscribe = subscribeToActivityLogs('SuperAdmin', (logs) => {
+                store.setActivityLogs(logs);
+
+                // Show browser notification for new activities
+                if (logs.length > 0 && Notification.permission === 'granted') {
+                    const latestLog = logs[0];
+                    new Notification('📣 Nueva Actividad en XDS ERP', {
+                        body: latestLog.description,
+                        icon: '/android-chrome-192x192.png'
+                    });
+                }
+            });
+            return () => unsubscribe();
+        }
+    }, [store.userProfile]);
 };

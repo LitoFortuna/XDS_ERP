@@ -33,6 +33,7 @@ import {
     addAttendance as addAttendanceToDb,
     updateAttendance as updateAttendanceInDb,
 } from '../services/firestoreService';
+import { logActivity } from '../services/domain/activityLogService';
 
 export const useAppActions = () => {
     const {
@@ -40,6 +41,7 @@ export const useAppActions = () => {
         students,
         classes,
         merchandiseItems,
+        userProfile,
     } = useAppStore();
 
     const addStudent = async (student: Omit<Student, 'id'>) => {
@@ -104,6 +106,18 @@ export const useAppActions = () => {
 
     const addPayment = async (payment: Omit<Payment, 'id'>) => {
         await addPaymentToDb(payment);
+
+        // Log activity for SuperAdmin notification if Admin made the action
+        if (userProfile && userProfile.role === 'Admin') {
+            const student = students.find(s => s.id === payment.studentId);
+            await logActivity({
+                type: 'payment',
+                actorEmail: userProfile.email,
+                actorName: userProfile.name,
+                description: `Cobro registrado: ${payment.amount}€ de ${student?.name || 'Alumno'} (${payment.concept})`,
+                targetRole: 'SuperAdmin'
+            });
+        }
     };
 
     const updatePayment = async (payment: Payment) => {
@@ -116,6 +130,17 @@ export const useAppActions = () => {
 
     const addCost = async (cost: Omit<Cost, 'id'>) => {
         await addCostToDb(cost);
+
+        // Log activity for SuperAdmin notification if Admin made the action
+        if (userProfile && userProfile.role === 'Admin') {
+            await logActivity({
+                type: 'cost',
+                actorEmail: userProfile.email,
+                actorName: userProfile.name,
+                description: `Gasto registrado: ${cost.amount}€ - ${cost.concept} (${cost.category})`,
+                targetRole: 'SuperAdmin'
+            });
+        }
     };
 
     const updateCost = async (updatedCost: Cost) => {
@@ -185,6 +210,18 @@ export const useAppActions = () => {
             await updateAttendanceInDb(record);
         } else {
             await addAttendanceToDb(record);
+        }
+
+        // Log activity for SuperAdmin notification if Admin made the action
+        if (userProfile && userProfile.role === 'Admin') {
+            const classObj = classes.find(c => c.id === record.classId);
+            await logActivity({
+                type: 'attendance',
+                actorEmail: userProfile.email,
+                actorName: userProfile.name,
+                description: `Asistencia registrada: ${classObj?.name || 'Clase'} el ${new Date(record.date).toLocaleDateString('es-ES')} (${record.presentStudentIds.length} presentes)`,
+                targetRole: 'SuperAdmin'
+            });
         }
     };
 
