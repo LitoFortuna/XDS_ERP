@@ -28,19 +28,28 @@ export const subscribeToActivityLogs = (
     targetRole: UserRole,
     callback: (logs: ActivityLog[]) => void
 ) => {
+    // Simplified query - filter by targetRole only, then filter in JS
+    // This avoids needing a composite index in Firestore
     const q = query(
         collection(db, COLLECTION_NAME),
-        where('targetRole', '==', targetRole),
-        where('read', '==', false),
-        orderBy('timestamp', 'desc')
+        where('targetRole', '==', targetRole)
     );
 
     return onSnapshot(q, (snapshot) => {
-        const logs: ActivityLog[] = snapshot.docs.map(doc => ({
+        const allLogs: ActivityLog[] = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as ActivityLog));
-        callback(logs);
+
+        // Filter unread and sort by timestamp descending in JavaScript
+        const unreadLogs = allLogs
+            .filter(log => !log.read)
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+        callback(unreadLogs);
+    }, (error) => {
+        console.error('[ActivityLog] Error subscribing:', error);
+        callback([]);
     });
 };
 
