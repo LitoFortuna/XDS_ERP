@@ -13,6 +13,7 @@ import { HeartIcon } from './icons/HeartIcon';
 import { ShoppingBagIcon } from './icons/ShoppingBagIcon';
 import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
 import { StarIcon } from './icons/StarIcon';
+import ActivityNotificationBell from './ActivityNotificationBell';
 
 interface SidebarProps {
   currentView: View;
@@ -52,7 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
         onClick={() => setIsOpen(false)}
       ></div>
 
-      <aside 
+      <aside
         className={`
             fixed inset-y-0 left-0 bg-gray-800 shadow-md flex-shrink-0 flex flex-col 
             z-30 transform transition-all duration-300 ease-in-out 
@@ -62,27 +63,32 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
         `}
       >
         <div className="h-16 flex items-center justify-center border-b border-gray-700 relative">
-           {!isCollapsed ? (
-               <h1 className="text-2xl font-bold text-white tracking-wider whitespace-nowrap overflow-hidden transition-all duration-300 px-4">Xen Dance Space</h1>
-           ) : (
-               <h1 className="text-xl font-bold text-white tracking-widest">XDS</h1>
-           )}
-           
-           <button 
-             onClick={() => setIsCollapsed(!isCollapsed)}
-             className="absolute -right-3 top-1/2 transform -translate-y-1/2 bg-gray-700 text-gray-400 hover:text-white rounded-full p-1 border border-gray-600 hidden lg:flex shadow-md z-40 transition-transform hover:scale-110"
-             title={isCollapsed ? "Expandir menú" : "Colapsar menú"}
-           >
-             {isCollapsed ? (
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                 </svg>
-             ) : (
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                 </svg>
-             )}
-           </button>
+          {!isCollapsed ? (
+            <h1 className="text-2xl font-bold text-white tracking-wider whitespace-nowrap overflow-hidden transition-all duration-300 px-4">Xen Dance Space</h1>
+          ) : (
+            <h1 className="text-xl font-bold text-white tracking-widest">XDS</h1>
+          )}
+
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="absolute -right-3 top-1/2 transform -translate-y-1/2 bg-gray-700 text-gray-400 hover:text-white rounded-full p-1 border border-gray-600 hidden lg:flex shadow-md z-40 transition-transform hover:scale-110"
+            title={isCollapsed ? "Expandir menú" : "Colapsar menú"}
+          >
+            {isCollapsed ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            )}
+          </button>
+        </div>
+
+        {/* Notification Bell for SuperAdmin - visible on desktop */}
+        <div className="hidden lg:flex justify-center py-2 border-b border-gray-700">
+          <ActivityNotificationBell />
         </div>
 
         <nav className="flex-1 px-2 py-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
@@ -92,26 +98,25 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
                 <button
                   onClick={() => handleNavItemClick(item.view)}
                   title={isCollapsed ? item.label : ''}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'px-4'} py-2.5 my-1 rounded-lg text-sm font-semibold transition-all duration-150 ${
-                    currentView === item.view
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'px-4'} py-2.5 my-1 rounded-lg text-sm font-semibold transition-all duration-150 ${currentView === item.view
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50'
                       : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-                  }`}
+                    }`}
                 >
                   <item.icon className={`w-5 h-5 flex-shrink-0 ${currentView === item.view ? 'text-white' : 'text-gray-500'}`} />
                   {!isCollapsed && (
-                      <div className="ml-3 flex items-center justify-between flex-1">
-                          <span className="whitespace-nowrap">{item.label}</span>
-                      </div>
+                    <div className="ml-3 flex items-center justify-between flex-1">
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    </div>
                   )}
                 </button>
               </li>
             ))}
           </ul>
         </nav>
-        
+
         <div className="p-4 border-t border-gray-700 space-y-4">
-          <button 
+          <button
             onClick={onLogout}
             title={isCollapsed ? "Cerrar Sesión" : ""}
             className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'px-4'} py-2 rounded-md text-sm font-medium text-red-400 hover:bg-gray-700 hover:text-red-300 transition-colors duration-150`}
