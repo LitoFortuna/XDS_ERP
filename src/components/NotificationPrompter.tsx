@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { requestNotificationPermission } from '../utils/notificationUtils';
+import { requestNotificationPermission, subscribeToPush } from '../utils/notificationUtils';
+import { useAppStore } from '../store/useAppStore';
 
 const NotificationPrompter: React.FC = () => {
     const [isVisible, setIsVisible] = useState(false);
+    const { user } = useAppStore();
 
     useEffect(() => {
         // Check if we should show the prompt
@@ -23,10 +25,11 @@ const NotificationPrompter: React.FC = () => {
 
     const handleEnable = async () => {
         const granted = await requestNotificationPermission();
-        if (granted) {
+        if (granted && user) {
+            // Subscribe to push notifications and save to user profile
+            await subscribeToPush(user.uid);
             setIsVisible(false);
-            // Logic for subscription would go here
-            console.log('Notificaciones habilitadas');
+            console.log('[Push] Notificaciones habilitadas y suscripción guardada');
         }
     };
 

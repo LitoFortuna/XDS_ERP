@@ -30,29 +30,62 @@ export const clearBadge = () => {
 };
 
 /**
- * Subscribes to push notifications (simplified for now)
- * In a production app, you would send this subscription to your backend
+ * Subscribes to push notifications
+ * Stores the subscription in the user's profile for the server to use
  */
-export const subscribeToPush = async () => {
-    if ('serviceWorker' in navigator) {
+export const subscribeToPush = async (userId: string): Promise<PushSubscription | null> => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('[Push] Push notifications not supported');
+        return null;
+    }
+
+    try {
         const registration = await navigator.serviceWorker.ready;
 
         // Check if subscription already exists
-        const existingSubscription = await registration.pushManager.getSubscription();
-        if (existingSubscription) return existingSubscription;
+        let subscription = await registration.pushManager.getSubscription();
 
-        // This requires a VAPID public key from your push server
-        // For now, we only show how it would be implemented
-        /*
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: 'TU_VAPID_PUBLIC_KEY'
-        });
+        if (!subscription) {
+            // Import VAPID key
+            const { VAPID_PUBLIC_KEY } = await import('../config/vapidKeys');
+
+            // Convert VAPID key to Uint8Array
+            const urlBase64ToUint8Array = (base64String: string) => {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding)
+                    .replace(/-/g, '+')
+                    .replace(/_/g, '/');
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            };
+
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+
+            console.log('[Push] New subscription created');
+        }
+
+        // Save subscription to user's profile in Firestore
+        const { doc, setDoc } = await import('firebase/firestore');
+        const { db } = await import('../config/firebase');
+
+        await setDoc(doc(db, 'userProfiles', userId), {
+            pushSubscription: JSON.stringify(subscription)
+        }, { merge: true });
+
+        console.log('[Push] Subscription saved to profile');
         return subscription;
-        */
+
+    } catch (error) {
+        console.error('[Push] Error subscribing:', error);
         return null;
     }
-    return null;
 };
 /**
  * Schedules a local notification for a class attendance reminder

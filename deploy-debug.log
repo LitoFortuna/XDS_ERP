@@ -1,0 +1,52 @@
+﻿[2026-01-20T16:51:43.874Z] Field "/functions/runtime" in "firebase.json" is possibly invalid: must be equal to one of the allowed values
+[2026-01-20T16:51:43.875Z] Object "/functions" in "firebase.json" is missing required property: {"missingProperty":"remoteSource"}
+[2026-01-20T16:51:43.875Z] Field "/functions" in "firebase.json" is possibly invalid: must be array
+[2026-01-20T16:51:43.875Z] Field "/functions" in "firebase.json" is possibly invalid: must match a schema in anyOf
+[2026-01-20T16:51:43.878Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[2026-01-20T16:51:43.878Z] > authorizing via signed-in user (raulfdz3@gmail.com)
+[2026-01-20T16:51:43.878Z] [iam] checking project xen-dance-erp for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[2026-01-20T16:51:43.879Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:43.879Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:43.880Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions [none]
+[2026-01-20T16:51:43.880Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions x-goog-quota-user=projects/xen-dance-erp
+[2026-01-20T16:51:43.881Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[2026-01-20T16:51:44.615Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions 200
+[2026-01-20T16:51:44.616Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[2026-01-20T16:51:44.616Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:44.616Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:44.616Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/xen-dance-erp/serviceAccounts/xen-dance-erp@appspot.gserviceaccount.com:testIamPermissions [none]
+[2026-01-20T16:51:44.616Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/xen-dance-erp/serviceAccounts/xen-dance-erp@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[2026-01-20T16:51:45.340Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/xen-dance-erp/serviceAccounts/xen-dance-erp@appspot.gserviceaccount.com:testIamPermissions 200
+[2026-01-20T16:51:45.341Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/xen-dance-erp/serviceAccounts/xen-dance-erp@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+
+=== Deploying to 'xen-dance-erp'...
+
+i  deploying functions 
+Running command: npm --prefix "$RESOURCE_DIR" run build
+
+> xds-erp-functions@1.0.0 build
+> tsc
+
++  functions: Finished running predeploy script. 
+[2026-01-20T16:51:50.891Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:50.892Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:50.892Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp [none]
+[2026-01-20T16:51:51.601Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp 200
+[2026-01-20T16:51:51.602Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp {"projectNumber":"958181098277","projectId":"xen-dance-erp","lifecycleState":"ACTIVE","name":"xen-dance-erp","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-11-05T10:06:31.846261Z"}
+i  functions: preparing codebase default for deployment 
+i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[2026-01-20T16:51:51.604Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:51.604Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:51.604Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/xen-dance-erp/adminSdkConfig [none]
+[2026-01-20T16:51:51.935Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/xen-dance-erp/adminSdkConfig 200
+[2026-01-20T16:51:51.935Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/xen-dance-erp/adminSdkConfig {"projectId":"xen-dance-erp","storageBucket":"xen-dance-erp.firebasestorage.app"}
+[2026-01-20T16:51:51.936Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:51.936Z] Checked if tokens are valid: true, expires at: 1768930064812
+[2026-01-20T16:51:51.936Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/xen-dance-erp/configs [none]
+[2026-01-20T16:51:52.224Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/xen-dance-erp/configs 200
+[2026-01-20T16:51:52.224Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/xen-dance-erp/configs {}
+[2026-01-20T16:51:52.225Z] Validating nodejs source
+
+Error: Runtime Node.js 16 was decommissioned on 2025-01-30. To deploy you must first upgrade your runtime version.

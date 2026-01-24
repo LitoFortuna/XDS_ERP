@@ -248,7 +248,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                     lastDate: relevantRecords.length > 0 ? relevantRecords[0].date : null
                 };
             })
-            .filter(alert => alert.count > 3)
+            .filter(alert => alert.count >= 8)
             .sort((a, b) => b.count - a.count);
     }, [students, attendanceRecords]);
 
