@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { DanceClass, Student, AttendanceRecord, DayOfWeek } from '../../types';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 
 interface AttendanceProps {
     students: Student[];
@@ -18,6 +19,55 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
     const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
     const [showSuccess, setShowSuccess] = useState(false);
     const [showAllClasses, setShowAllClasses] = useState(false);
+    const [showStats, setShowStats] = useState(false);
+
+    // --- CHARTS LOGIC ---
+    const classRankingData = useMemo(() => {
+        return classes.map(cls => {
+            const classRecords = attendanceRecords.filter(r => r.classId === cls.id);
+            if (classRecords.length === 0) return { name: cls.name, attendance: 0, sessions: 0 };
+
+            const totalPercentage = classRecords.reduce((sum, record) => {
+                const enrolledCount = students.filter(s => s.enrolledClassIds.includes(cls.id)).length;
+                if (enrolledCount === 0) return sum;
+                return sum + (record.presentStudentIds.length / enrolledCount);
+            }, 0);
+
+            const avgAttendance = Math.round((totalPercentage / classRecords.length) * 100);
+            return { name: cls.name, attendance: avgAttendance, sessions: classRecords.length };
+        })
+            .filter(d => d.sessions > 0)
+            .sort((a, b) => b.attendance - a.attendance)
+            .slice(0, 10); // Top 10
+    }, [classes, attendanceRecords, students]);
+
+    const attendanceTrendData = useMemo(() => {
+        const last30Days = new Date();
+        last30Days.setDate(last30Days.getDate() - 30);
+
+        const relevantRecords = attendanceRecords
+            .filter(r => new Date(r.date) >= last30Days)
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        const groupedByDate: { [key: string]: { date: string, percentage: number, count: number } } = {};
+
+        relevantRecords.forEach(record => {
+            if (!groupedByDate[record.date]) {
+                groupedByDate[record.date] = { date: record.date, percentage: 0, count: 0 };
+            }
+
+            const enrolledCount = students.filter(s => s.enrolledClassIds.includes(record.classId)).length;
+            if (enrolledCount > 0) {
+                groupedByDate[record.date].percentage += (record.presentStudentIds.length / enrolledCount);
+                groupedByDate[record.date].count += 1;
+            }
+        });
+
+        return Object.values(groupedByDate).map(d => ({
+            date: new Date(d.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+            asistencia: Math.round((d.percentage / d.count) * 100)
+        }));
+    }, [attendanceRecords, students]);
 
     // Get the day of the week for the selected date
     const selectedDayName = useMemo(() => {
@@ -258,6 +308,16 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                 <h2 className="text-3xl font-bold text-white">Control de Asistencia</h2>
 
                 <div className="flex gap-2">
+                    <button
+                        onClick={() => setShowStats(!showStats)}
+                        className={`px-4 py-2 rounded-md flex items-center transition-colors shadow-sm text-sm border ${showStats ? 'bg-purple-600 border-purple-500 text-white' : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                        title="Ver estadísticas de asistencia"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        {showStats ? 'Ocultar Gráficos' : 'Ver Estadísticas'}
+                    </button>
                     {selectedClassId && (
                         <button
                             onClick={handleExportSpecificClass}
@@ -282,6 +342,61 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                     </button>
                 </div>
             </div>
+
+            {/* STATS SECTION */}
+            {showStats && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
+                        <h3 className="text-white font-bold mb-4 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                            Tendencia de Asistencia (30 días)
+                        </h3>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={attendanceTrendData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                    <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fontSize: 12 }} />
+                                    <YAxis stroke="#9CA3AF" domain={[0, 100]} unit="%" tick={{ fontSize: 12 }} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F3F4F6' }}
+                                        itemStyle={{ color: '#A78BFA' }}
+                                        formatter={(value: number) => [`${value}%`, 'Asistencia']}
+                                        labelStyle={{ color: '#D1D5DB', marginBottom: '0.5rem' }}
+                                    />
+                                    <Line type="monotone" dataKey="asistencia" stroke="#8B5CF6" strokeWidth={2} dot={{ fill: '#8B5CF6', r: 4 }} activeDot={{ r: 6 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
+                        <h3 className="text-white font-bold mb-4 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            Ranking de Asistencia (Top 10 Clases)
+                        </h3>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={classRankingData} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
+                                    <XAxis type="number" stroke="#9CA3AF" domain={[0, 100]} unit="%" hide />
+                                    <YAxis dataKey="name" type="category" stroke="#9CA3AF" width={100} tick={{ fontSize: 11 }} />
+                                    <Tooltip
+                                        cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                        contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F3F4F6' }}
+                                        formatter={(value: number) => [`${value}%`, 'Asistencia Promedio']}
+                                        labelStyle={{ color: '#D1D5DB' }}
+                                    />
+                                    <Bar dataKey="attendance" fill="#10B981" radius={[0, 4, 4, 0]} barSize={20} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ALERTS SECTION (Above Controls) */}
             {absenteeAlerts.length > 0 && (
