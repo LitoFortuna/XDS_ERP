@@ -31,9 +31,14 @@ const Loader = () => (
     <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin"></div>
 );
 
+import { useStudents } from './src/hooks/queries/useStudents';
+
 const App: React.FC = () => {
     // Initialize Data & Subscriptions
     useInitializeData();
+
+    // React Query Hooks
+    const { students: rqStudents, addStudent, updateStudent, deleteStudent } = useStudents();
 
     // Actions & State
     const actions = useAppActions();
@@ -48,7 +53,7 @@ const App: React.FC = () => {
         isBirthdayModalOpen,
         setBirthdayModalOpen,
         birthdaysToday,
-        students,
+        students, // Keeping this from store for other components that might rely on it
         instructors,
         classes,
         payments,
@@ -59,6 +64,13 @@ const App: React.FC = () => {
         merchandiseSales,
         attendanceRecords
     } = useAppStore();
+
+    // Sync React Query students to Zustand Store (Legacy Support)
+    useEffect(() => {
+        if (rqStudents) {
+            useAppStore.getState().setStudents(rqStudents);
+        }
+    }, [rqStudents]);
 
     // Handle App Badge
     useEffect(() => {
@@ -97,7 +109,7 @@ const App: React.FC = () => {
         switch (currentView) {
             case View.DASHBOARD:
                 return <Dashboard
-                    students={students}
+                    students={rqStudents} // Use fresh data from RQ
                     classes={classes}
                     instructors={instructors}
                     payments={payments}
@@ -109,24 +121,32 @@ const App: React.FC = () => {
                 />;
             case View.ATTENDANCE:
                 return <Attendance
-                    students={students}
+                    students={rqStudents}
                     classes={classes}
                     attendanceRecords={attendanceRecords}
                     onSaveAttendance={actions.saveAttendance}
                 />;
             case View.STUDENTS:
-                return <StudentList students={students} classes={classes} merchandiseSales={merchandiseSales} addStudent={actions.addStudent} updateStudent={actions.updateStudent} deleteStudent={actions.deleteStudent} />;
+                return <StudentList
+                    students={rqStudents}
+                    classes={classes}
+                    merchandiseSales={merchandiseSales}
+                    addStudent={addStudent} // Use RQ mutation
+                    updateStudent={updateStudent} // Use RQ mutation 
+                    deleteStudent={deleteStudent} // Use RQ mutation
+                />;
             case View.CLASSES:
-                return <ClassSchedule classes={classes} instructors={instructors} students={students} addClass={actions.addClass} updateClass={actions.updateClass} deleteClass={actions.deleteClass} />;
+                return <ClassSchedule classes={classes} instructors={instructors} students={rqStudents} addClass={actions.addClass} updateClass={actions.updateClass} deleteClass={actions.deleteClass} />;
             case View.INTERACTIVE_SCHEDULE:
-                return <InteractiveSchedule classes={classes} instructors={instructors} students={students} updateClass={actions.updateClass} />;
+                return <InteractiveSchedule classes={classes} instructors={instructors} students={rqStudents} updateClass={actions.updateClass} />;
             case View.INSTRUCTORS:
                 return <InstructorList instructors={instructors} classes={classes} addInstructor={actions.addInstructor} updateInstructor={actions.updateInstructor} deleteInstructor={actions.deleteInstructor} />;
             case View.BILLING:
                 return <Billing
+                    // ... props ...
+                    students={rqStudents}
                     payments={payments}
                     costs={costs}
-                    students={students}
                     classes={classes}
                     merchandiseSales={merchandiseSales}
                     instructors={instructors}

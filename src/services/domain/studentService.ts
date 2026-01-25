@@ -10,6 +10,27 @@ export const subscribeToStudents = (callback: (students: Student[]) => void): Un
     });
 };
 
+import { getDocs, where } from 'firebase/firestore';
+
+export const fetchStudents = async (): Promise<Student[]> => {
+    const q = query(collection(db, 'students'), orderBy('name'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
+};
+
+export const findStudentByPhone = async (phone: string): Promise<Student | null> => {
+    // Clean phone number (remove spaces, dashes)
+    const cleanPhone = phone.replace(/\D/g, '');
+    // We might need to store clean phones in DB to be robust, 
+    // but for now let's assume exact match or try minimal cleaning locally if DB has raw strings.
+    // Firestore simple query:
+    const q = query(collection(db, 'students'), where('phone', '==', phone));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) return null;
+    return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Student;
+};
+
 export const addStudent = async (student: Omit<Student, 'id'>) => {
     await addDoc(collection(db, 'students'), student);
 };

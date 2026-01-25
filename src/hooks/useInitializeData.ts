@@ -46,7 +46,7 @@ export const useInitializeData = () => {
         if (!store.user) return;
 
         const unsubscribers = [
-            subscribeToStudents(store.setStudents),
+            // subscribeToStudents(store.setStudents), // Migrated to React Query
             subscribeToInstructors(store.setInstructors),
             subscribeToClasses(store.setClasses),
             subscribeToPayments(store.setPayments),
