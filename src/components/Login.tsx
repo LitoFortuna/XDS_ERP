@@ -120,7 +120,7 @@ const Login: React.FC = () => {
         <div className="mt-6 border-t border-gray-700 pt-6 text-center">
           <p className="text-gray-400 text-sm mb-2">¿Eres alumno de la academia?</p>
           <a
-            href="?mode=student"
+            href="/portal"
             className="inline-flex items-center text-purple-400 hover:text-purple-300 font-semibold text-sm hover:underline transition-colors"
           >
             Accede al Portal del Alumno

@@ -16,9 +16,9 @@ const MainRouter: React.FC = () => {
     const [isLoadingStudent, setIsLoadingStudent] = useState(false);
 
     useEffect(() => {
-        // Check URL params to force mode
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('mode') === 'student') {
+        // Check URL path to force mode
+        const path = window.location.pathname;
+        if (path === '/portal' || path === '/portal/') {
             setMode('portal');
         }
 
@@ -56,7 +56,7 @@ const MainRouter: React.FC = () => {
 
     const switchToPortal = () => {
         setMode('portal');
-        window.history.pushState(null, '', '?mode=student');
+        window.history.pushState(null, '', '/portal');
     };
 
     const switchToERP = () => {
