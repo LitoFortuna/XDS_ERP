@@ -198,55 +198,95 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-sm p-6">
                                 {merchandise.length > 0 ? (
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                        {merchandise.map(item => (
-                                            <div key={item.id} className="bg-gray-750 rounded-lg overflow-hidden border border-gray-700 hover:border-pink-500 transition-all group">
-                                                {/* Product Image */}
-                                                <div className="aspect-square bg-gray-900 relative overflow-hidden">
-                                                    {item.imageUrl ? (
-                                                        <img
-                                                            src={item.imageUrl}
-                                                            alt={item.name}
-                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                            </svg>
+                                        {(() => {
+                                            // Group products by base name (remove size info)
+                                            const grouped = merchandise.reduce((acc, item) => {
+                                                // Extract base name (everything before parentheses or size indicators)
+                                                const baseName = item.name.replace(/\s*\([^)]*\)$/g, '').trim();
+                                                if (!acc[baseName]) {
+                                                    acc[baseName] = {
+                                                        baseName,
+                                                        category: item.category,
+                                                        imageUrl: item.imageUrl,
+                                                        variants: []
+                                                    };
+                                                }
+                                                acc[baseName].variants.push(item);
+                                                return acc;
+                                            }, {} as Record<string, { baseName: string; category: string; imageUrl?: string; variants: MerchandiseItem[] }>);
+
+                                            return Object.values(grouped).map(product => {
+                                                const [selectedVariant, setSelectedVariant] = React.useState(product.variants[0]);
+
+                                                return (
+                                                    <div key={product.baseName} className="bg-gray-750 rounded-lg overflow-hidden border border-gray-700 hover:border-pink-500 transition-all group">
+                                                        {/* Product Image */}
+                                                        <div className="aspect-square bg-gray-900 relative overflow-hidden">
+                                                            {product.imageUrl ? (
+                                                                <img
+                                                                    src={product.imageUrl}
+                                                                    alt={product.baseName}
+                                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                </div>
+                                                            )}
+                                                            {/* Stock badge */}
+                                                            <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                                                {selectedVariant.stock} disponibles
+                                                            </div>
                                                         </div>
-                                                    )}
-                                                    {/* Stock badge */}
-                                                    <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                                                        {item.stock} disponibles
-                                                    </div>
-                                                </div>
 
-                                                {/* Product Info */}
-                                                <div className="p-3">
-                                                    <p className="font-bold text-white text-sm mb-1 truncate">{item.name}</p>
-                                                    <p className="text-xs text-gray-400 mb-2">{item.category}{item.size ? ` • ${item.size}` : ''}</p>
+                                                        {/* Product Info */}
+                                                        <div className="p-3 space-y-2">
+                                                            <p className="font-bold text-white text-sm truncate">{product.baseName}</p>
+                                                            <p className="text-xs text-gray-400">{product.category}</p>
 
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-lg font-bold text-pink-400 font-mono">
-                                                            {formatCurrency(item.salePrice)}
-                                                        </span>
-                                                        <a
-                                                            href={`https://wa.me/34692038911?text=${encodeURIComponent(
-                                                                `Hola, me gustaría comprar:\n\n📦 ${item.name}${item.size ? ` (${item.size})` : ''}\n💰 Precio: ${formatCurrency(item.salePrice)}\n\n¿Está disponible?`
-                                                            )}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="bg-pink-600 hover:bg-pink-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors font-semibold inline-flex items-center gap-1"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
-                                                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
-                                                            </svg>
-                                                            Solicitar
-                                                        </a>
+                                                            {/* Size Selector */}
+                                                            {product.variants.length > 1 && (
+                                                                <select
+                                                                    value={selectedVariant.id}
+                                                                    onChange={(e) => {
+                                                                        const variant = product.variants.find(v => v.id === e.target.value);
+                                                                        if (variant) setSelectedVariant(variant);
+                                                                    }}
+                                                                    className="w-full bg-gray-700 border border-gray-600 rounded text-white text-xs py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-pink-500"
+                                                                >
+                                                                    {product.variants.map(variant => (
+                                                                        <option key={variant.id} value={variant.id}>
+                                                                            {variant.size || 'Única'} - {formatCurrency(variant.salePrice)} ({variant.stock} disp.)
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            )}
+
+                                                            <div className="flex items-center justify-between pt-1">
+                                                                <span className="text-lg font-bold text-pink-400 font-mono">
+                                                                    {formatCurrency(selectedVariant.salePrice)}
+                                                                </span>
+                                                                <a
+                                                                    href={`https://wa.me/34692038911?text=${encodeURIComponent(
+                                                                        `Hola, me gustaría comprar:\n\n📦 ${product.baseName}${selectedVariant.size ? ` (${selectedVariant.size})` : ''}\n💰 Precio: ${formatCurrency(selectedVariant.salePrice)}\n\n¿Está disponible?`
+                                                                    )}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="bg-pink-600 hover:bg-pink-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors font-semibold inline-flex items-center gap-1"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                                                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+                                                                    </svg>
+                                                                    Solicitar
+                                                                </a>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                                );
+                                            });
+                                        })()}
                                     </div>
                                 ) : (
                                     <div className="text-center py-8">
@@ -301,7 +341,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
 
 
-                        
+
 
                         {/* Visual Weekly Schedule Grid */}
                         <section>
@@ -448,7 +488,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
 
 
-                        
+
 
                         {/* Recent Payments */}
                         <section>
@@ -481,7 +521,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
 
 
-                        
+
 
                         {/* Recent Attendance */}
                         <section>
