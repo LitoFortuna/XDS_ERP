@@ -18,6 +18,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
     useEffect(() => {
         const loadStudentData = async () => {
             try {
+                console.log('[StudentPortal] Loading data for student:', student.name, student.id);
+                console.log('[StudentPortal] Enrolled class IDs:', student.enrolledClassIds);
+
                 // 1. Cargar Pagos
                 const paymentsQ = query(
                     collection(db, 'payments'),
@@ -25,11 +28,14 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     orderBy('date', 'desc')
                 );
                 const paymentsSnap = await getDocs(paymentsQ);
-                setPayments(paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Payment)));
+                const paymentsData = paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Payment));
+                console.log('[StudentPortal] Payments loaded:', paymentsData.length, paymentsData);
+                setPayments(paymentsData);
 
                 // 2. Cargar TODAS las Clases de la academia (para mostrar horario completo)
                 const classesSnap = await getDocs(collection(db, 'classes'));
                 const allClasses = classesSnap.docs.map(d => ({ id: d.id, ...d.data() } as DanceClass));
+                console.log('[StudentPortal] All classes loaded:', allClasses.length);
                 setClasses(allClasses);
 
                 // 3. Cargar Asistencia (limitado a últimos 20 registros donde aparezca el estudiante)
@@ -48,11 +54,12 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     const records = attSnap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord));
                     // Filter where student was present OR just show the class record? Better show presence.
                     // Let's show all sessions of their classes, and mark if they attended.
+                    console.log('[StudentPortal] Attendance records loaded:', records.length);
                     setAttendance(records);
                 }
 
             } catch (error) {
-                console.error("Error loading portal data:", error);
+                console.error("[StudentPortal] Error loading portal data:", error);
             } finally {
                 setIsLoading(false);
             }
