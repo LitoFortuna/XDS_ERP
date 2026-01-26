@@ -215,11 +215,12 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                                                 return acc;
                                             }, {} as Record<string, { baseName: string; category: string; imageUrl?: string; variants: MerchandiseItem[] }>);
 
-                                            return Object.values(grouped).map(product => {
+                                            // Product Card Component
+                                            const ProductCard = ({ product, formatCurrency }: { product: { baseName: string; category: string; imageUrl?: string; variants: MerchandiseItem[] }, formatCurrency: (amount: number) => string }) => {
                                                 const [selectedVariant, setSelectedVariant] = React.useState(product.variants[0]);
 
                                                 return (
-                                                    <div key={product.baseName} className="bg-gray-750 rounded-lg overflow-hidden border border-gray-700 hover:border-pink-500 transition-all group">
+                                                    <div className="bg-gray-750 rounded-lg overflow-hidden border border-gray-700 hover:border-pink-500 transition-all group">
                                                         {/* Product Image */}
                                                         <div className="aspect-square bg-gray-900 relative overflow-hidden">
                                                             {product.imageUrl ? (
@@ -285,7 +286,11 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                                                         </div>
                                                     </div>
                                                 );
-                                            });
+                                            };
+
+                                            return Object.values(grouped).map(product => (
+                                                <ProductCard key={product.baseName} product={product} formatCurrency={formatCurrency} />
+                                            ));
                                         })()}
                                     </div>
                                 ) : (
@@ -343,7 +348,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
 
 
-                        
+
 
                         {/* Visual Weekly Schedule Grid */}
                         <section>
@@ -492,7 +497,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
 
 
-                        
+
 
                         {/* Recent Payments */}
                         <section>
@@ -527,7 +532,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
 
 
-                        
+
 
                         {/* Recent Attendance */}
                         <section>
