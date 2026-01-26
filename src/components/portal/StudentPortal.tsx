@@ -75,6 +75,49 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
         return new Date(dateStr).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     };
 
+    const formatTime = (time: string) => {
+        return time; // Already in HH:MM format
+    };
+
+    // Get upcoming classes for the next 7 days
+    const getUpcomingClasses = () => {
+        const today = new Date();
+        const next7Days: { date: Date; dayName: string; classes: DanceClass[] }[] = [];
+
+        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(today);
+            date.setDate(today.getDate() + i);
+            const dayName = dayNames[date.getDay()];
+
+            const dayClasses = classes.filter(c => c.days.includes(dayName));
+
+            if (dayClasses.length > 0) {
+                next7Days.push({ date, dayName, classes: dayClasses });
+            }
+        }
+
+        return next7Days;
+    };
+
+    // Organize classes by day of week for schedule view
+    const getWeeklySchedule = () => {
+        const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+        const schedule: { [key: string]: DanceClass[] } = {};
+
+        dayNames.forEach(day => {
+            schedule[day] = classes.filter(c => c.days.includes(day)).sort((a, b) =>
+                a.startTime.localeCompare(b.startTime)
+            );
+        });
+
+        return schedule;
+    };
+
+    const upcomingClasses = getUpcomingClasses();
+    const weeklySchedule = getWeeklySchedule();
+
     return (
         <div className="min-h-screen bg-gray-900 text-gray-100 font-sans pb-12">
             {/* Header */}
@@ -120,6 +163,86 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Upcoming Classes - Next 7 Days */}
+                        <section>
+                            <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                                Próximas Clases (7 días)
+                            </h3>
+                            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-sm">
+                                {upcomingClasses.length > 0 ? (
+                                    <div className="divide-y divide-gray-700">
+                                        {upcomingClasses.map((day, idx) => (
+                                            <div key={idx} className="p-4">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <div className={`w-2 h-2 rounded-full ${idx === 0 ? 'bg-purple-500' : 'bg-gray-500'}`}></div>
+                                                    <p className="font-semibold text-white">
+                                                        {day.date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                                    </p>
+                                                    {idx === 0 && <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">Hoy</span>}
+                                                </div>
+                                                <div className="space-y-2 ml-4">
+                                                    {day.classes.map(cls => (
+                                                        <div key={cls.id} className="flex items-center justify-between bg-gray-750/50 p-3 rounded-lg">
+                                                            <div>
+                                                                <p className="font-medium text-white">{cls.name}</p>
+                                                                <p className="text-xs text-gray-400">{cls.category}</p>
+                                                            </div>
+                                                            <span className="text-sm font-mono text-purple-300">{formatTime(cls.startTime)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="p-6 text-center text-gray-500 italic">No tienes clases programadas en los próximos 7 días.</p>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* Weekly Schedule */}
+                        <section>
+                            <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14 10a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2h-2zM2 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2z" />
+                                </svg>
+                                Mi Horario Semanal
+                            </h3>
+                            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-sm">
+                                <div className="divide-y divide-gray-700">
+                                    {Object.entries(weeklySchedule).map(([day, dayClasses]) => (
+                                        <div key={day} className="p-4">
+                                            <div className="flex items-start gap-4">
+                                                <div className="min-w-[100px]">
+                                                    <p className="font-bold text-white">{day}</p>
+                                                </div>
+                                                <div className="flex-1">
+                                                    {dayClasses.length > 0 ? (
+                                                        <div className="space-y-2">
+                                                            {dayClasses.map(cls => (
+                                                                <div key={cls.id} className="flex items-center justify-between bg-gray-750/50 p-2 rounded">
+                                                                    <div>
+                                                                        <p className="text-sm font-medium text-white">{cls.name}</p>
+                                                                        <p className="text-xs text-gray-400">{cls.category}</p>
+                                                                    </div>
+                                                                    <span className="text-xs font-mono text-purple-300">{formatTime(cls.startTime)}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-sm text-gray-500 italic">Sin clases</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
 
                         {/* Recent Payments */}
                         <section>
