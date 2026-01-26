@@ -44,7 +44,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 setClasses(allClasses);
 
                 // 2.5. Cargar Merchandising disponible (stock > 0)
-                const merchSnap = await getDocs(collection(db, 'merchandise'));
+                const merchSnap = await getDocs(collection(db, 'merchandiseItems'));
                 const allMerch = merchSnap.docs.map(d => ({ id: d.id, ...d.data() } as MerchandiseItem));
                 console.log('[StudentPortal] All merchandise from DB:', allMerch);
                 console.log('[StudentPortal] Merchandise count:', allMerch.length);
@@ -301,6 +301,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
 
 
+                        
+
                         {/* Visual Weekly Schedule Grid */}
                         <section>
                             <h3 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -446,6 +448,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
 
 
+                        
+
                         {/* Recent Payments */}
                         <section>
                             <h3 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -476,6 +480,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                         </section>
 
 
+
+                        
 
                         {/* Recent Attendance */}
                         <section>
