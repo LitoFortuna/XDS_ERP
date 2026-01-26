@@ -46,8 +46,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 // 2.5. Cargar Merchandising disponible (stock > 0)
                 const merchSnap = await getDocs(collection(db, 'merchandise'));
                 const allMerch = merchSnap.docs.map(d => ({ id: d.id, ...d.data() } as MerchandiseItem));
+                console.log('[StudentPortal] All merchandise from DB:', allMerch);
+                console.log('[StudentPortal] Merchandise count:', allMerch.length);
+                allMerch.forEach(item => {
+                    console.log(`  - ${item.name}: stock=${item.stock} (type: ${typeof item.stock})`);
+                });
                 const availableMerch = allMerch.filter(item => item.stock > 0);
-                console.log('[StudentPortal] Merchandise loaded:', availableMerch.length);
+                console.log('[StudentPortal] Merchandise loaded (stock > 0):', availableMerch.length, availableMerch);
                 setMerchandise(availableMerch);
 
                 // 3. Cargar Asistencia (limitado a últimos 20 registros donde aparezca el estudiante)
@@ -294,7 +299,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             </div>
                         </section>
 
-                        
+
 
                         {/* Visual Weekly Schedule Grid */}
                         <section>
@@ -439,7 +444,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             )}
                         </section>
 
-                        
+
 
                         {/* Recent Payments */}
                         <section>
@@ -470,7 +475,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             </div>
                         </section>
 
-                        
+
 
                         {/* Recent Attendance */}
                         <section>
