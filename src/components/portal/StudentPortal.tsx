@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Student, Payment, AttendanceRecord, DanceClass } from '../../../types';
+import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem } from '../../../types';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
@@ -13,6 +13,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [classes, setClasses] = useState<DanceClass[]>([]);
+    const [merchandise, setMerchandise] = useState<MerchandiseItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -41,6 +42,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 const allClasses = classesSnap.docs.map(d => ({ id: d.id, ...d.data() } as DanceClass));
                 console.log('[StudentPortal] All classes loaded:', allClasses.length);
                 setClasses(allClasses);
+
+                // 2.5. Cargar Merchandising disponible (stock > 0)
+                const merchSnap = await getDocs(collection(db, 'merchandise'));
+                const allMerch = merchSnap.docs.map(d => ({ id: d.id, ...d.data() } as MerchandiseItem));
+                const availableMerch = allMerch.filter(item => item.stock > 0);
+                console.log('[StudentPortal] Merchandise loaded:', availableMerch.length);
+                setMerchandise(availableMerch);
 
                 // 3. Cargar Asistencia (limitado a últimos 20 registros donde aparezca el estudiante)
                 // OJO: Buscar en array 'presentStudentIds' puede requerir un index compuesto o ser lento sin índice.
@@ -173,6 +181,68 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Merchandise Store */}
+                        <section>
+                            <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-pink-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                                </svg>
+                                🛍️ Tienda
+                            </h3>
+                            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-sm p-6">
+                                {merchandise.length > 0 ? (
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                        {merchandise.map(item => (
+                                            <div key={item.id} className="bg-gray-750 rounded-lg overflow-hidden border border-gray-700 hover:border-pink-500 transition-all group">
+                                                {/* Product Image */}
+                                                <div className="aspect-square bg-gray-900 relative overflow-hidden">
+                                                    {item.imageUrl ? (
+                                                        <img
+                                                            src={item.imageUrl}
+                                                            alt={item.name}
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
+                                                    {/* Stock badge */}
+                                                    <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                                        {item.stock} disponibles
+                                                    </div>
+                                                </div>
+
+                                                {/* Product Info */}
+                                                <div className="p-3">
+                                                    <p className="font-bold text-white text-sm mb-1 truncate">{item.name}</p>
+                                                    <p className="text-xs text-gray-400 mb-2">{item.category}{item.size ? ` • ${item.size}` : ''}</p>
+
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-lg font-bold text-pink-400 font-mono">
+                                                            {formatCurrency(item.salePrice)}
+                                                        </span>
+                                                        <button className="bg-pink-600 hover:bg-pink-700 text-white text-xs px-3 py-1.5 rounded-lg transition-colors font-semibold">
+                                                            Solicitar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
+                                        <p className="text-gray-500 italic">No hay artículos disponibles en este momento.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
 
                         {/* Upcoming Classes - Next 7 Days */}
                         <section>
