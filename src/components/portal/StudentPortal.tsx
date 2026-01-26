@@ -294,6 +294,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             </div>
                         </section>
 
+                        
+
                         {/* Visual Weekly Schedule Grid */}
                         <section>
                             <h3 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -437,6 +439,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             )}
                         </section>
 
+                        
+
                         {/* Recent Payments */}
                         <section>
                             <h3 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -465,6 +469,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                                 )}
                             </div>
                         </section>
+
+                        
 
                         {/* Recent Attendance */}
                         <section>
