@@ -46,16 +46,16 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 if (enrolledIds.length > 0) {
                     const attQ = query(
                         collection(db, 'attendance'),
-                        where('classId', 'in', enrolledIds.slice(0, 10)), // Limit 'in' to 10
-                        orderBy('date', 'desc'),
-                        limit(50)
+                        where('classId', 'in', enrolledIds.slice(0, 10)) // Limit 'in' to 10
                     );
                     const attSnap = await getDocs(attQ);
                     const records = attSnap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord));
+                    // Ordenar por fecha en el cliente
+                    records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                     // Filter where student was present OR just show the class record? Better show presence.
                     // Let's show all sessions of their classes, and mark if they attended.
                     console.log('[StudentPortal] Attendance records loaded:', records.length);
-                    setAttendance(records);
+                    setAttendance(records.slice(0, 50)); // Limitar a 50 registros
                 }
 
             } catch (error) {
