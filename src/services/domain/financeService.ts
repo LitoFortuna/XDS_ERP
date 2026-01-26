@@ -1,5 +1,5 @@
 
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, Unsubscribe } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, Unsubscribe, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Payment, Cost } from '../../../types';
 
@@ -9,6 +9,20 @@ export const subscribeToPayments = (callback: (payments: Payment[]) => void): Un
     return onSnapshot(q, (snapshot) => {
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment)));
     });
+};
+
+
+
+export const fetchPayments = async (): Promise<Payment[]> => {
+    const q = query(collection(db, 'payments'), orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
+};
+
+export const fetchCosts = async (): Promise<Cost[]> => {
+    const q = query(collection(db, 'costs'), orderBy('paymentDate', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cost));
 };
 
 export const addPayment = async (payment: Omit<Payment, 'id'>) => {

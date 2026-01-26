@@ -10,6 +10,14 @@ export const subscribeToClasses = (callback: (classes: DanceClass[]) => void): U
     });
 };
 
+import { getDocs } from 'firebase/firestore';
+
+export const fetchClasses = async (): Promise<DanceClass[]> => {
+    const q = query(collection(db, 'classes'), orderBy('name'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DanceClass));
+};
+
 export const addClass = async (danceClass: Omit<DanceClass, 'id'>) => {
     await addDoc(collection(db, 'classes'), danceClass);
 };

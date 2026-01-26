@@ -47,10 +47,10 @@ export const useInitializeData = () => {
 
         const unsubscribers = [
             // subscribeToStudents(store.setStudents), // Migrated to React Query
-            subscribeToInstructors(store.setInstructors),
-            subscribeToClasses(store.setClasses),
-            subscribeToPayments(store.setPayments),
-            subscribeToCosts(store.setCosts),
+            // subscribeToInstructors(store.setInstructors), // Migrated to React Query
+            // subscribeToClasses(store.setClasses), // Migrated to React Query
+            // subscribeToPayments(store.setPayments), // Migrated to React Query
+            // subscribeToCosts(store.setCosts), // Migrated to React Query
             subscribeToNuptialDances(store.setNuptialDances),
             subscribeToEvents(store.setEvents),
             subscribeToMerchandiseItems(store.setMerchandiseItems),

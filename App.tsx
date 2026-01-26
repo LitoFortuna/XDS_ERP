@@ -1,5 +1,5 @@
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { View } from './types';
 import Sidebar from './src/components/Sidebar';
 import Header from './src/components/Header';
@@ -11,7 +11,13 @@ import { useAppActions } from './src/hooks/useAppActions';
 import { batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems } from './src/services/firestoreService';
 import NotificationPrompter from './src/components/NotificationPrompter';
 import { setBadge, clearBadge } from './src/utils/notificationUtils';
-import { useEffect } from 'react';
+
+// React Query Hooks
+import { useStudents } from './src/hooks/queries/useStudents';
+import { useInstructors } from './src/hooks/queries/useInstructors';
+import { useClasses } from './src/hooks/queries/useClasses';
+import { usePayments } from './src/hooks/queries/usePayments';
+import { useCosts } from './src/hooks/queries/useCosts';
 
 // Lazy Loaded Components
 const Dashboard = lazy(() => import('./src/components/Dashboard'));
@@ -31,14 +37,16 @@ const Loader = () => (
     <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin"></div>
 );
 
-import { useStudents } from './src/hooks/queries/useStudents';
-
 const App: React.FC = () => {
     // Initialize Data & Subscriptions
     useInitializeData();
 
     // React Query Hooks
     const { students: rqStudents, addStudent, updateStudent, deleteStudent } = useStudents();
+    const { instructors: rqInstructors, addInstructor, updateInstructor, deleteInstructor } = useInstructors();
+    const { classes: rqClasses, addClass, updateClass, deleteClass } = useClasses();
+    const { payments: rqPayments, addPayment, updatePayment, deletePayment } = usePayments();
+    const { costs: rqCosts, addCost, updateCost, deleteCost } = useCosts();
 
     // Actions & State
     const actions = useAppActions();
@@ -65,12 +73,36 @@ const App: React.FC = () => {
         attendanceRecords
     } = useAppStore();
 
-    // Sync React Query students to Zustand Store (Legacy Support)
+    // Sync React Query data to Zustand Store (Legacy Support)
     useEffect(() => {
         if (rqStudents) {
             useAppStore.getState().setStudents(rqStudents);
         }
     }, [rqStudents]);
+
+    useEffect(() => {
+        if (rqInstructors) {
+            useAppStore.getState().setInstructors(rqInstructors);
+        }
+    }, [rqInstructors]);
+
+    useEffect(() => {
+        if (rqClasses) {
+            useAppStore.getState().setClasses(rqClasses);
+        }
+    }, [rqClasses]);
+
+    useEffect(() => {
+        if (rqPayments) {
+            useAppStore.getState().setPayments(rqPayments);
+        }
+    }, [rqPayments]);
+
+    useEffect(() => {
+        if (rqCosts) {
+            useAppStore.getState().setCosts(rqCosts);
+        }
+    }, [rqCosts]);
 
     // Handle App Badge
     useEffect(() => {
@@ -109,15 +141,15 @@ const App: React.FC = () => {
         switch (currentView) {
             case View.DASHBOARD:
                 return <Dashboard
-                    students={rqStudents} // Use fresh data from RQ
-                    classes={classes}
-                    instructors={instructors}
-                    payments={payments}
-                    costs={costs}
+                    students={rqStudents}
+                    classes={rqClasses}
+                    instructors={rqInstructors}
+                    payments={rqPayments}
+                    costs={rqCosts}
                     nuptialDances={nuptialDances}
                     events={events}
                     setView={setCurrentView}
-                    addPayment={actions.addPayment}
+                    addPayment={addPayment}
                 />;
             case View.ATTENDANCE:
                 return <Attendance
@@ -136,33 +168,50 @@ const App: React.FC = () => {
                     deleteStudent={deleteStudent} // Use RQ mutation
                 />;
             case View.CLASSES:
-                return <ClassSchedule classes={classes} instructors={instructors} students={rqStudents} addClass={actions.addClass} updateClass={actions.updateClass} deleteClass={actions.deleteClass} />;
+                return <ClassSchedule
+                    classes={rqClasses}
+                    instructors={rqInstructors}
+                    students={rqStudents}
+                    addClass={addClass}
+                    updateClass={updateClass}
+                    deleteClass={deleteClass}
+                />;
             case View.INTERACTIVE_SCHEDULE:
-                return <InteractiveSchedule classes={classes} instructors={instructors} students={rqStudents} updateClass={actions.updateClass} />;
+                return <InteractiveSchedule
+                    classes={rqClasses}
+                    instructors={rqInstructors}
+                    students={rqStudents}
+                    updateClass={updateClass}
+                />;
             case View.INSTRUCTORS:
-                return <InstructorList instructors={instructors} classes={classes} addInstructor={actions.addInstructor} updateInstructor={actions.updateInstructor} deleteInstructor={actions.deleteInstructor} />;
+                return <InstructorList
+                    instructors={rqInstructors}
+                    classes={classes}
+                    addInstructor={addInstructor}
+                    updateInstructor={updateInstructor}
+                    deleteInstructor={deleteInstructor}
+                />;
             case View.BILLING:
                 return <Billing
-                    // ... props ...
+                    payments={rqPayments}
+                    costs={rqCosts}
                     students={rqStudents}
-                    payments={payments}
-                    costs={costs}
-                    classes={classes}
+                    classes={rqClasses}
                     merchandiseSales={merchandiseSales}
-                    instructors={instructors}
-                    addPayment={actions.addPayment}
-                    updatePayment={actions.updatePayment}
-                    deletePayment={actions.deletePayment}
-                    addCost={actions.addCost}
-                    updateCost={actions.updateCost}
-                    deleteCost={actions.deleteCost}
-                    updateStudent={actions.updateStudent}
+                    instructors={rqInstructors}
+                    addPayment={addPayment}
+                    updatePayment={updatePayment}
+                    deletePayment={deletePayment}
+                    addCost={addCost}
+                    updateCost={updateCost}
+                    deleteCost={deleteCost}
+                    updateStudent={updateStudent}
                 />;
             case View.QUARTERLY_INVOICING:
                 return <QuarterlyInvoicing
-                    payments={payments}
-                    students={students}
-                    classes={classes}
+                    payments={rqPayments}
+                    students={rqStudents}
+                    classes={rqClasses}
                     merchandiseSales={merchandiseSales}
                 />;
             case View.MERCHANDISING:

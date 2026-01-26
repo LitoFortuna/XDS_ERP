@@ -10,6 +10,14 @@ export const subscribeToInstructors = (callback: (instructors: Instructor[]) => 
     });
 };
 
+import { getDocs } from 'firebase/firestore';
+
+export const fetchInstructors = async (): Promise<Instructor[]> => {
+    const q = query(collection(db, 'instructors'), orderBy('name'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Instructor));
+};
+
 export const addInstructor = async (instructor: Omit<Instructor, 'id'>) => {
     await addDoc(collection(db, 'instructors'), instructor);
 };

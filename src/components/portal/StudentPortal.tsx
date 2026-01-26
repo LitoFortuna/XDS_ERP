@@ -28,24 +28,25 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 setPayments(paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Payment)));
 
                 // 2. Cargar sus Clases (para mostrar nombres en asistencia)
-                // Esto podría optimizarse si tuviéramos un store global, pero aquí cargamos fresh data.
-                if (student.enrolledClassIds.length > 0) {
+                const enrolledIds = student.enrolledClassIds || [];
+
+                if (enrolledIds.length > 0) {
                     // Firestore 'in' has simple limits (up to 10/30), assuming student has few classes.
                     // Instead of 'in' query which is limited, let's fetch all classes (small collection usually) or optimize later.
                     // For now, let's fetch all active classes to match names.
                     const classesSnap = await getDocs(collection(db, 'classes'));
                     const allClasses = classesSnap.docs.map(d => ({ id: d.id, ...d.data() } as DanceClass));
-                    setClasses(allClasses.filter(c => student.enrolledClassIds.includes(c.id)));
+                    setClasses(allClasses.filter(c => enrolledIds.includes(c.id)));
                 }
 
                 // 3. Cargar Asistencia (limitado a últimos 20 registros donde aparezca el estudiante)
                 // OJO: Buscar en array 'presentStudentIds' puede requerir un index compuesto o ser lento sin índice.
                 // Workaround: Cargar asistencia de las clases del alumno de los últimos 2 meses.
                 // Simplificación actual: fetch all attendance records for user's classes and filter in memory (not scalable but works for MVP).
-                if (student.enrolledClassIds.length > 0) {
+                if (enrolledIds.length > 0) {
                     const attQ = query(
                         collection(db, 'attendance'),
-                        where('classId', 'in', student.enrolledClassIds.slice(0, 10)), // Limit 'in' to 10
+                        where('classId', 'in', enrolledIds.slice(0, 10)), // Limit 'in' to 10
                         orderBy('date', 'desc'),
                         limit(50)
                     );
