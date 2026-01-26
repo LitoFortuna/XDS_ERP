@@ -197,7 +197,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             </h3>
                             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-purple-500/20 overflow-hidden shadow-lg shadow-purple-900/10 p-6">
                                 {merchandise.length > 0 ? (
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory" style={{ scrollbarWidth: 'thin', scrollbarColor: '#a855f7 #374151' }}>
                                         {(() => {
                                             // Group products by base name (remove size info)
                                             const grouped = merchandise.reduce((acc, item) => {
@@ -220,7 +220,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                                                 const [selectedVariant, setSelectedVariant] = React.useState(product.variants[0]);
 
                                                 return (
-                                                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg overflow-hidden border border-gray-700 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/20 transition-all group">
+                                                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg overflow-hidden border border-gray-700 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/20 transition-all group flex-shrink-0 w-64 snap-start">
                                                         {/* Product Image */}
                                                         <div className="aspect-square bg-gray-900 relative overflow-hidden">
                                                             {product.imageUrl ? (
