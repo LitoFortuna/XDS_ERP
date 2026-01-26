@@ -74,33 +74,49 @@ const App: React.FC = () => {
     } = useAppStore();
 
     // Sync React Query data to Zustand Store (Legacy Support)
+    // Only update if data actually changed to prevent infinite loops
     useEffect(() => {
         if (rqStudents) {
-            useAppStore.getState().setStudents(rqStudents);
+            const current = useAppStore.getState().students;
+            if (current.length !== rqStudents.length) {
+                useAppStore.getState().setStudents(rqStudents);
+            }
         }
     }, [rqStudents]);
 
     useEffect(() => {
         if (rqInstructors) {
-            useAppStore.getState().setInstructors(rqInstructors);
+            const current = useAppStore.getState().instructors;
+            if (current.length !== rqInstructors.length) {
+                useAppStore.getState().setInstructors(rqInstructors);
+            }
         }
     }, [rqInstructors]);
 
     useEffect(() => {
         if (rqClasses) {
-            useAppStore.getState().setClasses(rqClasses);
+            const current = useAppStore.getState().classes;
+            if (current.length !== rqClasses.length) {
+                useAppStore.getState().setClasses(rqClasses);
+            }
         }
     }, [rqClasses]);
 
     useEffect(() => {
         if (rqPayments) {
-            useAppStore.getState().setPayments(rqPayments);
+            const current = useAppStore.getState().payments;
+            if (current.length !== rqPayments.length) {
+                useAppStore.getState().setPayments(rqPayments);
+            }
         }
     }, [rqPayments]);
 
     useEffect(() => {
         if (rqCosts) {
-            useAppStore.getState().setCosts(rqCosts);
+            const current = useAppStore.getState().costs;
+            if (current.length !== rqCosts.length) {
+                useAppStore.getState().setCosts(rqCosts);
+            }
         }
     }, [rqCosts]);
 
