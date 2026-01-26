@@ -21,14 +21,15 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 console.log('[StudentPortal] Loading data for student:', student.name, student.id);
                 console.log('[StudentPortal] Enrolled class IDs:', student.enrolledClassIds);
 
-                // 1. Cargar Pagos
+                // 1. Cargar Pagos (sin orderBy para evitar índice compuesto)
                 const paymentsQ = query(
                     collection(db, 'payments'),
-                    where('studentId', '==', student.id),
-                    orderBy('date', 'desc')
+                    where('studentId', '==', student.id)
                 );
                 const paymentsSnap = await getDocs(paymentsQ);
                 const paymentsData = paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Payment));
+                // Ordenar por fecha en el cliente
+                paymentsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 console.log('[StudentPortal] Payments loaded:', paymentsData.length, paymentsData);
                 setPayments(paymentsData);
 
