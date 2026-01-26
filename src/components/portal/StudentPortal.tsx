@@ -28,10 +28,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 );
                 const paymentsSnap = await getDocs(paymentsQ);
                 const paymentsData = paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Payment));
+                // Filtrar solo pagos del año actual (2026)
+                const currentYear = new Date().getFullYear();
+                const currentYearPayments = paymentsData.filter(p => new Date(p.date).getFullYear() === currentYear);
                 // Ordenar por fecha en el cliente
-                paymentsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                console.log('[StudentPortal] Payments loaded:', paymentsData.length, paymentsData);
-                setPayments(paymentsData);
+                currentYearPayments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                console.log('[StudentPortal] Payments loaded (current year):', currentYearPayments.length, currentYearPayments);
+                setPayments(currentYearPayments);
 
                 // 2. Cargar TODAS las Clases de la academia (para mostrar horario completo)
                 const classesSnap = await getDocs(collection(db, 'classes'));
@@ -51,12 +54,15 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     );
                     const attSnap = await getDocs(attQ);
                     const records = attSnap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord));
+                    // Filtrar solo asistencia del año actual (2026)
+                    const currentYear = new Date().getFullYear();
+                    const currentYearRecords = records.filter(r => new Date(r.date).getFullYear() === currentYear);
                     // Ordenar por fecha en el cliente
-                    records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    currentYearRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                     // Filter where student was present OR just show the class record? Better show presence.
                     // Let's show all sessions of their classes, and mark if they attended.
-                    console.log('[StudentPortal] Attendance records loaded:', records.length);
-                    setAttendance(records.slice(0, 50)); // Limitar a 50 registros
+                    console.log('[StudentPortal] Attendance records loaded (current year):', currentYearRecords.length);
+                    setAttendance(currentYearRecords.slice(0, 50)); // Limitar a 50 registros
                 }
 
             } catch (error) {
@@ -81,19 +87,21 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
         return time; // Already in HH:MM format
     };
 
-    // Get upcoming classes for the next 7 days
+    // Get upcoming classes for the next 7 days (only enrolled classes)
     const getUpcomingClasses = () => {
         const today = new Date();
         const next7Days: { date: Date; dayName: string; classes: DanceClass[] }[] = [];
 
         const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const enrolledIds = student.enrolledClassIds || [];
 
         for (let i = 0; i < 7; i++) {
             const date = new Date(today);
             date.setDate(today.getDate() + i);
             const dayName = dayNames[date.getDay()];
 
-            const dayClasses = classes.filter(c => c.days.includes(dayName));
+            // Filtrar solo clases inscritas
+            const dayClasses = classes.filter(c => c.days.includes(dayName) && enrolledIds.includes(c.id));
 
             if (dayClasses.length > 0) {
                 next7Days.push({ date, dayName, classes: dayClasses });
