@@ -32,7 +32,9 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLoginSuccess }) => {
         setIsLoading(true);
 
         try {
+            console.log('[StudentLogin] Attempting login with phone:', phone.trim());
             const student = await findStudentByPhone(phone.trim());
+            console.log('[StudentLogin] Student found:', student);
 
             if (!student) {
                 setError('No se encontró ningún alumno con ese teléfono.');
@@ -47,13 +49,15 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLoginSuccess }) => {
             }
 
             if (checkPassword(student.name, password)) {
+                console.log('[StudentLogin] Login successful, saving student ID:', student.id);
+                console.log('[StudentLogin] Student data:', JSON.stringify(student, null, 2));
                 localStorage.setItem('student_portal_id', student.id);
                 onLoginSuccess(student);
             } else {
                 setError('Contraseña incorrecta. (Pista: PrimerApellido2026)');
             }
         } catch (err) {
-            console.error(err);
+            console.error('[StudentLogin] Error:', err);
             setError('Error de conexión. Inténtalo de nuevo.');
         } finally {
             setIsLoading(false);
