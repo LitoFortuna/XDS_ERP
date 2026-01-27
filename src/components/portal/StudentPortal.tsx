@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem, DanceEvent } from '../../../types';
+import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem, DanceEvent, ChangeRequest } from '../../../types';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import { createChangeRequest, getChangeRequestsByStudent } from '../../../services/changeRequestService';
 
 interface StudentPortalProps {
     student: Student;
@@ -15,7 +16,10 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
     const [classes, setClasses] = useState<DanceClass[]>([]);
     const [merchandise, setMerchandise] = useState<MerchandiseItem[]>([]);
     const [events, setEvents] = useState<DanceEvent[]>([]);
+    const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
+    const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
     useEffect(() => {
         const loadStudentData = async () => {
@@ -90,6 +94,11 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 studentEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                 console.log('[StudentPortal] Student events loaded:', studentEvents.length);
                 setEvents(studentEvents);
+
+                // 5. Cargar solicitudes de cambio del estudiante
+                const requests = await getChangeRequestsByStudent(student.id);
+                console.log('[StudentPortal] Change requests loaded:', requests.length);
+                setChangeRequests(requests);
 
             } catch (error) {
                 console.error("[StudentPortal] Error loading portal data:", error);

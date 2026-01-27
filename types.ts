@@ -184,3 +184,30 @@ export interface ActivityLog {
   read: boolean;
   targetRole: UserRole; // Who should receive this notification
 }
+
+export type ChangeRequestStatus = 'Pendiente' | 'Aprobada' | 'Rechazada';
+
+export interface ChangeRequest {
+  id: string;
+  studentId: string;
+  studentName: string; // Denormalized for easier display
+  requestDate: string; // ISO timestamp
+  status: ChangeRequestStatus;
+  currentData: {
+    name?: string;
+    phone?: string;
+    birthDate?: string;
+    email?: string;
+    dni?: string;
+  };
+  requestedData: {
+    name?: string;
+    phone?: string;
+    birthDate?: string;
+    email?: string;
+    dni?: string;
+  };
+  reviewedBy?: string; // Email of admin who reviewed
+  reviewDate?: string; // ISO timestamp
+  reviewNotes?: string; // Optional notes from admin
+}
