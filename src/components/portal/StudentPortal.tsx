@@ -106,7 +106,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 // Enrich classes with instructor names
                 const enrichedClasses = classesData.map(c => ({
                     ...c,
-                    instructorName: instructorMap.get(c.instructorId) || 'Sin Asignar'
+                    instructorName: instructorMap.get(c.instructorId) || (c as any).instructor || 'Sin Asignar'
                 }));
 
                 setPayments(paymentsData);
