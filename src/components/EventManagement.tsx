@@ -27,6 +27,7 @@ const EventForm: React.FC<{
         participants: event?.participants || [] as EventParticipant[],
         notes: event?.notes || '',
         imageUrl: event?.imageUrl || '',
+        studentIds: event?.studentIds || [],
     });
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -77,7 +78,7 @@ const EventForm: React.FC<{
     const updateTicketCount = (studentId: string, count: number) => {
         setFormData(prev => ({
             ...prev,
-            participants: prev.participants.map(p => 
+            participants: prev.participants.map(p =>
                 p.studentId === studentId ? { ...p, ticketCount: Math.max(1, count) } : p
             )
         }));
@@ -85,7 +86,8 @@ const EventForm: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit(event ? { ...event, ...formData } : formData);
+        const studentIds = formData.participants.map(p => p.studentId);
+        onSubmit(event ? { ...event, ...formData, studentIds } : { ...formData, studentIds });
     };
 
     const totalTickets = formData.participants.reduce((sum, p) => sum + p.ticketCount, 0);
@@ -100,9 +102,9 @@ const EventForm: React.FC<{
                             {formData.imageUrl ? (
                                 <>
                                     <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setFormData(prev => ({...prev, imageUrl: ''}))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
                                         className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold"
                                     >
                                         Eliminar
@@ -121,15 +123,15 @@ const EventForm: React.FC<{
                             )}
                         </div>
                         <div className="flex-grow">
-                            <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={handleImageChange} 
-                                className="hidden" 
-                                id="event-image-upload" 
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                className="hidden"
+                                id="event-image-upload"
                             />
-                            <label 
-                                htmlFor="event-image-upload" 
+                            <label
+                                htmlFor="event-image-upload"
                                 className="inline-block bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg border border-gray-700 cursor-pointer text-sm font-bold transition-all"
                             >
                                 {formData.imageUrl ? 'Cambiar Imagen' : 'Subir Cartel'}
@@ -173,8 +175,8 @@ const EventForm: React.FC<{
                     <div className="flex justify-between items-end mb-2">
                         <label className="block text-sm font-medium text-purple-400 font-bold">Seleccionar Participantes y Entradas</label>
                         <div className="text-right">
-                             <span className="text-[10px] text-gray-500 uppercase font-bold">Total Entradas:</span>
-                             <span className="ml-2 text-sm font-black text-white">{totalTickets}</span>
+                            <span className="text-[10px] text-gray-500 uppercase font-bold">Total Entradas:</span>
+                            <span className="ml-2 text-sm font-black text-white">{totalTickets}</span>
                         </div>
                     </div>
                     <input
@@ -204,13 +206,13 @@ const EventForm: React.FC<{
                                                     {isSelected && s.phone && <span className="text-[10px] text-purple-300 font-mono">{s.phone}</span>}
                                                 </div>
                                             </label>
-                                            
+
                                             {isSelected && (
                                                 <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-lg border border-purple-500/20">
                                                     <span className="text-[10px] text-gray-500 font-bold uppercase">Entradas:</span>
-                                                    <input 
-                                                        type="number" 
-                                                        min="1" 
+                                                    <input
+                                                        type="number"
+                                                        min="1"
                                                         value={participant.ticketCount}
                                                         onChange={(e) => updateTicketCount(s.id, parseInt(e.target.value) || 1)}
                                                         className="w-12 bg-transparent text-center text-sm font-black text-white focus:outline-none"
@@ -245,7 +247,7 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<DanceEvent | undefined>(undefined);
     const [filterType, setFilterType] = useState<EventType | 'Todos'>('Todos');
-    
+
     const [viewingParticipantsEvent, setViewingParticipantsEvent] = useState<DanceEvent | null>(null);
 
     const filteredEvents = useMemo(() => {
@@ -298,11 +300,11 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
             item.student.name,
             String(item.tickets),
             (item.tickets * event.price).toFixed(2),
-            item.student.phone || '-', 
-            item.student.email || '-', 
+            item.student.phone || '-',
+            item.student.email || '-',
             item.student.active ? 'Activo' : 'Inactivo'
         ]);
-        
+
         const csvContent = [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
         const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -353,92 +355,93 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                         const totalTickets = event.participants?.reduce((sum, p) => sum + p.ticketCount, 0) || 0;
                         const totalRevenue = totalTickets * event.price;
                         return (
-                        <div key={event.id} className="bg-gray-800 rounded-2xl overflow-hidden shadow-xl border border-gray-700/50 hover:border-purple-500/50 transition-all group flex flex-col h-full">
-                            <div className="relative h-48 bg-gray-900">
-                                {event.imageUrl ? (
-                                    <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 opacity-50">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                    </div>
-                                )}
-                                <div className="absolute top-4 left-4">
-                                    <span className={`px-2.5 py-1 rounded-lg border text-[10px] uppercase font-black tracking-widest shadow-lg ${getTypeColor(event.type)}`}>
-                                        {event.type}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="p-6 flex-grow">
-                                <div className="flex justify-between items-start mb-4">
-                                    <h3 className="text-xl font-black text-white group-hover:text-purple-300 transition-colors line-clamp-2">{event.name}</h3>
-                                    <div className="text-right shrink-0">
-                                        <p className="text-green-400 font-bold text-xl leading-none">€{event.price.toFixed(0)}</p>
-                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">por entrada</p>
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-3 text-sm text-gray-400">
-                                    <div className="flex items-center">
-                                        <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center mr-3 text-purple-400">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            <div key={event.id} className="bg-gray-800 rounded-2xl overflow-hidden shadow-xl border border-gray-700/50 hover:border-purple-500/50 transition-all group flex flex-col h-full">
+                                <div className="relative h-48 bg-gray-900">
+                                    {event.imageUrl ? (
+                                        <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 opacity-50">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                         </div>
-                                        <div>
-                                            <p className="text-white font-bold">{new Date(event.date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</p>
-                                            <p className="text-[11px] uppercase tracking-tighter">Hora: {event.time}</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center">
-                                        <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center mr-3 text-purple-400">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
-                                        </div>
-                                        <p className="text-white font-medium">{event.location}</p>
-                                    </div>
-
-                                    <div className="flex items-center">
-                                        <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center mr-3 text-purple-400">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197" /></svg>
-                                        </div>
-                                        <div>
-                                            <p className="text-white font-bold">{totalTickets} Entradas ({event.participants?.length || 0} Alumnas)</p>
-                                            <p className="text-[11px] text-green-400 uppercase font-bold">Total: €{totalRevenue.toLocaleString()}</p>
-                                        </div>
+                                    )}
+                                    <div className="absolute top-4 left-4">
+                                        <span className={`px-2.5 py-1 rounded-lg border text-[10px] uppercase font-black tracking-widest shadow-lg ${getTypeColor(event.type)}`}>
+                                            {event.type}
+                                        </span>
                                     </div>
                                 </div>
 
-                                {event.notes && (
-                                    <div className="mt-5 p-4 bg-gray-900/80 rounded-xl text-xs italic text-gray-500 border border-gray-700 leading-relaxed">
-                                        {event.notes}
+                                <div className="p-6 flex-grow">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h3 className="text-xl font-black text-white group-hover:text-purple-300 transition-colors line-clamp-2">{event.name}</h3>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-green-400 font-bold text-xl leading-none">€{event.price.toFixed(0)}</p>
+                                            <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">por entrada</p>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                            
-                            <div className="p-4 bg-gray-900/50 border-t border-gray-700/50 flex items-center justify-between">
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => setViewingParticipantsEvent(event)}
-                                        className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center px-3 py-1.5 rounded-lg hover:bg-blue-400/10 transition-colors"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
-                                        Lista
-                                    </button>
-                                    <button 
-                                        onClick={() => handleExportCSV(event)}
-                                        className="text-xs font-bold text-green-400 hover:text-green-300 flex items-center px-3 py-1.5 rounded-lg hover:bg-green-400/10 transition-colors"
-                                        title="Exportar CSV"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                    </button>
+
+                                    <div className="space-y-3 text-sm text-gray-400">
+                                        <div className="flex items-center">
+                                            <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center mr-3 text-purple-400">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                            </div>
+                                            <div>
+                                                <p className="text-white font-bold">{new Date(event.date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</p>
+                                                <p className="text-[11px] uppercase tracking-tighter">Hora: {event.time}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center">
+                                            <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center mr-3 text-purple-400">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
+                                            </div>
+                                            <p className="text-white font-medium">{event.location}</p>
+                                        </div>
+
+                                        <div className="flex items-center">
+                                            <div className="w-8 h-8 rounded-lg bg-gray-700 flex items-center justify-center mr-3 text-purple-400">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197" /></svg>
+                                            </div>
+                                            <div>
+                                                <p className="text-white font-bold">{totalTickets} Entradas ({event.participants?.length || 0} Alumnas)</p>
+                                                <p className="text-[11px] text-green-400 uppercase font-bold">Total: €{totalRevenue.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {event.notes && (
+                                        <div className="mt-5 p-4 bg-gray-900/80 rounded-xl text-xs italic text-gray-500 border border-gray-700 leading-relaxed">
+                                            {event.notes}
+                                        </div>
+                                    )}
                                 </div>
-                                
-                                <div className="flex gap-4">
-                                    <button onClick={() => handleOpenFormModal(event)} className="text-sm font-bold text-purple-400 hover:text-purple-300">Editar</button>
-                                    <button onClick={() => handleDelete(event.id, event.name)} className="text-sm font-bold text-red-500 hover:text-red-400">Borrar</button>
+
+                                <div className="p-4 bg-gray-900/50 border-t border-gray-700/50 flex items-center justify-between">
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setViewingParticipantsEvent(event)}
+                                            className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center px-3 py-1.5 rounded-lg hover:bg-blue-400/10 transition-colors"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
+                                            Lista
+                                        </button>
+                                        <button
+                                            onClick={() => handleExportCSV(event)}
+                                            className="text-xs font-bold text-green-400 hover:text-green-300 flex items-center px-3 py-1.5 rounded-lg hover:bg-green-400/10 transition-colors"
+                                            title="Exportar CSV"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                        </button>
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <button onClick={() => handleOpenFormModal(event)} className="text-sm font-bold text-purple-400 hover:text-purple-300">Editar</button>
+                                        <button onClick={() => handleDelete(event.id, event.name)} className="text-sm font-bold text-red-500 hover:text-red-400">Borrar</button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )})
+                        )
+                    })
                 ) : (
                     <div className="col-span-full py-32 text-center bg-gray-800/20 border-2 border-dashed border-gray-700/50 rounded-3xl">
                         <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-600 border border-gray-700">
@@ -455,9 +458,9 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                 <EventForm event={editingEvent} students={students} onSubmit={handleSubmit} onCancel={handleCloseFormModal} />
             </Modal>
 
-            <Modal 
-                isOpen={!!viewingParticipantsEvent} 
-                onClose={() => setViewingParticipantsEvent(null)} 
+            <Modal
+                isOpen={!!viewingParticipantsEvent}
+                onClose={() => setViewingParticipantsEvent(null)}
                 title={`Detalle de Participantes: ${viewingParticipantsEvent?.name}`}
             >
                 {viewingParticipantsEvent && (
@@ -513,13 +516,13 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                         </div>
 
                         <div className="flex justify-end gap-3 mt-4">
-                            <button 
+                            <button
                                 onClick={() => handleExportCSV(viewingParticipantsEvent)}
                                 className="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-600 transition-colors"
                             >
                                 Descargar Lista (CSV)
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setViewingParticipantsEvent(null)}
                                 className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-purple-700 transition-colors"
                             >

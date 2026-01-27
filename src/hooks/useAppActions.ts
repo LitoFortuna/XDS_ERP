@@ -1,7 +1,7 @@
 
 import { useAppStore } from '../store/useAppStore';
 import { signOut } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { auth, db } from '../config/firebase';
 import { View, Student, Instructor, DanceClass, Payment, Cost, NuptialDance, DanceEvent, MerchandiseItem, MerchandiseSale, AttendanceRecord } from '../../types';
 import {
     addStudent as addStudentToDb,
@@ -34,6 +34,8 @@ import {
     updateAttendance as updateAttendanceInDb,
 } from '../services/firestoreService';
 import { logActivity } from '../services/domain/activityLogService';
+import { updateProgressAfterAttendance } from '../../services/progressService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export const useAppActions = () => {
     const {
@@ -164,11 +166,13 @@ export const useAppActions = () => {
     };
 
     const addEvent = async (event: Omit<DanceEvent, 'id'>) => {
-        await addEventToDb(event);
+        const studentIds = event.participants.map(p => p.studentId);
+        await addEventToDb({ ...event, studentIds });
     };
 
     const updateEvent = async (event: DanceEvent) => {
-        await updateEventInDb(event);
+        const studentIds = event.participants.map(p => p.studentId);
+        await updateEventInDb({ ...event, studentIds });
     };
 
     const deleteEvent = async (eventId: string) => {
@@ -210,6 +214,31 @@ export const useAppActions = () => {
             await updateAttendanceInDb(record);
         } else {
             await addAttendanceToDb(record);
+        }
+
+        // Update progress for all students involved (present or previously present)
+        try {
+            const affectedStudentIds = record.presentStudentIds;
+
+            if (affectedStudentIds.length > 0) {
+                const progressPromises = affectedStudentIds.map(async (studentId) => {
+                    const attendanceQuery = query(
+                        collection(db, 'attendance'),
+                        where('presentStudentIds', 'array-contains', studentId)
+                    );
+
+                    const snap = await getDocs(attendanceQuery);
+                    const studentRecords = snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord));
+
+                    await updateProgressAfterAttendance(studentId, studentRecords);
+                });
+
+                await Promise.all(progressPromises);
+                console.log('[useAppActions] Progress updated for', affectedStudentIds.length, 'students');
+            }
+
+        } catch (error) {
+            console.error('[useAppActions] Error updating progress:', error);
         }
 
         // Log activity for SuperAdmin notification if Admin made the action

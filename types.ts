@@ -108,6 +108,7 @@ export interface DanceEvent {
   id: string;
   name: string;
   type: EventType;
+  studentIds: string[];
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
   location: string;
