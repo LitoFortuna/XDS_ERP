@@ -68,7 +68,24 @@ const MainRouter: React.FC = () => {
 
     if (mode === 'portal') {
         if (isLoadingStudent) {
-            return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Cargando perfil...</div>;
+            if (isLoadingStudent) {
+                return (
+                    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white p-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-4"></div>
+                        <p className="mb-6 text-lg">Cargando perfil...</p>
+                        <button
+                            onClick={() => {
+                                localStorage.removeItem('student_portal_id');
+                                window.location.reload();
+                            }}
+                            className="text-gray-400 hover:text-white text-sm underline bg-transparent border-none cursor-pointer"
+                        >
+                            ¿Tarda mucho? Cancelar y salir
+                        </button>
+                        <InstallPrompt />
+                    </div>
+                );
+            }
         }
 
         if (currentStudent) {

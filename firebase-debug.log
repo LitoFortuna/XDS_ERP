@@ -1,16 +1,16 @@
-[debug] [2026-01-27T20:10:17.099Z] ----------------------------------------------------------------------
-[debug] [2026-01-27T20:10:17.102Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\User\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
-[debug] [2026-01-27T20:10:17.103Z] CLI Version:   15.3.1
-[debug] [2026-01-27T20:10:17.103Z] Platform:      win32
-[debug] [2026-01-27T20:10:17.103Z] Node Version:  v24.11.0
-[debug] [2026-01-27T20:10:17.103Z] Time:          Tue Jan 27 2026 21:10:17 GMT+0100 (hora estándar de Europa central)
-[debug] [2026-01-27T20:10:17.103Z] ----------------------------------------------------------------------
+[debug] [2026-01-27T20:13:16.975Z] ----------------------------------------------------------------------
+[debug] [2026-01-27T20:13:16.978Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\User\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-01-27T20:13:16.978Z] CLI Version:   15.3.1
+[debug] [2026-01-27T20:13:16.978Z] Platform:      win32
+[debug] [2026-01-27T20:13:16.978Z] Node Version:  v24.11.0
+[debug] [2026-01-27T20:13:16.978Z] Time:          Tue Jan 27 2026 21:13:16 GMT+0100 (hora estándar de Europa central)
+[debug] [2026-01-27T20:13:16.978Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2026-01-27T20:10:19.044Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-01-27T20:10:19.045Z] > authorizing via signed-in user (raulfdz3@gmail.com)
-[debug] [2026-01-27T20:10:19.045Z] [iam] checking project xen-dance-erp for permissions ["firebase.projects.get","firebasehosting.sites.update"]
-[debug] [2026-01-27T20:10:19.046Z] Checked if tokens are valid: true, expires at: 1769547103594
-[debug] [2026-01-27T20:10:19.046Z] Checked if tokens are valid: true, expires at: 1769547103594
-[debug] [2026-01-27T20:10:19.047Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions [none]
-[debug] [2026-01-27T20:10:19.047Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions x-goog-quota-user=projects/xen-dance-erp
-[debug] [2026-01-27T20:10:19.047Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-01-27T20:13:19.798Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-01-27T20:13:19.798Z] > authorizing via signed-in user (raulfdz3@gmail.com)
+[debug] [2026-01-27T20:13:19.798Z] [iam] checking project xen-dance-erp for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-01-27T20:13:19.799Z] Checked if tokens are valid: true, expires at: 1769547103594
+[debug] [2026-01-27T20:13:19.800Z] Checked if tokens are valid: true, expires at: 1769547103594
+[debug] [2026-01-27T20:13:19.801Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions [none]
+[debug] [2026-01-27T20:13:19.801Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions x-goog-quota-user=projects/xen-dance-erp
+[debug] [2026-01-27T20:13:19.801Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/xen-dance-erp:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
