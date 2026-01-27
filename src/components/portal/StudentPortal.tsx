@@ -62,7 +62,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     ),
 
                     // Merchandise
-                    getDocs(collection(db, 'merchandise')).then(snap =>
+                    getDocs(collection(db, 'merchandiseItems')).then(snap =>
                         snap.docs.map(d => ({ id: d.id, ...d.data() } as MerchandiseItem))
                     ),
 

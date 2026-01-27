@@ -6,6 +6,10 @@ interface StorePageProps {
 }
 
 const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
+    // Debug logging
+    console.log('[StorePage] Received merchandise items:', merchandise);
+    console.log('[StorePage] Count:', merchandise.length);
+
     // Group merchandise by name (base product name)
     const groupedMerchandise = merchandise.reduce((acc, item) => {
         const key = item.name;
@@ -22,6 +26,7 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
     }, {} as Record<string, { name: string; category: string; imageUrl?: string; variants: MerchandiseItem[] }>);
 
     const products = Object.values(groupedMerchandise);
+    console.log('[StorePage] Grouped products:', products);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-ES', {
