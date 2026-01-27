@@ -1,12 +1,13 @@
 import React from 'react';
-import { DanceEvent, DanceClass } from '../../../../types';
+import { DanceEvent, DanceClass, Student } from '../../../../types';
 
 interface EventsPageProps {
+    student: Student;
     studentEvents: DanceEvent[];
     allClasses: DanceClass[];
 }
 
-const EventsPage: React.FC<EventsPageProps> = ({ studentEvents, allClasses }) => {
+const EventsPage: React.FC<EventsPageProps> = ({ student, studentEvents, allClasses }) => {
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('es-ES', {
             year: 'numeric',
@@ -19,8 +20,11 @@ const EventsPage: React.FC<EventsPageProps> = ({ studentEvents, allClasses }) =>
         const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
         const schedule: { [key: string]: DanceClass[] } = {};
 
+        // Filter classes to show only enrolled ones
+        const enrolledClasses = allClasses.filter(c => student.enrolledClassIds.includes(c.id));
+
         dayNames.forEach((day) => {
-            schedule[day] = allClasses
+            schedule[day] = enrolledClasses
                 .filter((c) => c.days.includes(day))
                 .sort((a, b) => a.startTime.localeCompare(b.startTime));
         });
@@ -115,7 +119,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ studentEvents, allClasses }) =>
                                         >
                                             <div>
                                                 <p className="text-white font-medium">{danceClass.name}</p>
-                                                <p className="text-sm text-gray-400">{danceClass.instructor}</p>
+                                                <p className="text-sm text-gray-400">{danceClass.category}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-white font-mono text-sm">

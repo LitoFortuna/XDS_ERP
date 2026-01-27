@@ -138,7 +138,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
         const todayDayName = today.toLocaleDateString('es-ES', { weekday: 'long' });
         const capitalizedToday = todayDayName.charAt(0).toUpperCase() + todayDayName.slice(1);
 
-        const todayClasses = classes.filter(c => c.days.includes(capitalizedToday));
+        // Filter by enrolled classes AND today's day
+        const enrolledClasses = classes.filter(c => student.enrolledClassIds.includes(c.id));
+        const todayClasses = enrolledClasses.filter(c => c.days.includes(capitalizedToday));
         return todayClasses.sort((a, b) => a.startTime.localeCompare(b.startTime));
     };
 
@@ -216,6 +218,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                         )}
                         {currentPage === 'events' && (
                             <EventsPage
+                                student={student}
                                 studentEvents={events}
                                 allClasses={classes}
                             />
