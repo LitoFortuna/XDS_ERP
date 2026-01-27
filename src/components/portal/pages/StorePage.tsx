@@ -46,7 +46,7 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
             message += ` - Talla: ${selectedSize}`;
         }
 
-        const whatsappUrl = `https://wa.me/34637920943?text=${encodeURIComponent(message)}`;
+        const whatsappUrl = `https://wa.me/34692038911?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
     };
 
