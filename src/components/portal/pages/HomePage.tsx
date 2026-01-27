@@ -40,38 +40,48 @@ const HomePage: React.FC<HomePageProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Welcome Card */}
-            <div className="bg-gradient-to-br from-purple-900/60 via-purple-800/40 to-fuchsia-900/60 border border-purple-500/50 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h2 className="text-2xl font-bold text-white mb-1">¡Hola, {student.name.split(' ')[0]}! 👋</h2>
-                        <p className="text-purple-200 text-sm flex items-center">
-                            {levelIcon} {levelName} • Nivel {level}
-                        </p>
-                    </div>
-                    {currentStreak > 0 && (
-                        <div className="text-center bg-black/20 rounded-lg px-4 py-2">
-                            <div className="text-2xl">🔥</div>
-                            <div className="text-white font-bold text-lg">{currentStreak}</div>
-                            <div className="text-xs text-purple-200">días</div>
-                        </div>
-                    )}
-                </div>
-            </div>
+            {/* Combined Welcome & Status Card */}
+            <div className="bg-gradient-to-br from-purple-900/60 via-purple-800/40 to-fuchsia-900/60 border border-purple-500/50 rounded-xl p-6 relative overflow-hidden">
+                {/* Decorative background circle */}
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl"></div>
 
-            {/* Status Card */}
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h3 className="text-lg font-bold text-white mb-4">Estado de la Cuenta</h3>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <p className="text-sm text-gray-400 mb-1">Estado</p>
-                        <p className="text-white font-medium">
-                            {student.active ? '✅ Matrícula Activa' : '❌ Matrícula Inactiva'}
-                        </p>
-                    </div>
-                    <div className="bg-gray-900/50 p-4 rounded-lg">
-                        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Cuota Mensual</p>
-                        <p className="text-2xl font-bold text-white font-mono">{formatCurrency(student.monthlyFee)}</p>
+                <div className="relative z-10">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+                        {/* Greeting & Level Section */}
+                        <div className="flex-1">
+                            <h2 className="text-2xl font-bold text-white mb-2">¡Hola, {student.name.split(' ')[0]}! 👋</h2>
+                            <p className="text-purple-200 text-sm flex items-center mb-4">
+                                <span className="bg-black/30 px-3 py-1 rounded-full border border-purple-500/30 flex items-center shadow-sm">
+                                    <span className="mr-2 text-lg">{levelIcon}</span>
+                                    <span className="font-semibold text-purple-100">{levelName}</span>
+                                    <span className="mx-2 text-purple-400">•</span>
+                                    <span className="text-purple-300">Nivel {level}</span>
+                                </span>
+                            </p>
+
+                            {/* Streak badge moved here inline or below if preferred */}
+                            {currentStreak > 0 && (
+                                <div className="inline-flex items-center space-x-2 bg-orange-500/10 border border-orange-500/30 text-orange-300 px-3 py-1 rounded-full text-xs font-medium">
+                                    <span>🔥</span>
+                                    <span>{currentStreak} días racha</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Account Status Section (Right side or Stacked) */}
+                        <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20 min-w-[200px]">
+                            <div className="mb-3">
+                                <p className="text-xs text-purple-300 uppercase tracking-wider mb-1">Estado de Matrícula</p>
+                                <div className="flex items-center">
+                                    <div className={`w-2 h-2 rounded-full mr-2 ${student.active ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]' : 'bg-red-400'}`}></div>
+                                    <span className="text-white font-medium text-sm">{student.active ? 'Activa' : 'Inactiva'}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs text-purple-300 uppercase tracking-wider mb-1">Cuota Mensual</p>
+                                <p className="text-xl font-bold text-white font-mono tracking-tight">{formatCurrency(student.monthlyFee)}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
