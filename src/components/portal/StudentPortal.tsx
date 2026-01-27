@@ -209,6 +209,217 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             </div>
                         </div>
 
+                        {/* Personal Data & Change Requests Section */}
+                        <section>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-xl font-bold text-white flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                    </svg>
+                                    👤 Mis Datos Personales
+                                </h3>
+                                <button
+                                    onClick={() => setShowChangeRequestModal(true)}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-md hover:shadow-lg"
+                                >
+                                    Solicitar Cambio
+                                </button>
+                            </div>
+
+                            {/* Current Data Display */}
+                            <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 mb-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase font-bold">Nombre</p>
+                                        <p className="text-white font-medium">{student.name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase font-bold">Teléfono</p>
+                                        <p className="text-white font-medium">{student.phone || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase font-bold">Email</p>
+                                        <p className="text-white font-medium">{student.email || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase font-bold">Fecha de Nacimiento</p>
+                                        <p className="text-white font-medium">{student.birthDate ? formatDate(student.birthDate) : '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase font-bold">DNI</p>
+                                        <p className="text-white font-medium">{student.dni || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Pending/Recent Change Requests */}
+                            {changeRequests.length > 0 && (
+                                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                                    <div className="bg-gray-750 px-4 py-2 border-b border-gray-700">
+                                        <h4 className="text-sm font-bold text-white">Solicitudes de Cambio</h4>
+                                    </div>
+                                    <div className="divide-y divide-gray-700">
+                                        {changeRequests.slice(0, 3).map(request => {
+                                            const getStatusColor = (status: string) => {
+                                                switch (status) {
+                                                    case 'Pendiente': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+                                                    case 'Aprobada': return 'bg-green-500/20 text-green-300 border-green-500/30';
+                                                    case 'Rechazada': return 'bg-red-500/20 text-red-300 border-red-500/30';
+                                                    default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+                                                }
+                                            };
+                                            return (
+                                                <div key={request.id} className="p-3">
+                                                    <div className="flex items-start justify-between mb-2">
+                                                        <div>
+                                                            <p className="text-xs text-gray-500">
+                                                                {new Date(request.requestDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                            </p>
+                                                        </div>
+                                                        <span className={`px-2 py-0.5 rounded border text-[10px] uppercase font-bold ${getStatusColor(request.status)}`}>
+                                                            {request.status}
+                                                        </span>
+                                                    </div>
+                                                    {request.status !== 'Pendiente' && request.reviewNotes && (
+                                                        <div className="mt-2 p-2 bg-gray-900/60 rounded border border-gray-700">
+                                                            <p className="text-xs text-gray-400 italic">{request.reviewNotes}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </section>
+
+                        {/* Change Request Modal */}
+                        {showChangeRequestModal && (
+                            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                                <div className="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700 shadow-2xl">
+                                    <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+                                        <h3 className="text-xl font-bold text-white">Solicitar Cambio de Datos</h3>
+                                        <button
+                                            onClick={() => setShowChangeRequestModal(false)}
+                                            className="text-gray-400 hover:text-white transition-colors"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <form onSubmit={async (e) => {
+                                        e.preventDefault();
+                                        setIsSubmittingRequest(true);
+                                        try {
+                                            const formData = new FormData(e.currentTarget);
+                                            const requestedData = {
+                                                name: formData.get('name') as string,
+                                                phone: formData.get('phone') as string,
+                                                email: formData.get('email') as string,
+                                                birthDate: formData.get('birthDate') as string,
+                                                dni: formData.get('dni') as string,
+                                            };
+
+                                            const currentData = {
+                                                name: student.name,
+                                                phone: student.phone || '',
+                                                email: student.email || '',
+                                                birthDate: student.birthDate || '',
+                                                dni: student.dni || '',
+                                            };
+
+                                            await createChangeRequest(student.id, student.name, currentData, requestedData);
+
+                                            // Reload change requests
+                                            const requests = await getChangeRequestsByStudent(student.id);
+                                            setChangeRequests(requests);
+
+                                            setShowChangeRequestModal(false);
+                                            alert('Solicitud enviada correctamente. El administrador la revisará pronto.');
+                                        } catch (error) {
+                                            console.error('Error creating change request:', error);
+                                            alert('Error al enviar la solicitud. Por favor, inténtalo de nuevo.');
+                                        } finally {
+                                            setIsSubmittingRequest(false);
+                                        }
+                                    }} className="p-6 space-y-4">
+                                        <p className="text-sm text-gray-400 mb-4">
+                                            Rellena los campos que desees modificar. El administrador revisará tu solicitud.
+                                        </p>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-1">Nombre</label>
+                                            <input
+                                                type="text"
+                                                name="name"
+                                                defaultValue={student.name}
+                                                className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-1">Teléfono</label>
+                                            <input
+                                                type="tel"
+                                                name="phone"
+                                                defaultValue={student.phone || ''}
+                                                className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                                            <input
+                                                type="email"
+                                                name="email"
+                                                defaultValue={student.email || ''}
+                                                className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-1">Fecha de Nacimiento</label>
+                                            <input
+                                                type="date"
+                                                name="birthDate"
+                                                defaultValue={student.birthDate || ''}
+                                                className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-1">DNI</label>
+                                            <input
+                                                type="text"
+                                                name="dni"
+                                                defaultValue={student.dni || ''}
+                                                className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-purple-500 focus:border-purple-500"
+                                            />
+                                        </div>
+
+                                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowChangeRequestModal(false)}
+                                                className="bg-gray-600 text-gray-200 px-6 py-2.5 rounded-lg hover:bg-gray-500 transition-colors"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={isSubmittingRequest}
+                                                className="bg-purple-600 text-white px-8 py-2.5 rounded-lg hover:bg-purple-700 font-bold shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isSubmittingRequest ? 'Enviando...' : 'Enviar Solicitud'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Merchandise Store */}
                         <section>
                             <h3 className="text-xl font-bold text-white mb-4 flex items-center">
