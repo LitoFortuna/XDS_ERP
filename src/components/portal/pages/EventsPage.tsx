@@ -49,9 +49,35 @@ const EventsPage: React.FC<EventsPageProps> = ({ student, studentEvents, allClas
                         {studentEvents.map((event) => (
                             <div
                                 key={event.id}
-                                className="bg-gray-800 rounded-xl border border-gray-700 p-6 hover:border-purple-500/50 transition-colors"
+                                className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden hover:border-purple-500/50 transition-colors group"
                             >
-                                <div className="flex items-start justify-between mb-4">
+                                {/* Event Image */}
+                                {event.imageUrl && (
+                                    <div className="h-48 w-full bg-gray-900 relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent z-10 opacity-60"></div>
+                                        <img
+                                            src={event.imageUrl}
+                                            alt={event.name}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.style.display = 'none';
+                                                const parent = target.parentElement;
+                                                if (parent) {
+                                                    parent.innerHTML = `
+                                                        <div class="w-full h-full flex flex-col items-center justify-center text-gray-600 bg-gray-800/50">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                            </svg>
+                                                        </div>
+                                                    `;
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="p-6">
                                     <div className="flex-1">
                                         <h3 className="text-white font-bold text-lg mb-2">{event.name}</h3>
                                         <div className="space-y-2">
@@ -78,10 +104,10 @@ const EventsPage: React.FC<EventsPageProps> = ({ student, studentEvents, allClas
                                 </div>
 
                                 {event.description && (
-                                    <p className="text-gray-400 text-sm mb-4">{event.description}</p>
+                                    <p className="px-6 pb-4 text-gray-400 text-sm">{event.description}</p>
                                 )}
 
-                                <div className="flex items-center justify-between pt-4 border-t border-gray-700">
+                                <div className="px-6 pb-6 pt-4 border-t border-gray-700 flex items-center justify-between">
                                     <span className="text-gray-400 text-sm">Tus entradas</span>
                                     <span className="bg-gray-900/50 px-3 py-1 rounded-lg text-white font-bold">
                                         {event.ticketsPerStudent || 1}
@@ -118,19 +144,17 @@ const EventsPage: React.FC<EventsPageProps> = ({ student, studentEvents, allClas
                                             className="bg-gray-900/50 p-3 rounded-lg flex justify-between items-center"
                                         >
                                             <div>
-                                                <p className="text-white font-medium">{danceClass.name}</p>
-                                                <p className="text-sm text-gray-400">{danceClass.category}</p>
+                                                <p className="font-bold text-white">{danceClass.name}</p>
+                                                <p className="text-sm text-gray-400">{danceClass.startTime} - {danceClass.endTime}</p>
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-white font-mono text-sm">
-                                                    {danceClass.startTime} - {danceClass.endTime}
-                                                </p>
-                                            </div>
+                                            <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                                                {danceClass.room}
+                                            </span>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-gray-500 text-sm">No hay clases programadas</p>
+                                <p className="text-gray-500 text-sm italic">Sin clases este día</p>
                             )}
                         </div>
                     ))}
