@@ -1,6 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Reglas específicas para solicitudes de cambio de datos
+    match /changeRequests/{requestId} {
+      // Cualquiera puede CREAR solicitudes (los estudiantes las crean)
+      allow create: if true;
+      // Cualquiera puede LEER (para que los estudiantes vean sus solicitudes)
+      allow read: if true;
+      // Solo usuarios autenticados pueden ACTUALIZAR (admins aprueban/rechazan)
+      allow update, delete: if request.auth != null;
+    }
+    
     // Regla global:
     // - Cualquiera puede LEER (necesario para el Portal de Alumno)
     // - Solo Administradores autenticados pueden ESCRIBIR/MODIFICAR
