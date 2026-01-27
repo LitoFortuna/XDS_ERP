@@ -43,17 +43,56 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
         !progress.achievements.some(a => a.badgeId === badge.id)
     );
 
-    // Get current month stats
-    const currentMonth = new Date().toISOString().substring(0, 7);
-    const thisMonthStats = progress.monthlyStats[currentMonth] || { attended: 0, total: 0, percentage: 0 };
+    // Calculate stats from real-time attendanceRecords prop first, as fallback or override
+    // This ensures that if the query works, the UI reflects it immediately
+    const currentYearStr = new Date().getFullYear().toString();
+    const currentMonthStr = new Date().toISOString().substring(0, 7); // YYYY-MM
+
+    const realAttendanceCountYear = attendanceRecords.filter(r => r.date.startsWith(currentYearStr)).length;
+    const realAttendanceCountMonth = attendanceRecords.filter(r => r.date.startsWith(currentMonthStr)).length;
+
+    // Calculate streak client-side to be instant
+    const sortedDates = attendanceRecords.map(r => new Date(r.date).getTime()).sort((a, b) => b - a);
+    let clientStreak = 0;
+    if (sortedDates.length > 0) {
+        const today = new Date().setHours(0, 0, 0, 0);
+        const yesterday = today - 86400000;
+        const lastDate = new Date(sortedDates[0]).setHours(0, 0, 0, 0);
+
+        if (lastDate === today || lastDate === yesterday) {
+            clientStreak = 1;
+            for (let i = 0; i < sortedDates.length - 1; i++) {
+                const curr = new Date(sortedDates[i]).setHours(0, 0, 0, 0);
+                const prev = new Date(sortedDates[i + 1]).setHours(0, 0, 0, 0);
+                if (curr - prev === 86400000) clientStreak++;
+                else if (curr - prev > 86400000) break;
+            }
+        }
+    }
+
+    // Get current month stats (merge with real count)
+    const storedMonthStats = progress.monthlyStats[currentMonthStr] || { attended: 0, total: 0, percentage: 0 };
+    const thisMonthStats = {
+        ...storedMonthStats,
+        attended: Math.max(storedMonthStats.attended, realAttendanceCountMonth), // Use the higher value
+        percentage: storedMonthStats.total > 0 ? Math.round((Math.max(storedMonthStats.attended, realAttendanceCountMonth) / storedMonthStats.total) * 100) : 0
+    };
 
     // Calculate year stats
-    const yearStats = Object.entries(progress.monthlyStats)
-        .filter(([month]) => month.startsWith(new Date().getFullYear().toString()))
-        .reduce((acc, [, stats]) => ({
-            attended: acc.attended + stats.attended,
-            total: acc.total + stats.total
-        }), { attended: 0, total: 0 });
+    const yearStats = {
+        attended: Math.max(
+            realAttendanceCountYear,
+            Object.entries(progress.monthlyStats)
+                .filter(([month]) => month.startsWith(currentYearStr))
+                .reduce((acc, [, stats]) => acc + stats.attended, 0)
+        ),
+        total: Math.max(
+            Object.entries(progress.monthlyStats)
+                .filter(([month]) => month.startsWith(currentYearStr))
+                .reduce((acc, [, stats]) => acc + stats.total, 0),
+            realAttendanceCountYear // Ensure total is at least attendance
+        )
+    };
     const yearPercentage = yearStats.total > 0 ? Math.round((yearStats.attended / yearStats.total) * 100) : 0;
 
     return (
@@ -73,7 +112,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                     <div className="text-right">
                         <div className="flex items-center space-x-2 text-2xl mb-1">
                             <span>🔥</span>
-                            <span className="font-bold">{progress.currentStreak}</span>
+                            <span className="font-bold">{Math.max(progress.currentStreak, clientStreak)}</span>
                             <span className="text-sm text-purple-100">días</span>
                         </div>
                         <p className="text-xs text-purple-100">Récord: {progress.recordStreak} días</p>
