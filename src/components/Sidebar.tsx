@@ -65,9 +65,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
       >
         <div className="h-16 flex items-center justify-center border-b border-gray-700 relative">
           {!isCollapsed ? (
-            <h1 className="text-2xl font-bold text-white tracking-wider whitespace-nowrap overflow-hidden transition-all duration-300 px-4">Xen Dance Space</h1>
+            <div className="flex items-center space-x-3 px-4 transition-all duration-300">
+              <img src="/pwa-192x192.png" alt="XDS Logo" className="w-8 h-8 rounded-md shadow-sm" />
+              <h1 className="text-xl font-bold text-white tracking-wider whitespace-nowrap overflow-hidden">Xen Dance Space</h1>
+            </div>
           ) : (
-            <h1 className="text-xl font-bold text-white tracking-widest">XDS</h1>
+            <img src="/pwa-192x192.png" alt="XDS Logo" className="w-8 h-8 rounded-md shadow-sm" />
           )}
 
           <button

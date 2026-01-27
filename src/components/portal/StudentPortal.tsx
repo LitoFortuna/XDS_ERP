@@ -199,9 +199,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
             <header className="bg-gray-800 border-b border-gray-700 shadow-md sticky top-0 z-10">
                 <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center font-bold text-lg">
-                            {student.name.charAt(0)}
-                        </div>
+                        <img src="/pwa-192x192.png" alt="XDS Logo" className="w-10 h-10 rounded-full border border-purple-500 shadow-md object-cover" />
                         <div>
                             <h1 className="font-bold text-white text-lg leading-tight">{getPageTitle()}</h1>
                             <p className="text-xs text-gray-400">{student.name}</p>
