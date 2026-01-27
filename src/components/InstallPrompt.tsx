@@ -83,9 +83,9 @@ export const InstallPrompt: React.FC = () => {
                     <div className="flex-1">
                         <h3 className="font-bold text-white text-sm mb-1">Instalar en iPhone/iPad</h3>
                         <p className="text-gray-300 text-xs mb-2 leading-relaxed">
-                            1. Pulsa <strong>Compartir</strong> <span className="inline-block bg-gray-700 rounded p-0.5">📤</span> o Menú <span className="inline-block bg-gray-700 rounded p-0.5">•••</span>
+                            1. Pulsa <strong>...</strong> (abajo derecha) y luego <strong>Compartir</strong> <span className="inline-block bg-gray-700 rounded p-0.5">📤</span>
                             <br />
-                            2. Busca <strong>"Añadir a pantalla de inicio"</strong> <span className="inline-block bg-gray-700 rounded p-0.5">➕</span>
+                            2. Dale a <strong>Más...</strong> si no sale, y busca <strong>"Añadir a inicio"</strong> <span className="inline-block bg-gray-700 rounded p-0.5">➕</span>
                         </p>
                     </div>
                     <button
