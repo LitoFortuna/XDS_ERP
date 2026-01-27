@@ -18,18 +18,28 @@ const MainRouter: React.FC = () => {
     const [isLoadingStudent, setIsLoadingStudent] = useState(false);
 
     useEffect(() => {
-        // Check URL path to force mode
+        const hostname = window.location.hostname;
         const path = window.location.pathname;
-        if (path === '/portal' || path === '/portal/') {
+
+        // Domain-based routing logic
+        const isAlumniDomain = hostname.includes('alumni.xendance.space');
+        const isErpDomain = hostname.includes('erp.xendance.space');
+
+        if (isAlumniDomain) {
+            setMode('portal');
+        } else if (isErpDomain) {
+            setMode('erp');
+        } else if (path === '/portal' || path === '/portal/') {
+            // Fallback for current paths (especially for development or legacy links)
             setMode('portal');
         }
 
         // Check local storage for persistent student session
         const storedStudentId = localStorage.getItem('student_portal_id');
         if (storedStudentId) {
-            setMode('portal'); // Auto-switch to portal if session exists
+            // Force portal mode if we have a student session
+            setMode('portal');
             setIsLoadingStudent(true);
-            // Re-fetch student data to ensure valid session
             getDoc(doc(db, 'students', storedStudentId)).then(snap => {
                 if (snap.exists()) {
                     setCurrentStudent({ id: snap.id, ...snap.data() } as Student);
@@ -46,24 +56,26 @@ const MainRouter: React.FC = () => {
 
     const handleStudentLoginSuccess = (student: Student) => {
         setCurrentStudent(student);
-        // localStorage is already set inside StudentLogin
     };
 
     const handleStudentLogout = () => {
         localStorage.removeItem('student_portal_id');
         setCurrentStudent(null);
-        // Optional: Go back to ERP or stay in portal login? Stay in portal login usually.
         setMode('portal');
     };
 
     const switchToPortal = () => {
         setMode('portal');
-        window.history.pushState(null, '', '/portal');
+        if (!window.location.hostname.includes('alumni')) {
+            window.history.pushState(null, '', '/portal');
+        }
     };
 
     const switchToERP = () => {
         setMode('erp');
-        window.history.pushState(null, '', '/');
+        if (!window.location.hostname.includes('erp')) {
+            window.history.pushState(null, '', '/');
+        }
     };
 
     if (mode === 'portal') {
