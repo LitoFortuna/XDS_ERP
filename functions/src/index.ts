@@ -168,18 +168,15 @@ async function sendBirthdayEmail(email: string, name: string) {
     const mailOptions = {
         from: '"Xen Dance Space" <info@xendance.space>',
         to: email,
-        subject: '¡Feliz Cumpleaños! 🎂 Regalo dentro...',
+        subject: '¡Feliz Cumpleaños! 🎂',
         html: `
             <div style="font-family: sans-serif; text-align: center; color: #333;">
                 <h1 style="color: #6b21a8;">¡Feliz Cumpleaños, ${name.split(' ')[0]}! 🎉</h1>
                 <p>Desde Xen Dance Space queremos desearte un día lleno de ritmo y alegría.</p>
-                <div style="background-color: #f3e8ff; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                    <p style="font-weight: bold; margin: 0;">Tu Regalo:</p>
-                    <h2 style="color: #6b21a8; margin: 10px 0;">10% DTO</h2>
-                    <p style="margin: 0;">En tu próxima camiseta o sudadera oficial.</p>
-                    <small>Enséñale este email a tu profe en recepción.</small>
+                <p>Esperamos que disfrutes mucho de tu día y que sigamos compartiendo muchos más momentos de baile juntos.</p>
+                <div style="margin-top: 20px;">
+                    <p>¡Que el ritmo no pare! 💃🕺</p>
                 </div>
-                <p>¡Que el ritmo no pare!</p>
             </div>
         `
     };
