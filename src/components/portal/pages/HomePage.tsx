@@ -1,10 +1,11 @@
 import React from 'react';
-import { Student, DanceClass } from '../../../../types';
+import { Student, DanceClass, Payment } from '../../../../types';
 import { PortalPage } from '../BottomNavigation';
 
 interface HomePageProps {
     student: Student;
     upcomingClasses: DanceClass[];
+    payments: Payment[];
     currentStreak?: number;
     level?: number;
     levelName?: string;
@@ -15,6 +16,7 @@ interface HomePageProps {
 const HomePage: React.FC<HomePageProps> = ({
     student,
     upcomingClasses,
+    payments,
     currentStreak = 0,
     level = 1,
     levelName = 'Principiante',
@@ -26,6 +28,14 @@ const HomePage: React.FC<HomePageProps> = ({
             style: 'currency',
             currency: 'EUR',
         }).format(amount);
+    };
+
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
     };
 
     return (

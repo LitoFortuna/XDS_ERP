@@ -202,6 +202,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             <HomePage
                                 student={student}
                                 upcomingClasses={upcomingClasses}
+                                payments={payments}
                                 currentStreak={currentStreak}
                                 level={level}
                                 levelName={levelName}
@@ -219,7 +220,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                         {currentPage === 'profile' && (
                             <ProfilePage
                                 student={student}
-                                payments={payments}
+                                allClasses={classes}
                                 changeRequests={changeRequests}
                                 onRequestChange={handleRequestChange}
                             />

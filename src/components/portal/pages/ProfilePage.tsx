@@ -1,16 +1,16 @@
 import React from 'react';
-import { Student, Payment, ChangeRequest } from '../../../../types';
+import { Student, DanceClass, ChangeRequest } from '../../../../types';
 
 interface ProfilePageProps {
     student: Student;
-    payments: Payment[];
+    allClasses: DanceClass[];
     changeRequests: ChangeRequest[];
     onRequestChange: () => void;
 }
 
 const ProfilePage: React.FC<ProfilePageProps> = ({
     student,
-    payments,
+    allClasses,
     changeRequests,
     onRequestChange
 }) => {
@@ -96,10 +96,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                                     <p className="text-sm text-gray-400">{formatDate(request.requestDate)}</p>
                                     <span
                                         className={`px-2 py-1 rounded-full text-xs font-medium ${request.status === 'Aprobada'
-                                                ? 'bg-green-500/20 text-green-400'
-                                                : request.status === 'Rechazada'
-                                                    ? 'bg-red-500/20 text-red-400'
-                                                    : 'bg-yellow-500/20 text-yellow-400'
+                                            ? 'bg-green-500/20 text-green-400'
+                                            : request.status === 'Rechazada'
+                                                ? 'bg-red-500/20 text-red-400'
+                                                : 'bg-yellow-500/20 text-yellow-400'
                                             }`}
                                     >
                                         {request.status}
@@ -114,34 +114,46 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 </section>
             )}
 
-            {/* Payment History */}
+            {/* Enrolled Classes */}
             <section className="bg-gray-800 rounded-xl border border-gray-700 p-6">
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-                        <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
                     </svg>
-                    Historial de Pagos ({new Date().getFullYear()})
+                    Mis Clases
                 </h3>
-                {payments.length > 0 ? (
-                    <div className="space-y-2">
-                        {payments.map((payment) => (
+                {allClasses.filter(c => student.enrolledClassIds.includes(c.id)).length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {allClasses.filter(c => student.enrolledClassIds.includes(c.id)).map((danceClass) => (
                             <div
-                                key={payment.id}
-                                className="flex justify-between items-center bg-gray-900/50 p-3 rounded-lg"
+                                key={danceClass.id}
+                                className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50"
                             >
-                                <div>
-                                    <p className="text-white font-medium">{formatCurrency(payment.amount)}</p>
-                                    <p className="text-xs text-gray-400">{formatDate(payment.date)}</p>
+                                <div className="flex justify-between items-start mb-2">
+                                    <h4 className="font-bold text-white">{danceClass.name}</h4>
+                                    <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                                        {danceClass.days.join(', ')}
+                                    </span>
                                 </div>
-                                <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">
-                                    Pagado
-                                </span>
+                                <div className="text-sm text-gray-400 space-y-1">
+                                    <p className="flex items-center">
+                                        <span className="mr-2">🕒</span>
+                                        {danceClass.startTime} - {danceClass.endTime}
+                                    </p>
+                                    <p className="flex items-center">
+                                        <span className="mr-2">🏷️</span>
+                                        {danceClass.category}
+                                    </p>
+                                    <p className="flex items-center">
+                                        <span className="mr-2">👨‍🏫</span>
+                                        {danceClass.instructor}
+                                    </p>
+                                </div>
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <p className="text-gray-400 text-center py-4">No hay pagos registrados este año</p>
+                    <p className="text-gray-400 text-center py-4">No estás inscrito en ninguna clase</p>
                 )}
             </section>
         </div>

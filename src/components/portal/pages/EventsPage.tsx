@@ -85,8 +85,18 @@ const EventsPage: React.FC<EventsPageProps> = ({ student, studentEvents, allClas
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                                {formatDate(event.date)}
+                                                <span>{formatDate(event.date)}</span>
+                                                {event.time && (
+                                                    <>
+                                                        <span className="mx-2">•</span>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <span>{event.time}</span>
+                                                    </>
+                                                )}
                                             </div>
+
                                             {event.location && (
                                                 <div className="flex items-center text-sm text-gray-400">
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -96,6 +106,15 @@ const EventsPage: React.FC<EventsPageProps> = ({ student, studentEvents, allClas
                                                     {event.location}
                                                 </div>
                                             )}
+
+                                            <div className="flex items-center text-sm font-medium">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                </svg>
+                                                <span className={event.price === 0 ? "text-green-400 uppercase tracking-wider text-xs" : "text-gray-300"}>
+                                                    {event.price === 0 ? 'Entrada Gratuita' : `${event.price}€`}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                     <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm font-medium">
@@ -148,7 +167,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ student, studentEvents, allClas
                                                 <p className="text-sm text-gray-400">{danceClass.startTime} - {danceClass.endTime}</p>
                                             </div>
                                             <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
-                                                {danceClass.room}
+                                                {danceClass.category}
                                             </span>
                                         </div>
                                     ))}
