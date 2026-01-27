@@ -41,11 +41,12 @@ export async function getChangeRequestsByStudent(studentId: string): Promise<Cha
     try {
         const q = query(
             collection(db, 'changeRequests'),
-            where('studentId', '==', studentId),
-            orderBy('requestDate', 'desc')
+            where('studentId', '==', studentId)
         );
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChangeRequest));
+        const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChangeRequest));
+        // Sort in memory to avoid composite index requirement
+        return requests.sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     } catch (error) {
         console.error('[ChangeRequestService] Error getting student change requests:', error);
         throw error;
@@ -59,11 +60,12 @@ export async function getPendingChangeRequests(): Promise<ChangeRequest[]> {
     try {
         const q = query(
             collection(db, 'changeRequests'),
-            where('status', '==', 'Pendiente'),
-            orderBy('requestDate', 'desc')
+            where('status', '==', 'Pendiente')
         );
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChangeRequest));
+        const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChangeRequest));
+        // Sort in memory to avoid composite index requirement
+        return requests.sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
     } catch (error) {
         console.error('[ChangeRequestService] Error getting pending change requests:', error);
         throw error;
