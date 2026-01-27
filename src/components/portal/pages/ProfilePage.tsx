@@ -146,7 +146,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                                     </p>
                                     <p className="flex items-center">
                                         <span className="mr-2">👨‍🏫</span>
-                                        {danceClass.instructor}
+                                        {danceClass.instructorName}
                                     </p>
                                 </div>
                             </div>

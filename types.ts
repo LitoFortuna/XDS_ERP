@@ -45,6 +45,7 @@ export interface DanceClass {
   endTime: string; // HH:MM
   capacity: number;
   baseRate: number;
+  instructorName?: string; // Populated at runtime for display
 }
 
 

@@ -41,7 +41,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 console.log('[StudentPortal] Loading data for student:', student.name, student.id);
 
                 // Load all data in parallel
-                const [paymentsData, attendanceData, classesData, merchandiseData, eventsData, requestsData, progressData] = await Promise.all([
+                const results = await Promise.all([
                     // Payments
                     getDocs(query(collection(db, 'payments'), where('studentId', '==', student.id))).then(snap => {
                         const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Payment));
@@ -80,12 +80,38 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     getChangeRequestsByStudent(student.id),
 
                     // Progress data
-                    getStudentProgress(student.id)
+                    getStudentProgress(student.id),
+
+                    // Users (for instructor names)
+                    getDocs(collection(db, 'users'))
                 ]);
+
+                // Destructure results manually since we have mixed types (Data[] vs Snapshot)
+                const paymentsData = results[0] as Payment[];
+                const attendanceData = results[1] as AttendanceRecord[];
+                const classesData = results[2] as DanceClass[];
+                const merchandiseData = results[3] as MerchandiseItem[];
+                const eventsData = results[4] as DanceEvent[];
+                const requestsData = results[5] as ChangeRequest[];
+                const progressData = results[6] as StudentProgress;
+                const usersSnapshot = results[7] as any; // QuerySnapshot
+
+                // Create instructor map
+                const instructorMap = new Map();
+                usersSnapshot.docs.forEach((doc: any) => {
+                    const data = doc.data();
+                    instructorMap.set(doc.id, data.name || data.email);
+                });
+
+                // Enrich classes with instructor names
+                const enrichedClasses = classesData.map(c => ({
+                    ...c,
+                    instructorName: instructorMap.get(c.instructorId) || 'Sin Asignar'
+                }));
 
                 setPayments(paymentsData);
                 setAttendance(attendanceData);
-                setClasses(classesData);
+                setClasses(enrichedClasses);
                 setMerchandise(merchandiseData);
                 setEvents(eventsData);
                 setChangeRequests(requestsData);
