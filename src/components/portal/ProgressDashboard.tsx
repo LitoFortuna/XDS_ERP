@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { StudentProgress, Student } from '../../../types';
+import { StudentProgress, Student, DanceClass } from '../../../types';
 import { getStudentProgress, getLevelInfo, getProgressToNextLevel, AVAILABLE_BADGES, LEVELS } from '../../../services/progressService';
 
 interface ProgressDashboardProps {
     student: Student;
     attendanceRecords: any[];
+    allClasses: DanceClass[];
 }
 
-const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendanceRecords }) => {
+const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendanceRecords, allClasses }) => {
     const [progress, setProgress] = useState<StudentProgress | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -34,10 +35,20 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
         );
     }
 
-    const levelInfo = getLevelInfo(progress.points);
-    const levelProgress = getProgressToNextLevel(progress.points);
     // Calculate total hours (assuming 1 hour per class for now)
     const clientTotalHours = attendanceRecords.length;
+
+    // Calculate estimated points client-side (Base 10 pts per class)
+    // This provides instant feedback even if the backend background job hasn't finished
+    const clientPointsBase = attendanceRecords.length * 10;
+    // Add badge points if we unlock them client-side
+    // (Simple approximation: First Class = 50pts, others vary. Let's just assume base + 50 if attended > 0 for First Class)
+    const clientPointsWithBadges = clientPointsBase + (attendanceRecords.length > 0 ? 50 : 0);
+
+    const displayPoints = Math.max(progress.points, clientPointsWithBadges);
+
+    const levelInfo = getLevelInfo(displayPoints);
+    const levelProgress = getProgressToNextLevel(displayPoints);
 
     // Merge badges logic: If we have attendance but missing 'first_class' badge, show it as unlocked
     let unlockedBadges = AVAILABLE_BADGES.filter(badge =>
@@ -62,10 +73,10 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
     // Calculate stats from real-time attendanceRecords prop first, as fallback or override
     // This ensures that if the query works, the UI reflects it immediately
     const currentYearStr = new Date().getFullYear().toString();
-    const currentMonthStr = new Date().toISOString().substring(0, 7); // YYYY-MM
+    const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
 
     const realAttendanceCountYear = attendanceRecords.filter(r => r.date.startsWith(currentYearStr)).length;
-    const realAttendanceCountMonth = attendanceRecords.filter(r => r.date.startsWith(currentMonthStr)).length;
+    const realAttendanceCountMonth = attendanceRecords.filter(r => r.date.startsWith(currentMonth)).length;
 
     // Calculate streak client-side to be instant
     const sortedDates = attendanceRecords.map(r => new Date(r.date).getTime()).sort((a, b) => b - a);
@@ -87,7 +98,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
     }
 
     // Get current month stats (merge with real count)
-    const storedMonthStats = progress.monthlyStats[currentMonthStr] || { attended: 0, total: 0, percentage: 0 };
+    const storedMonthStats = progress.monthlyStats[currentMonth] || { attended: 0, total: 0, percentage: 0 };
     const thisMonthStats = {
         ...storedMonthStats,
         attended: Math.max(storedMonthStats.attended, realAttendanceCountMonth), // Use the higher value
@@ -157,7 +168,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                         ></div>
                     </div>
                     <p className="text-xs text-purple-100 mt-1">
-                        {progress.points} pts • {levelProgress.next - levelProgress.current} pts para siguiente nivel
+                        {displayPoints} pts • {levelProgress.next - levelProgress.current} pts para siguiente nivel
                     </p>
                 </div>
             </div>
@@ -287,12 +298,54 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                 )}
             </div>
 
-            {/* Monthly Chart Placeholder - Will add actual chart in next iteration */}
+            {/* Recent Attendance History */}
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <h3 className="text-xl font-bold text-white mb-4">Asistencia Mensual</h3>
-                <div className="text-center py-12 text-gray-500">
-                    <p className="text-sm">Gráfico de asistencia mensual (próximamente)</p>
-                </div>
+                <h3 className="text-xl font-bold text-white mb-4">Historial de Asistencia</h3>
+
+                {attendanceRecords.length > 0 ? (
+                    <div className="space-y-3">
+                        {attendanceRecords.slice(0, 10).map((record) => {
+                            const classInfo = allClasses.find(c => c.id === record.classId);
+                            const date = new Date(record.date);
+                            const isToday = new Date().toDateString() === date.toDateString();
+
+                            return (
+                                <div key={record.id} className="bg-gray-700/50 rounded-lg p-4 flex items-center justify-between border border-gray-600 hover:border-purple-500 transition-colors">
+                                    <div className="flex items-center space-x-4">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${isToday ? 'bg-green-500/20 text-green-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                            {isToday ? '✅' : '📅'}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold text-white">
+                                                {classInfo?.name || 'Clase'}
+                                            </h4>
+                                            <div className="flex items-center text-sm text-gray-400 space-x-3">
+                                                <span>{date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                                                <span>•</span>
+                                                <span>{classInfo?.startTime || 'Hora no disponible'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Asistido
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {attendanceRecords.length > 10 && (
+                            <div className="text-center pt-2">
+                                <span className="text-sm text-gray-500">Mostrando últimas 10 asistencias</span>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-center py-12 text-gray-500 bg-gray-700/30 rounded-lg">
+                        <p className="text-4xl mb-3">📅</p>
+                        <p>No hay registros de asistencia recientes</p>
+                    </div>
+                )}
             </div>
         </div>
     );

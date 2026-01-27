@@ -207,6 +207,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             <ProgressPage
                                 student={student}
                                 attendanceRecords={attendance}
+                                allClasses={classes}
                             />
                         )}
                         {currentPage === 'profile' && (
