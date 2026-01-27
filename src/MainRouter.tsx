@@ -7,6 +7,8 @@ import { Student } from '../types';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
 
+import { InstallPrompt } from './components/InstallPrompt';
+
 const MainRouter: React.FC = () => {
     // Simple routing state
     // 'erp': Admin interface
@@ -70,11 +72,17 @@ const MainRouter: React.FC = () => {
         }
 
         if (currentStudent) {
-            return <StudentPortal student={currentStudent} onLogout={handleStudentLogout} />;
+            return (
+                <>
+                    <InstallPrompt />
+                    <StudentPortal student={currentStudent} onLogout={handleStudentLogout} />
+                </>
+            );
         }
 
         return (
             <div>
+                <InstallPrompt />
                 <StudentLogin onLoginSuccess={handleStudentLoginSuccess} />
                 <div className="fixed bottom-4 right-4">
                     <button
@@ -91,7 +99,12 @@ const MainRouter: React.FC = () => {
     // Pass a prop to Login to allow switching to portal?
     // App -> Login. Since Login is inside App (conditionally), we might need to modify Login to have "Are you a student?" link.
     // For now, let's render App, and we will modify Login.tsx to include a link to ?mode=student.
-    return <App />;
+    return (
+        <>
+            <InstallPrompt />
+            <App />
+        </>
+    );
 };
 
 export default MainRouter;
