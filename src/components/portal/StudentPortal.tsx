@@ -194,6 +194,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                                 level={level}
                                 levelName={levelName}
                                 levelIcon={levelIcon}
+                                onNavigate={setCurrentPage}
                             />
                         )}
                         {currentPage === 'progress' && (

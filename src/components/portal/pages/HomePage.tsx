@@ -1,5 +1,6 @@
 import React from 'react';
 import { Student, DanceClass } from '../../../../types';
+import { PortalPage } from '../BottomNavigation';
 
 interface HomePageProps {
     student: Student;
@@ -8,6 +9,7 @@ interface HomePageProps {
     level?: number;
     levelName?: string;
     levelIcon?: string;
+    onNavigate?: (page: PortalPage) => void;
 }
 
 const HomePage: React.FC<HomePageProps> = ({
@@ -16,7 +18,8 @@ const HomePage: React.FC<HomePageProps> = ({
     currentStreak = 0,
     level = 1,
     levelName = 'Principiante',
-    levelIcon = '🌱'
+    levelIcon = '🌱',
+    onNavigate
 }) => {
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-ES', {
@@ -73,9 +76,9 @@ const HomePage: React.FC<HomePageProps> = ({
                 </h3>
                 {upcomingClasses.length > 0 ? (
                     <div className="space-y-3">
-                        {upcomingClasses.slice(0, 4).map((danceClass, index) => (
+                        {upcomingClasses.slice(0, 4).map((danceClass) => (
                             <div
-                                key={index}
+                                key={danceClass.id}
                                 className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50 hover:border-purple-500/50 transition-colors"
                             >
                                 <div className="flex justify-between items-start">
@@ -105,11 +108,17 @@ const HomePage: React.FC<HomePageProps> = ({
 
             {/* Quick Actions */}
             <div className="grid grid-cols-2 gap-4">
-                <button className="bg-gray-800 border border-gray-700 rounded-xl p-4 hover:border-purple-500/50 transition-colors">
+                <button
+                    onClick={() => onNavigate?.('progress')}
+                    className="bg-gray-800 border border-gray-700 rounded-xl p-4 hover:border-purple-500/50 transition-colors active:scale-95"
+                >
                     <div className="text-3xl mb-2">📊</div>
                     <p className="text-white text-sm font-medium">Ver Progreso</p>
                 </button>
-                <button className="bg-gray-800 border border-gray-700 rounded-xl p-4 hover:border-purple-500/50 transition-colors">
+                <button
+                    onClick={() => onNavigate?.('store')}
+                    className="bg-gray-800 border border-gray-700 rounded-xl p-4 hover:border-purple-500/50 transition-colors active:scale-95"
+                >
                     <div className="text-3xl mb-2">🛍️</div>
                     <p className="text-white text-sm font-medium">Tienda</p>
                 </button>

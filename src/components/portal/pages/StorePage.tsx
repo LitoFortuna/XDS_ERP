@@ -6,12 +6,12 @@ interface StorePageProps {
 }
 
 const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
-    // Group merchandise by baseName
+    // Group merchandise by name (base product name)
     const groupedMerchandise = merchandise.reduce((acc, item) => {
-        const key = item.baseName;
+        const key = item.name;
         if (!acc[key]) {
             acc[key] = {
-                baseName: item.baseName,
+                name: item.name,
                 category: item.category,
                 imageUrl: item.imageUrl,
                 variants: [],
@@ -19,7 +19,7 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
         }
         acc[key].variants.push(item);
         return acc;
-    }, {} as Record<string, { baseName: string; category: string; imageUrl?: string; variants: MerchandiseItem[] }>);
+    }, {} as Record<string, { name: string; category: string; imageUrl?: string; variants: MerchandiseItem[] }>);
 
     const products = Object.values(groupedMerchandise);
 
@@ -30,8 +30,8 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
         }).format(amount);
     };
 
-    const handleRequestProduct = (product: { baseName: string; variants: MerchandiseItem[] }) => {
-        const message = `Hola! Me interesa el producto: ${product.baseName}`;
+    const handleRequestProduct = (product: { name: string; variants: MerchandiseItem[] }) => {
+        const message = `Hola! Me interesa el producto: ${product.name}`;
         const whatsappUrl = `https://wa.me/34637920943?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
     };
@@ -50,14 +50,14 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
 
             {products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {products.map((product, index) => {
-                        const minPrice = Math.min(...product.variants.map((v) => v.price));
-                        const maxPrice = Math.max(...product.variants.map((v) => v.price));
+                    {products.map((product: { name: string; category: string; imageUrl?: string; variants: MerchandiseItem[] }) => {
+                        const minPrice = Math.min(...product.variants.map((v) => v.salePrice));
+                        const maxPrice = Math.max(...product.variants.map((v) => v.salePrice));
                         const totalStock = product.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
 
                         return (
                             <div
-                                key={index}
+                                key={product.name}
                                 className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden hover:border-purple-500/50 transition-all duration-300 group"
                             >
                                 {/* Image */}
@@ -65,7 +65,7 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
                                     <div className="aspect-square bg-gray-900 overflow-hidden">
                                         <img
                                             src={product.imageUrl}
-                                            alt={product.baseName}
+                                            alt={product.name}
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                         />
                                     </div>
@@ -81,7 +81,7 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
                                 <div className="p-4">
                                     <div className="flex items-start justify-between mb-2">
                                         <div>
-                                            <h3 className="text-white font-bold text-lg mb-1">{product.baseName}</h3>
+                                            <h3 className="text-white font-bold text-lg mb-1">{product.name}</h3>
                                             <p className="text-gray-400 text-sm capitalize">{product.category}</p>
                                         </div>
                                         <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full text-xs">
@@ -105,9 +105,9 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
                                         <div className="mb-4">
                                             <p className="text-xs text-gray-400 mb-2">{product.variants.length} variantes disponibles</p>
                                             <div className="flex flex-wrap gap-1">
-                                                {product.variants.slice(0, 4).map((variant, vIndex) => (
-                                                    <span key={vIndex} className="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">
-                                                        {variant.variant}
+                                                {product.variants.slice(0, 4).map((variant) => (
+                                                    <span key={variant.id} className="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">
+                                                        {variant.size || 'S/T'}
                                                     </span>
                                                 ))}
                                                 {product.variants.length > 4 && (
