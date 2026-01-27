@@ -82,8 +82,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     // Progress data
                     getStudentProgress(student.id),
 
-                    // Users (for instructor names)
-                    getDocs(collection(db, 'users'))
+                    // Instructors (for name resolution)
+                    getDocs(collection(db, 'instructors'))
                 ]);
 
                 // Destructure results manually since we have mixed types (Data[] vs Snapshot)
@@ -94,11 +94,11 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 const eventsData = results[4] as DanceEvent[];
                 const requestsData = results[5] as ChangeRequest[];
                 const progressData = results[6] as StudentProgress;
-                const usersSnapshot = results[7] as any; // QuerySnapshot
+                const instructorsSnapshot = results[7] as any; // QuerySnapshot
 
                 // Create instructor map
                 const instructorMap = new Map();
-                usersSnapshot.docs.forEach((doc: any) => {
+                instructorsSnapshot.docs.forEach((doc: any) => {
                     const data = doc.data();
                     instructorMap.set(doc.id, data.name || data.email);
                 });
