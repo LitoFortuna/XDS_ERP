@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MerchandiseItem } from '../../../../types';
 
 interface StorePageProps {
@@ -9,6 +9,9 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
     // Debug logging
     console.log('[StorePage] Received merchandise items:', merchandise);
     console.log('[StorePage] Count:', merchandise.length);
+
+    // State for selected sizes per product
+    const [selectedSizes, setSelectedSizes] = useState<{ [productName: string]: string }>({});
 
     // Group merchandise by name (base product name)
     const groupedMerchandise = merchandise.reduce((acc, item) => {
@@ -36,9 +39,22 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
     };
 
     const handleRequestProduct = (product: { name: string; variants: MerchandiseItem[] }) => {
-        const message = `Hola! Me interesa el producto: ${product.name}`;
+        const selectedSize = selectedSizes[product.name];
+        let message = `Hola! Me interesa el producto: ${product.name}`;
+
+        if (selectedSize) {
+            message += ` - Talla: ${selectedSize}`;
+        }
+
         const whatsappUrl = `https://wa.me/34637920943?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
+    };
+
+    const handleSizeChange = (productName: string, size: string) => {
+        setSelectedSizes(prev => ({
+            ...prev,
+            [productName]: size
+        }));
     };
 
     return (
@@ -114,8 +130,8 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
                                         <div className="flex items-start justify-between mb-2">
                                             <h3 className="text-white font-bold text-xl leading-tight flex-1 mr-2">{product.name}</h3>
                                             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${lowStock
-                                                    ? 'bg-red-500/20 text-red-300 border border-red-500/30'
-                                                    : 'bg-green-500/20 text-green-300 border border-green-500/30'
+                                                ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                                : 'bg-green-500/20 text-green-300 border border-green-500/30'
                                                 }`}>
                                                 {totalStock}
                                             </span>
@@ -137,25 +153,29 @@ const StorePage: React.FC<StorePageProps> = ({ merchandise }) => {
                                         )}
                                     </div>
 
-                                    {/* Variants */}
+                                    {/* Size Selector */}
                                     {product.variants.length > 1 && (
                                         <div className="mb-5">
-                                            <p className="text-xs text-gray-400 mb-2 font-medium">{product.variants.length} tallas disponibles</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {product.variants.slice(0, 5).map((variant) => (
-                                                    <span
+                                            <label htmlFor={`size-${product.name}`} className="block text-xs text-gray-400 mb-2 font-medium">
+                                                Selecciona tu talla
+                                            </label>
+                                            <select
+                                                id={`size-${product.name}`}
+                                                value={selectedSizes[product.name] || ''}
+                                                onChange={(e) => handleSizeChange(product.name, e.target.value)}
+                                                className="w-full bg-gray-700/50 border border-gray-600 text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-gray-600/50 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                            >
+                                                <option value="" className="bg-gray-800">Elige una talla...</option>
+                                                {product.variants.map((variant) => (
+                                                    <option
                                                         key={variant.id}
-                                                        className="bg-gray-700/50 border border-gray-600 text-gray-300 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-600/50 hover:border-gray-500 transition-colors"
+                                                        value={variant.size || 'S/T'}
+                                                        className="bg-gray-800"
                                                     >
-                                                        {variant.size || 'S/T'}
-                                                    </span>
+                                                        {variant.size || 'S/T'} {variant.stock && variant.stock <= 3 ? `(Solo ${variant.stock} disponibles)` : ''}
+                                                    </option>
                                                 ))}
-                                                {product.variants.length > 5 && (
-                                                    <span className="text-gray-400 text-xs px-3 py-1.5 font-medium">
-                                                        +{product.variants.length - 5}
-                                                    </span>
-                                                )}
-                                            </div>
+                                            </select>
                                         </div>
                                     )}
 
