@@ -27,11 +27,20 @@ const MainRouter: React.FC = () => {
 
         if (isAlumniDomain) {
             setMode('portal');
+            document.title = 'Portal Alumnos | Xen Dance Space';
+            updateMetaTag('apple-mobile-web-app-title', 'XDS Alumnos');
         } else if (isErpDomain) {
             setMode('erp');
+            document.title = 'ERP Admin | Xen Dance Space';
+            updateMetaTag('apple-mobile-web-app-title', 'XDS Admin');
         } else if (path === '/portal' || path === '/portal/') {
             // Fallback for current paths (especially for development or legacy links)
             setMode('portal');
+            document.title = 'Portal Alumnos | Xen Dance Space';
+            updateMetaTag('apple-mobile-web-app-title', 'XDS Alumno');
+        } else {
+            document.title = 'Xen Dance Space';
+            updateMetaTag('apple-mobile-web-app-title', 'Xen Dance');
         }
 
         // Check local storage for persistent student session
@@ -135,5 +144,16 @@ const MainRouter: React.FC = () => {
         </>
     );
 };
+
+// Helper function to update meta tags dynamically
+function updateMetaTag(name: string, content: string) {
+    let meta = document.querySelector(`meta[name="${name}"]`);
+    if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', name);
+        document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', content);
+}
 
 export default MainRouter;

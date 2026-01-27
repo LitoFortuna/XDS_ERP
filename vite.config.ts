@@ -17,8 +17,8 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
-          name: 'Xen Dance Space ERP',
-          short_name: 'XDS ERP',
+          name: 'Xen Dance Space',
+          short_name: 'XDS',
           description: 'Portal del alumno y gestión de Xen Dance Space',
           theme_color: '#581c87', // Purple 900
           background_color: '#111827', // Gray 900
