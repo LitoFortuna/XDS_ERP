@@ -162,6 +162,7 @@ export enum View {
   DATA_MANAGEMENT = 'DATA_MANAGEMENT',
   ATTENDANCE = 'ATTENDANCE',
   EVENTS = 'EVENTS',
+  CHANGE_REQUESTS = 'CHANGE_REQUESTS',
 }
 
 export type UserRole = 'SuperAdmin' | 'Admin' | 'Editor' | 'Instructor' | 'Student';

@@ -35,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
     { view: View.INTERACTIVE_SCHEDULE, label: 'Horario', icon: CalendarIcon },
     { view: View.NUPTIAL_DANCES, label: 'Bailes Nupciales', icon: HeartIcon },
     { view: View.EVENTS, label: 'Eventos', icon: StarIcon },
+    { view: View.CHANGE_REQUESTS, label: 'Solicitudes', icon: DocumentTextIcon },
     { view: View.BILLING, label: 'Facturación', icon: CreditCardIcon },
     { view: View.QUARTERLY_INVOICING, label: 'Facturas Trim.', icon: DocumentTextIcon },
     { view: View.MERCHANDISING, label: 'Merchandising', icon: ShoppingBagIcon },
@@ -99,8 +100,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
                   onClick={() => handleNavItemClick(item.view)}
                   title={isCollapsed ? item.label : ''}
                   className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'px-4'} py-2.5 my-1 rounded-lg text-sm font-semibold transition-all duration-150 ${currentView === item.view
-                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50'
-                      : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50'
+                    : 'text-gray-400 hover:bg-gray-700 hover:text-white'
                     }`}
                 >
                   <item.icon className={`w-5 h-5 flex-shrink-0 ${currentView === item.view ? 'text-white' : 'text-gray-500'}`} />

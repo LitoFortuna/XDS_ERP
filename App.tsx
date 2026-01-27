@@ -32,6 +32,7 @@ const Merchandising = lazy(() => import('./src/components/Merchandising'));
 const QuarterlyInvoicing = lazy(() => import('./src/components/QuarterlyInvoicing'));
 const Attendance = lazy(() => import('./src/components/Attendance'));
 const EventManagement = lazy(() => import('./src/components/EventManagement'));
+const ChangeRequestManagement = lazy(() => import('./src/components/ChangeRequestManagement'));
 
 const Loader = () => (
     <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin"></div>
@@ -256,6 +257,10 @@ const App: React.FC = () => {
                     addEvent={actions.addEvent}
                     updateEvent={actions.updateEvent}
                     deleteEvent={actions.deleteEvent}
+                />;
+            case View.CHANGE_REQUESTS:
+                return <ChangeRequestManagement
+                    students={rqStudents}
                 />;
             case View.DATA_MANAGEMENT:
                 return <DataManagement
