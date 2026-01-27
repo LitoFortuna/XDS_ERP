@@ -116,23 +116,6 @@ const HomePage: React.FC<HomePageProps> = ({
                 )}
             </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-4">
-                <button
-                    onClick={() => onNavigate?.('progress')}
-                    className="bg-gray-800 border border-gray-700 rounded-xl p-4 hover:border-purple-500/50 transition-colors active:scale-95"
-                >
-                    <div className="text-3xl mb-2">📊</div>
-                    <p className="text-white text-sm font-medium">Ver Progreso</p>
-                </button>
-                <button
-                    onClick={() => onNavigate?.('store')}
-                    className="bg-gray-800 border border-gray-700 rounded-xl p-4 hover:border-purple-500/50 transition-colors active:scale-95"
-                >
-                    <div className="text-3xl mb-2">🛍️</div>
-                    <p className="text-white text-sm font-medium">Tienda</p>
-                </button>
-            </div>
             {/* Payment History */}
             <section className="bg-gray-800 rounded-xl border border-gray-700 p-6">
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center">
