@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem } from '../../../types';
+import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem, DanceEvent } from '../../../types';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
@@ -14,6 +14,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [classes, setClasses] = useState<DanceClass[]>([]);
     const [merchandise, setMerchandise] = useState<MerchandiseItem[]>([]);
+    const [events, setEvents] = useState<DanceEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -77,6 +78,18 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     console.log('[StudentPortal] Attendance records loaded (current year):', currentYearRecords.length);
                     setAttendance(currentYearRecords.slice(0, 50)); // Limitar a 50 registros
                 }
+
+                // 4. Cargar Eventos donde el estudiante participa
+                const eventsSnap = await getDocs(collection(db, 'events'));
+                const allEvents = eventsSnap.docs.map(d => ({ id: d.id, ...d.data() } as DanceEvent));
+                // Filtrar eventos donde el estudiante es participante
+                const studentEvents = allEvents.filter(event =>
+                    event.participants?.some(p => p.studentId === student.id)
+                );
+                // Ordenar por fecha (próximos primero)
+                studentEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                console.log('[StudentPortal] Student events loaded:', studentEvents.length);
+                setEvents(studentEvents);
 
             } catch (error) {
                 console.error("[StudentPortal] Error loading portal data:", error);
@@ -304,6 +317,105 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             </div>
                         </section>
 
+                        {/* My Events Section */}
+                        <section>
+                            <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-fuchsia-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                                🎭 Mis Eventos
+                            </h3>
+                            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-sm">
+                                {events.length > 0 ? (
+                                    <div className="divide-y divide-gray-700">
+                                        {events.map(event => {
+                                            const participant = event.participants.find(p => p.studentId === student.id);
+                                            const ticketCount = participant?.ticketCount || 0;
+                                            const getTypeColor = (type: string) => {
+                                                switch (type) {
+                                                    case 'Competición': return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+                                                    case 'Exhibición': return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                                                    case 'Taller': return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+                                                    default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+                                                }
+                                            };
+                                            return (
+                                                <div key={event.id} className="p-4 hover:bg-gray-750/50 transition-colors">
+                                                    <div className="flex gap-4">
+                                                        {/* Event Image */}
+                                                        {event.imageUrl && (
+                                                            <div className="w-20 h-28 rounded-lg overflow-hidden border border-gray-700 shrink-0">
+                                                                <img
+                                                                    src={event.imageUrl}
+                                                                    alt={event.name}
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        {/* Event Details */}
+                                                        <div className="flex-grow">
+                                                            <div className="flex items-start justify-between mb-2">
+                                                                <div>
+                                                                    <h4 className="font-bold text-white text-lg leading-tight">{event.name}</h4>
+                                                                    <span className={`inline-block mt-1 px-2 py-0.5 rounded border text-[10px] uppercase font-bold tracking-wider ${getTypeColor(event.type)}`}>
+                                                                        {event.type}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="space-y-2 text-sm">
+                                                                {/* Date & Time */}
+                                                                <div className="flex items-center text-gray-400">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                                                                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                                                    </svg>
+                                                                    <span className="text-white font-medium">
+                                                                        {formatDate(event.date)} · {event.time}
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Location */}
+                                                                <div className="flex items-center text-gray-400">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                                                                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                                                    </svg>
+                                                                    <span className="text-white font-medium">{event.location}</span>
+                                                                </div>
+
+                                                                {/* Tickets */}
+                                                                <div className="flex items-center text-gray-400">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                                                                        <path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 100 4v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2a2 2 0 100-4V6z" />
+                                                                    </svg>
+                                                                    <span className="text-white font-medium">
+                                                                        {ticketCount} {ticketCount === 1 ? 'entrada' : 'entradas'}
+                                                                    </span>
+                                                                    <span className="mx-2 text-gray-600">•</span>
+                                                                    <span className="text-green-400 font-bold">
+                                                                        {formatCurrency(event.price * ticketCount)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Notes */}
+                                                            {event.notes && (
+                                                                <div className="mt-3 p-2 bg-gray-900/60 rounded-lg border border-gray-700">
+                                                                    <p className="text-xs text-gray-400 italic leading-relaxed">{event.notes}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <p className="p-6 text-center text-gray-500 italic">No estás inscrito en ningún evento próximo.</p>
+                                )}
+                            </div>
+                        </section>
+
                         {/* Upcoming Classes - Next 7 Days */}
                         <section>
                             <h3 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -350,7 +462,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
 
 
-                        
+
 
                         {/* Recent Payments */}
                         <section>
