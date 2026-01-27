@@ -36,12 +36,28 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
 
     const levelInfo = getLevelInfo(progress.points);
     const levelProgress = getProgressToNextLevel(progress.points);
-    const unlockedBadges = AVAILABLE_BADGES.filter(badge =>
+    // Calculate total hours (assuming 1 hour per class for now)
+    const clientTotalHours = attendanceRecords.length;
+
+    // Merge badges logic: If we have attendance but missing 'first_class' badge, show it as unlocked
+    let unlockedBadges = AVAILABLE_BADGES.filter(badge =>
         progress.achievements.some(a => a.badgeId === badge.id)
     );
-    const lockedBadges = AVAILABLE_BADGES.filter(badge =>
+    let lockedBadges = AVAILABLE_BADGES.filter(badge =>
         !progress.achievements.some(a => a.badgeId === badge.id)
     );
+
+    if (attendanceRecords.length > 0) {
+        // Check if first_class is already unlocked logic
+        const hasFirstClass = unlockedBadges.some(b => b.id === 'first_class');
+        if (!hasFirstClass) {
+            const firstClassBadge = AVAILABLE_BADGES.find(b => b.id === 'first_class');
+            if (firstClassBadge) {
+                unlockedBadges = [firstClassBadge, ...unlockedBadges];
+                lockedBadges = lockedBadges.filter(b => b.id !== 'first_class');
+            }
+        }
+    }
 
     // Calculate stats from real-time attendanceRecords prop first, as fallback or override
     // This ensures that if the query works, the UI reflects it immediately
@@ -79,18 +95,27 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
     };
 
     // Calculate year stats
+    // Note: progress.monthlyStats values are objects { attended: number, total: number, ... }
+    const monthlyStatsEntries = Object.entries(progress.monthlyStats);
+
+    // Sum up attended from stats
+    const statsAttendedSum = monthlyStatsEntries
+        .filter(([month]) => month.startsWith(currentYearStr))
+        .reduce((acc, [, stats]) => acc + (stats as any).attended, 0); // specific casting or typed properly in types.ts
+
+    // Sum up total from stats
+    const statsTotalSum = monthlyStatsEntries
+        .filter(([month]) => month.startsWith(currentYearStr))
+        .reduce((acc, [, stats]) => acc + (stats as any).total, 0);
+
     const yearStats = {
         attended: Math.max(
             realAttendanceCountYear,
-            Object.entries(progress.monthlyStats)
-                .filter(([month]) => month.startsWith(currentYearStr))
-                .reduce((acc, [, stats]) => acc + stats.attended, 0)
+            statsAttendedSum
         ),
         total: Math.max(
-            Object.entries(progress.monthlyStats)
-                .filter(([month]) => month.startsWith(currentYearStr))
-                .reduce((acc, [, stats]) => acc + stats.total, 0),
-            realAttendanceCountYear // Ensure total is at least attendance
+            statsTotalSum,
+            realAttendanceCountYear // Ensure total is at least equal to attended
         )
     };
     const yearPercentage = yearStats.total > 0 ? Math.round((yearStats.attended / yearStats.total) * 100) : 0;
@@ -146,11 +171,11 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                         <span className="text-2xl">📅</span>
                     </div>
                     <div className="text-2xl font-bold text-white mb-1">
-                        {thisMonthStats.attended}/{thisMonthStats.total}
+                        {thisMonthStats.attended}/{Math.max(thisMonthStats.total, thisMonthStats.attended)}
                     </div>
                     <div className="flex items-center">
                         <span className={`text-lg font-bold ${thisMonthStats.percentage >= 85 ? 'text-green-400' : thisMonthStats.percentage >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>
-                            {thisMonthStats.percentage}%
+                            {thisMonthStats.attended > 0 && thisMonthStats.total === 0 ? '100' : thisMonthStats.percentage}%
                         </span>
                         <span className="text-xs text-gray-500 ml-2">asistencia</span>
                     </div>
@@ -177,7 +202,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                         <span className="text-2xl">🎯</span>
                     </div>
                     <div className="text-2xl font-bold text-white mb-1">
-                        {progress.totalClasses * 1.5}h
+                        {Math.max(progress.totalHours, clientTotalHours)}h
                     </div>
                     <div className="text-xs text-gray-500">
                         desde {new Date(student.enrollmentDate).getFullYear()}
