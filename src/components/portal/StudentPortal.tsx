@@ -50,8 +50,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                     }),
 
-                    // Attendance
-                    getDocs(query(collection(db, 'attendance'), where('studentId', '==', student.id))).then(snap =>
+                    // Attendance records - searching in presentStudentIds array
+                    getDocs(query(collection(db, 'attendance'), where('presentStudentIds', 'array-contains', student.id))).then(snap =>
                         snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord))
                             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                     ),
@@ -66,11 +66,15 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                         snap.docs.map(d => ({ id: d.id, ...d.data() } as MerchandiseItem))
                     ),
 
-                    // Events
-                    getDocs(query(collection(db, 'events'), where('studentIds', 'array-contains', student.id))).then(snap =>
-                        snap.docs.map(d => ({ id: d.id, ...d.data() } as DanceEvent))
-                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                    ),
+                    // Events - fetch all and filter in memory to handle legacy data without 'studentIds'
+                    getDocs(collection(db, 'events')).then(snap => {
+                        const allEvents = snap.docs.map(d => ({ id: d.id, ...d.data() } as DanceEvent));
+                        return allEvents.filter(event =>
+                            // Check both new array field and old participants array
+                            (event.studentIds && event.studentIds.includes(student.id)) ||
+                            (event.participants && event.participants.some(p => p.studentId === student.id))
+                        ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                    }),
 
                     // Change requests
                     getChangeRequestsByStudent(student.id),
