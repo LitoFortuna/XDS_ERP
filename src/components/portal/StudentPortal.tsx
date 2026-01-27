@@ -92,7 +92,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
                 // Set progress summary for HomePage
                 setCurrentStreak(progressData.currentStreak);
-                const levelInfo = getLevelInfo(progressData.points);
+
+                // Calculate client-side points to ensure instant feedback
+                const clientPointsBase = attendanceData.length * 10;
+                const clientPointsWithBadges = clientPointsBase + (attendanceData.length > 0 ? 50 : 0);
+                const displayPoints = Math.max(progressData.points, clientPointsWithBadges);
+
+                const levelInfo = getLevelInfo(displayPoints);
                 setLevel(levelInfo.level);
                 setLevelName(levelInfo.name);
                 setLevelIcon(levelInfo.icon);
