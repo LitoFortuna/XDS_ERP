@@ -4,6 +4,7 @@ import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem, DanceE
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { createChangeRequest, getChangeRequestsByStudent } from '../../../services/changeRequestService';
+import ProgressDashboard from './ProgressDashboard';
 
 interface StudentPortalProps {
     student: Student;
@@ -193,6 +194,18 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     </div>
                 ) : (
                     <>
+                        {/* Progress Dashboard - Gamification */}
+                        <section>
+                            <h2 className="text-2xl font-bold text-white mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                                Mi Progreso
+                            </h2>
+                            <ProgressDashboard student={student} attendanceRecords={attendance} />
+                        </section>
+
                         {/* Status Card */}
                         <div className="bg-gradient-to-br from-purple-900/60 via-purple-800/40 to-fuchsia-900/60 border border-purple-500/50 rounded-xl p-6 shadow-xl shadow-purple-900/20">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

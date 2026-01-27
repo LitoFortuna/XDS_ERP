@@ -212,3 +212,48 @@ export interface ChangeRequest {
   reviewDate?: string; // ISO timestamp
   reviewNotes?: string; // Optional notes from admin
 }
+
+// ============================================
+// Gamification & Progress System
+// ============================================
+
+export type BadgeCategory = 'attendance' | 'events' | 'community' | 'milestone';
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string; // emoji
+  category: BadgeCategory;
+  criteria: {
+    type: 'total_classes' | 'streak_days' | 'attendance_percent' | 'events' | 'first_class';
+    value: number;
+  };
+}
+
+export interface StudentAchievement {
+  badgeId: string;
+  unlockedDate: string; // ISO timestamp
+}
+
+export interface MonthlyStats {
+  attended: number;
+  total: number;
+  percentage: number;
+}
+
+export interface StudentProgress {
+  studentId: string;
+  points: number;
+  level: number;
+  currentStreak: number;
+  recordStreak: number;
+  lastAttendanceDate: string | null;
+  totalClasses: number;
+  totalHours: number;
+  totalEvents: number;
+  monthlyStats: {
+    [month: string]: MonthlyStats; // "2024-06"
+  };
+  achievements: StudentAchievement[];
+}
