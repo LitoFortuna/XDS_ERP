@@ -151,7 +151,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                             <span className="font-bold">{Math.max(progress.currentStreak, clientStreak)}</span>
                             <span className="text-sm text-purple-100">días</span>
                         </div>
-                        <p className="text-xs text-purple-100">Récord: {progress.recordStreak} días</p>
+                        <p className="text-xs text-purple-100">Récord: {Math.max(progress.recordStreak, Math.max(progress.currentStreak, clientStreak))} días</p>
                     </div>
                 </div>
 
@@ -227,10 +227,10 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                         <span className="text-2xl">🔥</span>
                     </div>
                     <div className="text-2xl font-bold text-white mb-1">
-                        {progress.currentStreak} días
+                        {Math.max(progress.currentStreak, clientStreak)} días
                     </div>
                     <div className="text-xs text-gray-500">
-                        Récord: {progress.recordStreak}
+                        Récord: {Math.max(progress.recordStreak, Math.max(progress.currentStreak, clientStreak))}
                     </div>
                 </div>
             </div>
