@@ -74,6 +74,10 @@ const MainRouter: React.FC = () => {
     };
 
     const switchToPortal = () => {
+        if (window.location.hostname.includes('xendance.space') && !window.location.hostname.includes('alumni')) {
+            window.location.href = 'https://alumni.xendance.space';
+            return;
+        }
         setMode('portal');
         if (!window.location.hostname.includes('alumni')) {
             window.history.pushState(null, '', '/portal');
@@ -81,6 +85,10 @@ const MainRouter: React.FC = () => {
     };
 
     const switchToERP = () => {
+        if (window.location.hostname.includes('xendance.space') && !window.location.hostname.includes('erp')) {
+            window.location.href = 'https://erp.xendance.space';
+            return;
+        }
         setMode('erp');
         if (!window.location.hostname.includes('erp')) {
             window.history.pushState(null, '', '/');
