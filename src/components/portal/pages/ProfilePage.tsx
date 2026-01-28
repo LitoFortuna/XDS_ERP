@@ -21,63 +21,80 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         }).format(amount);
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
+    const formatDate = (dateString: string | undefined | null) => {
+        if (!dateString) return null;
+        try {
+            return new Date(dateString).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+            });
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const renderDataField = (label: string, value: string | undefined | null, isDate = false) => {
+        const isEmpty = !value || value.trim() === '';
+        const displayValue = isDate ? formatDate(value) : value;
+
+        return (
+            <div className={`p-4 rounded-lg transition-all duration-300 ${isEmpty
+                ? 'bg-red-900/20 border border-red-500/50 animate-pulse-subtle'
+                : 'bg-gray-900/50 border border-transparent hover:border-gray-700'
+                }`}>
+                <p className={`text-xs uppercase mb-1 font-semibold ${isEmpty ? 'text-red-400' : 'text-gray-400'}`}>
+                    {label} {isEmpty && <span className="ml-1 text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">¡FALTA!</span>}
+                </p>
+                <p className={`font-medium ${isEmpty ? 'text-red-300 italic text-sm' : 'text-white'}`}>
+                    {isEmpty ? 'Pendiente de completar' : displayValue}
+                </p>
+            </div>
+        );
     };
 
     return (
         <div className="space-y-6">
             {/* Personal Data */}
-            <section className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                <div className="flex items-center justify-between mb-4">
+            <section className="bg-gray-800 rounded-xl border border-gray-700 p-6 overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
                     <h3 className="text-xl font-bold text-white flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                        </svg>
+                        <div className="bg-blue-500/20 p-2 rounded-lg mr-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                            </svg>
+                        </div>
                         Mis Datos Personales
                     </h3>
                     <button
                         onClick={onRequestChange}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-purple-900/20 transform transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
                         Solicitar Cambio
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gray-900/50 p-4 rounded-lg">
-                        <p className="text-gray-400 text-xs uppercase mb-1">Nombre</p>
-                        <p className="text-white font-medium">{student.name}</p>
-                    </div>
-                    <div className="bg-gray-900/50 p-4 rounded-lg">
-                        <p className="text-gray-400 text-xs uppercase mb-1">Teléfono</p>
-                        <p className="text-white font-medium">{student.phone}</p>
-                    </div>
-                    {student.birthDate && (
-                        <div className="bg-gray-900/50 p-4 rounded-lg">
-                            <p className="text-gray-400 text-xs uppercase mb-1">Fecha de Nacimiento</p>
-                            <p className="text-white font-medium">{formatDate(student.birthDate)}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {renderDataField('NombreCompleto', student.name)}
+                    {renderDataField('Teléfono', student.phone)}
+                    {renderDataField('Email', student.email)}
+                    {renderDataField('DNI / NIE', student.dni)}
+                    {renderDataField('Fecha de Nacimiento', student.birthDate, true)}
+                    <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-800 flex items-center justify-between">
+                        <div>
+                            <p className="text-gray-500 text-xs uppercase mb-1">Fecha de Inscripción</p>
+                            <p className="text-gray-300 font-medium text-sm">{formatDate(student.enrollmentDate)}</p>
                         </div>
-                    )}
-                    {student.email && (
-                        <div className="bg-gray-900/50 p-4 rounded-lg">
-                            <p className="text-gray-400 text-xs uppercase mb-1">Email</p>
-                            <p className="text-white font-medium break-all">{student.email}</p>
-                        </div>
-                    )}
-                    {student.dni && (
-                        <div className="bg-gray-900/50 p-4 rounded-lg">
-                            <p className="text-gray-400 text-xs uppercase mb-1">DNI</p>
-                            <p className="text-white font-medium">{student.dni}</p>
-                        </div>
-                    )}
-                    <div className="bg-gray-900/50 p-4 rounded-lg">
-                        <p className="text-gray-400 text-xs uppercase mb-1">Fecha de Inscripción</p>
-                        <p className="text-white font-medium">{formatDate(student.enrollmentDate)}</p>
+                        <div className="text-2xl opacity-20">📅</div>
                     </div>
                 </div>
             </section>
