@@ -35,22 +35,19 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
         );
     }
 
-    // Calculate total hours (assuming 1 hour per class for now)
-    const clientTotalHours = attendanceRecords.length;
+    // Calculate total hours - YEARLY ONLY (assuming 1 hour per class for now)
+    const currentYearStr = new Date().getFullYear().toString();
+    const currentYearAttendance = attendanceRecords.filter(r => r.date.startsWith(currentYearStr));
+    const clientTotalHours = currentYearAttendance.length;
 
-    // Calculate estimated points client-side (Base 10 pts per class)
-    // This provides instant feedback even if the backend background job hasn't finished
-    const clientPointsBase = attendanceRecords.length * 10;
-    // Add badge points if we unlock them client-side
-    // (Simple approximation: First Class = 50pts, others vary. Let's just assume base + 50 if attended > 0 for First Class)
-    const clientPointsWithBadges = clientPointsBase + (attendanceRecords.length > 0 ? 50 : 0);
-
-    const displayPoints = Math.max(progress.points, clientPointsWithBadges);
+    // Calculate points strictly for the CURRENT YEAR
+    // Base 10 pts per class + 50 for the first class of the year
+    const displayPoints = (currentYearAttendance.length * 10) + (currentYearAttendance.length > 0 ? 50 : 0);
 
     const levelInfo = getLevelInfo(displayPoints);
     const levelProgress = getProgressToNextLevel(displayPoints);
 
-    // Merge badges logic: If we have attendance but missing 'first_class' badge, show it as unlocked
+    // Merge badges logic
     let unlockedBadges = AVAILABLE_BADGES.filter(badge =>
         progress.achievements.some(a => a.badgeId === badge.id)
     );
@@ -58,8 +55,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
         !progress.achievements.some(a => a.badgeId === badge.id)
     );
 
-    if (attendanceRecords.length > 0) {
-        // Check if first_class is already unlocked logic
+    if (currentYearAttendance.length > 0) {
         const hasFirstClass = unlockedBadges.some(b => b.id === 'first_class');
         if (!hasFirstClass) {
             const firstClassBadge = AVAILABLE_BADGES.find(b => b.id === 'first_class');
@@ -70,64 +66,51 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
         }
     }
 
-    // Calculate stats from real-time attendanceRecords prop first, as fallback or override
-    // This ensures that if the query works, the UI reflects it immediately
-    const currentYearStr = new Date().getFullYear().toString();
-    const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
-
-    const realAttendanceCountYear = attendanceRecords.filter(r => r.date.startsWith(currentYearStr)).length;
-    const realAttendanceCountMonth = attendanceRecords.filter(r => r.date.startsWith(currentMonth)).length;
-
-    // Calculate streak client-side to be instant
+    // Calculate streak client-side
     const sortedDates = attendanceRecords.map(r => new Date(r.date).getTime()).sort((a, b) => b - a);
     let clientStreak = 0;
     if (sortedDates.length > 0) {
         const today = new Date().setHours(0, 0, 0, 0);
-        const yesterday = today - 86400000;
         const lastDate = new Date(sortedDates[0]).setHours(0, 0, 0, 0);
+        const sevenDaysInMs = 7 * 86400000;
 
-        if (lastDate === today || lastDate === yesterday) {
+        if (today - lastDate <= sevenDaysInMs) {
             clientStreak = 1;
             for (let i = 0; i < sortedDates.length - 1; i++) {
                 const curr = new Date(sortedDates[i]).setHours(0, 0, 0, 0);
                 const prev = new Date(sortedDates[i + 1]).setHours(0, 0, 0, 0);
-                if (curr - prev === 86400000) clientStreak++;
-                else if (curr - prev > 86400000) break;
+                if (curr - prev <= sevenDaysInMs) clientStreak++;
+                else break;
             }
         }
     }
 
-    // Get current month stats (merge with real count)
+    // Calculate monthly stats
+    const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+    const realAttendanceCountMonth = attendanceRecords.filter(r => r.date.startsWith(currentMonth)).length;
+
     const storedMonthStats = progress.monthlyStats[currentMonth] || { attended: 0, total: 0, percentage: 0 };
     const thisMonthStats = {
         ...storedMonthStats,
-        attended: Math.max(storedMonthStats.attended, realAttendanceCountMonth), // Use the higher value
+        attended: Math.max(storedMonthStats.attended, realAttendanceCountMonth),
         percentage: storedMonthStats.total > 0 ? Math.round((Math.max(storedMonthStats.attended, realAttendanceCountMonth) / storedMonthStats.total) * 100) : 0
     };
 
     // Calculate year stats
-    // Note: progress.monthlyStats values are objects { attended: number, total: number, ... }
+    const realAttendanceCountYear = currentYearAttendance.length;
     const monthlyStatsEntries = Object.entries(progress.monthlyStats);
 
-    // Sum up attended from stats
     const statsAttendedSum = monthlyStatsEntries
         .filter(([month]) => month.startsWith(currentYearStr))
-        .reduce((acc, [, stats]) => acc + (stats as any).attended, 0); // specific casting or typed properly in types.ts
+        .reduce((acc, [, stats]) => acc + (stats as any).attended, 0);
 
-    // Sum up total from stats
     const statsTotalSum = monthlyStatsEntries
         .filter(([month]) => month.startsWith(currentYearStr))
         .reduce((acc, [, stats]) => acc + (stats as any).total, 0);
 
     const yearStats = {
-        attended: Math.max(
-            realAttendanceCountYear,
-            statsAttendedSum
-        ),
-        total: Math.max(
-            statsTotalSum,
-            realAttendanceCountYear // Ensure total is at least equal to attended
-        )
+        attended: Math.max(realAttendanceCountYear, statsAttendedSum),
+        total: Math.max(statsTotalSum, realAttendanceCountYear)
     };
     const yearPercentage = yearStats.total > 0 ? Math.round((yearStats.attended / yearStats.total) * 100) : 0;
 
@@ -142,23 +125,23 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold">{student.name}</h2>
-                            <p className="text-purple-100">Nivel {levelInfo.level}: {levelInfo.name}</p>
+                            <p className="text-purple-100">Nivel {levelInfo.level} ({currentYearStr}): {levelInfo.name}</p>
                         </div>
                     </div>
                     <div className="text-right">
                         <div className="flex items-center space-x-2 text-2xl mb-1">
                             <span>🔥</span>
-                            <span className="font-bold">{Math.max(progress.currentStreak, clientStreak)}</span>
-                            <span className="text-sm text-purple-100">días</span>
+                            <span className="font-bold">{clientStreak}</span>
+                            <span className="text-sm text-purple-100">clases</span>
                         </div>
-                        <p className="text-xs text-purple-100">Récord: {Math.max(progress.recordStreak, Math.max(progress.currentStreak, clientStreak))} días</p>
+                        <p className="text-xs text-purple-100">Racha de asistencias</p>
                     </div>
                 </div>
 
                 {/* Level Progress Bar */}
                 <div className="mt-4">
                     <div className="flex justify-between items-center text-sm mb-2">
-                        <span>Progreso al Nivel {levelInfo.level + 1}</span>
+                        <span>Progreso {currentYearStr} al Nivel {levelInfo.level + 1}</span>
                         <span className="font-bold">{Math.round(levelProgress.percentage)}%</span>
                     </div>
                     <div className="w-full bg-white/20 rounded-full h-3">
@@ -168,7 +151,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                         ></div>
                     </div>
                     <p className="text-xs text-purple-100 mt-1">
-                        {displayPoints} pts • {levelProgress.next - levelProgress.current} pts para siguiente nivel
+                        {displayPoints} pts este año • {levelProgress.next - levelProgress.current} pts para siguiente nivel
                     </p>
                 </div>
             </div>
@@ -206,17 +189,17 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                     </div>
                 </div>
 
-                {/* Total Hours */}
+                {/* Yearly Hours */}
                 <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-400 text-sm">Horas Totales</span>
+                        <span className="text-gray-400 text-sm">Horas {currentYearStr}</span>
                         <span className="text-2xl">🎯</span>
                     </div>
                     <div className="text-2xl font-bold text-white mb-1">
-                        {Math.max(progress.totalHours, clientTotalHours)}h
+                        {clientTotalHours}h
                     </div>
                     <div className="text-xs text-gray-500">
-                        desde {new Date(student.enrollmentDate).getFullYear()}
+                        estimadas este año
                     </div>
                 </div>
 
@@ -227,10 +210,10 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                         <span className="text-2xl">🔥</span>
                     </div>
                     <div className="text-2xl font-bold text-white mb-1">
-                        {Math.max(progress.currentStreak, clientStreak)} días
+                        {clientStreak} clases
                     </div>
                     <div className="text-xs text-gray-500">
-                        Récord: {Math.max(progress.recordStreak, Math.max(progress.currentStreak, clientStreak))}
+                        consecutivas (máx 7d gap)
                     </div>
                 </div>
             </div>

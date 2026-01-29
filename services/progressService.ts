@@ -161,17 +161,20 @@ export async function calculateStreak(studentId: string, attendanceRecords: any[
     const lastAttendance = sorted[0];
 
     // Check if streak is still active
-    if (lastAttendance < yesterday) {
+    // Allow up to 7 days of gap (support once-a-week classes)
+    const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+
+    if (today - lastAttendance > sevenDaysInMs) {
         currentStreak = 0; // Streak broken
     } else {
-        // Count consecutive days
+        // Count consecutive classes within the allowed gap
         for (let i = 1; i < sorted.length; i++) {
             const dayDiff = (sorted[i - 1] - sorted[i]) / (24 * 60 * 60 * 1000);
 
-            if (dayDiff === 1) {
+            if (dayDiff <= 7) { // Allow up to 7 days between classes
                 currentStreak++;
                 tempStreak++;
-            } else if (dayDiff > 1) {
+            } else {
                 break;
             }
         }
@@ -182,10 +185,10 @@ export async function calculateStreak(studentId: string, attendanceRecords: any[
     for (let i = 1; i < sorted.length; i++) {
         const dayDiff = (sorted[i - 1] - sorted[i]) / (24 * 60 * 60 * 1000);
 
-        if (dayDiff === 1) {
+        if (dayDiff <= 7) {
             tempStreak++;
             recordStreak = Math.max(recordStreak, tempStreak);
-        } else if (dayDiff > 1) {
+        } else {
             tempStreak = 1;
         }
     }
