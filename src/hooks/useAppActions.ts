@@ -28,16 +28,17 @@ import {
     addMerchandiseItem as addMerchandiseItemToDb,
     updateMerchandiseItem as updateMerchandiseItemInDb,
     deleteMerchandiseItem as deleteMerchandiseItemFromDb,
-    addMerchandiseSale as addMerchandiseSaleToDb,
-    deleteMerchandiseSale as deleteMerchandiseSaleFromDb,
+    executeMerchandiseSale,
+    cancelMerchandiseSale,
     addAttendance as addAttendanceToDb,
     updateAttendance as updateAttendanceInDb,
 } from '../services/firestoreService';
 import { logActivity } from '../services/domain/activityLogService';
 import { updateProgressAfterAttendance } from '../../services/progressService';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const useAppActions = () => {
+    const queryClient = useQueryClient();
     const {
         setCurrentView,
         students,
@@ -50,18 +51,21 @@ export const useAppActions = () => {
         await addStudentToDb({
             ...student,
             enrollmentDate: student.enrollmentDate || new Date().toISOString().split('T')[0],
-            monthlyFee: student.monthlyFee || 19,
+            monthlyFee: student.monthlyFee ?? 19,
             paymentMethod: student.paymentMethod || 'Efectivo',
             enrolledClassIds: student.enrolledClassIds || [],
         });
+        queryClient.invalidateQueries({ queryKey: ['students'] });
     };
 
     const updateStudent = async (updatedStudent: Student) => {
         await updateStudentInDb(updatedStudent);
+        queryClient.invalidateQueries({ queryKey: ['students'] });
     };
 
     const deleteStudent = async (studentId: string) => {
         await deleteStudentFromDb(studentId);
+        queryClient.invalidateQueries({ queryKey: ['students'] });
     };
 
     const addInstructor = async (instructor: Omit<Instructor, 'id'>) => {
@@ -70,10 +74,12 @@ export const useAppActions = () => {
             active: instructor.active !== undefined ? instructor.active : true,
             hireDate: instructor.hireDate || new Date().toISOString().split('T')[0],
         });
+        queryClient.invalidateQueries({ queryKey: ['instructors'] });
     };
 
     const updateInstructor = async (updatedInstructor: Instructor) => {
         await updateInstructorInDb(updatedInstructor);
+        queryClient.invalidateQueries({ queryKey: ['instructors'] });
     };
 
     const deleteInstructor = async (instructorId: string) => {
@@ -83,14 +89,17 @@ export const useAppActions = () => {
             return;
         }
         await deleteInstructorFromDb(instructorId);
+        queryClient.invalidateQueries({ queryKey: ['instructors'] });
     };
 
     const addClass = async (danceClass: Omit<DanceClass, 'id'>) => {
         await addClassToDb(danceClass);
+        queryClient.invalidateQueries({ queryKey: ['classes'] });
     };
 
     const updateClass = async (updatedClass: DanceClass) => {
         await updateClassInDb(updatedClass);
+        queryClient.invalidateQueries({ queryKey: ['classes'] });
     };
 
     const deleteClass = async (classId: string) => {
@@ -104,10 +113,13 @@ export const useAppActions = () => {
         });
         await Promise.all(updatePromises);
         await deleteClassFromDb(classId);
+        queryClient.invalidateQueries({ queryKey: ['classes'] });
+        queryClient.invalidateQueries({ queryKey: ['students'] });
     };
 
     const addPayment = async (payment: Omit<Payment, 'id'>) => {
         await addPaymentToDb(payment);
+        queryClient.invalidateQueries({ queryKey: ['payments'] });
 
         // Log activity for SuperAdmin notification if Admin made the action
         if (userProfile && userProfile.role === 'Admin') {
@@ -124,14 +136,17 @@ export const useAppActions = () => {
 
     const updatePayment = async (payment: Payment) => {
         await updatePaymentInDb(payment);
+        queryClient.invalidateQueries({ queryKey: ['payments'] });
     };
 
     const deletePayment = async (paymentId: string) => {
         await deletePaymentFromDb(paymentId);
+        queryClient.invalidateQueries({ queryKey: ['payments'] });
     };
 
     const addCost = async (cost: Omit<Cost, 'id'>) => {
         await addCostToDb(cost);
+        queryClient.invalidateQueries({ queryKey: ['costs'] });
 
         // Log activity for SuperAdmin notification if Admin made the action
         if (userProfile && userProfile.role === 'Admin') {
@@ -147,65 +162,78 @@ export const useAppActions = () => {
 
     const updateCost = async (updatedCost: Cost) => {
         await updateCostInDb(updatedCost);
+        queryClient.invalidateQueries({ queryKey: ['costs'] });
     };
 
     const deleteCost = async (costId: string) => {
         await deleteCostFromDb(costId);
+        queryClient.invalidateQueries({ queryKey: ['costs'] });
     };
 
     const addNuptialDance = async (dance: Omit<NuptialDance, 'id'>) => {
         await addNuptialDanceToDb(dance);
+        queryClient.invalidateQueries({ queryKey: ['nuptialDances'] });
     };
 
     const updateNuptialDance = async (updatedDance: NuptialDance) => {
         await updateNuptialDanceInDb(updatedDance);
+        queryClient.invalidateQueries({ queryKey: ['nuptialDances'] });
     };
 
     const deleteNuptialDance = async (danceId: string) => {
         await deleteNuptialDanceFromDb(danceId);
+        queryClient.invalidateQueries({ queryKey: ['nuptialDances'] });
     };
 
     const addEvent = async (event: Omit<DanceEvent, 'id'>) => {
         const studentIds = event.participants.map(p => p.studentId);
         await addEventToDb({ ...event, studentIds });
+        queryClient.invalidateQueries({ queryKey: ['events'] });
     };
 
     const updateEvent = async (event: DanceEvent) => {
         const studentIds = event.participants.map(p => p.studentId);
         await updateEventInDb({ ...event, studentIds });
+        queryClient.invalidateQueries({ queryKey: ['events'] });
     };
 
     const deleteEvent = async (eventId: string) => {
         await deleteEventFromDb(eventId);
+        queryClient.invalidateQueries({ queryKey: ['events'] });
     };
 
     const addMerchandiseItem = async (item: Omit<MerchandiseItem, 'id'>) => {
         await addMerchandiseItemToDb(item);
+        queryClient.invalidateQueries({ queryKey: ['merchandiseItems'] });
     };
 
     const updateMerchandiseItem = async (item: MerchandiseItem) => {
         await updateMerchandiseItemInDb(item);
+        queryClient.invalidateQueries({ queryKey: ['merchandiseItems'] });
     };
 
     const deleteMerchandiseItem = async (itemId: string) => {
         await deleteMerchandiseItemFromDb(itemId);
+        queryClient.invalidateQueries({ queryKey: ['merchandiseItems'] });
     };
 
     const addMerchandiseSale = async (sale: Omit<MerchandiseSale, 'id'>) => {
-        const itemSold = merchandiseItems.find(item => item.id === sale.itemId);
-        if (!itemSold || itemSold.stock < sale.quantity) {
-            alert('No hay suficiente stock para realizar esta venta.');
-            return;
+        try {
+            await executeMerchandiseSale(sale);
+            queryClient.invalidateQueries({ queryKey: ['merchandiseItems'] });
+            queryClient.invalidateQueries({ queryKey: ['merchandiseSales'] });
+        } catch (error: any) {
+            alert(error.message || 'Error al procesar la venta');
         }
-        await addMerchandiseSaleToDb(sale);
-        await updateMerchandiseItemInDb({ ...itemSold, stock: itemSold.stock - sale.quantity });
     };
 
     const deleteMerchandiseSale = async (sale: MerchandiseSale) => {
-        await deleteMerchandiseSaleFromDb(sale.id);
-        const itemSold = merchandiseItems.find(item => item.id === sale.itemId);
-        if (itemSold) {
-            await updateMerchandiseItemInDb({ ...itemSold, stock: itemSold.stock + sale.quantity });
+        try {
+            await cancelMerchandiseSale(sale);
+            queryClient.invalidateQueries({ queryKey: ['merchandiseItems'] });
+            queryClient.invalidateQueries({ queryKey: ['merchandiseSales'] });
+        } catch (error: any) {
+            alert(error.message || 'Error al cancelar la venta');
         }
     };
 
@@ -215,6 +243,7 @@ export const useAppActions = () => {
         } else {
             await addAttendanceToDb(record);
         }
+        queryClient.invalidateQueries({ queryKey: ['attendance'] });
 
         // Update progress for all students involved (present or previously present)
         try {
@@ -222,23 +251,16 @@ export const useAppActions = () => {
 
             if (affectedStudentIds.length > 0) {
                 const progressPromises = affectedStudentIds.map(async (studentId) => {
-                    const attendanceQuery = query(
-                        collection(db, 'attendance'),
-                        where('presentStudentIds', 'array-contains', studentId)
-                    );
-
-                    const snap = await getDocs(attendanceQuery);
-                    const studentRecords = snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord));
-
-                    await updateProgressAfterAttendance(studentId, studentRecords);
+                    // We don't need a query here if updateProgressAfterAttendance does it, 
+                    // but let's assume we want to force refresh student data too
+                    queryClient.invalidateQueries({ queryKey: ['progress', studentId] });
                 });
 
                 await Promise.all(progressPromises);
-                console.log('[useAppActions] Progress updated for', affectedStudentIds.length, 'students');
             }
 
         } catch (error) {
-            console.error('[useAppActions] Error updating progress:', error);
+            console.error('[useAppActions] Error updating progress invalidation:', error);
         }
 
         // Log activity for SuperAdmin notification if Admin made the action

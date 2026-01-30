@@ -46,8 +46,8 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         last30Days.setDate(last30Days.getDate() - 30);
 
         const relevantRecords = attendanceRecords
-            .filter(r => new Date(r.date) >= last30Days)
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            .filter(r => new Date(r.date + 'T12:00:00') >= last30Days)
+            .sort((a, b) => new Date(a.date + 'T12:00:00').getTime() - new Date(b.date + 'T12:00:00').getTime());
 
         const groupedByDate: { [key: string]: { date: string, percentage: number, count: number } } = {};
 
@@ -64,7 +64,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         });
 
         return Object.values(groupedByDate).map(d => ({
-            date: new Date(d.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+            date: new Date(d.date + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
             asistencia: Math.round((d.percentage / d.count) * 100)
         }));
     }, [attendanceRecords, students]);
@@ -207,7 +207,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
             return;
         }
 
-        const headers = ['Alumno', ...classRecords.map(r => new Date(r.date).toLocaleDateString('es-ES')), 'Total', '%'];
+        const headers = ['Alumno', ...classRecords.map(r => new Date(r.date + 'T12:00:00').toLocaleDateString('es-ES')), 'Total', '%'];
         const rows = enrolledStudents.map(student => {
             let presentCount = 0;
             const dateCells = classRecords.map(record => {
@@ -233,7 +233,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
         const headers = ['Fecha', 'Clase', 'Alumno', 'Asistencia', 'Estado Alumno', 'Notas Sesión'];
         const rows: string[][] = [];
 
-        const sortedRecords = [...attendanceRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const sortedRecords = [...attendanceRecords].sort((a, b) => new Date(b.date + 'T12:00:00').getTime() - new Date(a.date + 'T12:00:00').getTime());
 
         sortedRecords.forEach(record => {
             const classObj = classes.find(c => c.id === record.classId);
@@ -252,7 +252,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                 const isPresent = record.presentStudentIds.includes(studentId);
 
                 rows.push([
-                    new Date(record.date).toLocaleDateString('es-ES'),
+                    new Date(record.date + 'T12:00:00').toLocaleDateString('es-ES'),
                     classObj.name,
                     studentName,
                     isPresent ? 'Presente' : 'Ausente',
@@ -426,7 +426,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] text-gray-500 uppercase">Última clase</p>
-                                    <p className="text-[11px] text-gray-300 font-mono">{lastDate ? new Date(lastDate).toLocaleDateString('es-ES') : 'N/A'}</p>
+                                    <p className="text-[11px] text-gray-300 font-mono">{lastDate ? new Date(lastDate + 'T12:00:00').toLocaleDateString('es-ES') : 'N/A'}</p>
                                 </div>
                             </div>
                         ))}

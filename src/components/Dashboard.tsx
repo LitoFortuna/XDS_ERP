@@ -63,7 +63,21 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     const currentMonth = realToday.getMonth();
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const monthShortNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const availableYears = [2024, 2025, 2026, 2027];
+
+    // Dynamic available years based on data and current year
+    const availableYears = useMemo(() => {
+        const currentYear = realToday.getFullYear();
+        const startYear = Math.min(
+            currentYear,
+            ...students.map(s => new Date(s.enrollmentDate).getFullYear()),
+            ...payments.map(p => new Date(p.date).getFullYear())
+        );
+        const years = [];
+        for (let y = startYear; y <= currentYear + 1; y++) {
+            years.push(y);
+        }
+        return years;
+    }, [students, payments, realToday]);
 
     const [selectedRentMonth, setSelectedRentMonth] = useState(currentMonth);
     const [unpaidSearchQuery, setUnpaidSearchQuery] = useState('');
@@ -213,7 +227,12 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     const demografiaData = useMemo(() => {
         const counts = { 'Infantil (3-11)': 0, 'Junior (12-17)': 0, 'Adultos (18-60)': 0, 'Senior (60+)': 0 };
         activeStudentsAtEndOfPeriod.filter(s => s.birthDate).forEach(s => {
-            const age = new Date().getFullYear() - new Date(s.birthDate!).getFullYear();
+            const dob = new Date(s.birthDate!);
+            let age = realToday.getFullYear() - dob.getFullYear();
+            const m = realToday.getMonth() - dob.getMonth();
+            if (m < 0 || (m === 0 && realToday.getDate() < dob.getDate())) {
+                age--;
+            }
             if (age < 12) counts['Infantil (3-11)']++;
             else if (age < 18) counts['Junior (12-17)']++;
             else if (age < 60) counts['Adultos (18-60)']++;
@@ -512,7 +531,14 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </div>
                     <div className="space-y-4">
                         {upcomingBirthdays.map(s => {
-                            const age = s.birthDate ? new Date().getFullYear() - new Date(s.birthDate).getFullYear() : '?';
+                            const dob = new Date(s.birthDate!);
+                            let age = realToday.getFullYear() - dob.getFullYear();
+                            const m = realToday.getMonth() - dob.getMonth();
+                            if (m < 0 || (m === 0 && realToday.getDate() < dob.getDate())) {
+                                age--;
+                            }
+                            // Since it's an UPCOMING birthday, they will be turning age + 1
+                            const turningAge = age + 1;
                             return (
                                 <div key={s.id} className="flex items-center justify-between group">
                                     <div className="flex items-center gap-3">
@@ -526,7 +552,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                                                     {s.active ? 'Activo' : 'Inactivo'}
                                                 </span>
                                             </div>
-                                            <p className="text-[10px] text-gray-500 font-bold mt-0.5">Cumple {age} años</p>
+                                            <p className="text-[10px] text-gray-500 font-bold mt-0.5">Cumple {turningAge} años</p>
                                         </div>
                                     </div>
                                     <p className="text-[10px] font-black text-purple-400 bg-purple-500/5 px-2 py-1 rounded-lg border border-purple-500/10">{s.nextBday.getDate()} {monthShortNames[s.nextBday.getMonth()]}</p>

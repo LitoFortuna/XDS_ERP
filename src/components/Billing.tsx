@@ -10,13 +10,21 @@ import PaymentForm from './billing/PaymentForm';
 import CostForm from './billing/CostForm';
 
 
-/**
- * Formateador de moneda robusto que garantiza el formato 12.056€
- */
 const formatCurrency = (v: number, decimals: number = 2) => {
     const parts = v.toFixed(decimals).split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     return parts.join(',') + '€';
+};
+
+/**
+ * Parsea una fecha YYYY-MM-DD ignorando la zona horaria (tratándola como local pura)
+ */
+const parseDateLocal = (dateStr: string) => {
+    if (!dateStr) return { year: 0, month: -1, day: 0 };
+    // Handle "YYYY-MM-DD" or ISO with T
+    const cleanStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    const [year, month, day] = cleanStr.split('-').map(Number);
+    return { year, month: month - 1, day }; // month is 0-indexed for consistency
 };
 
 // --- COMPONENTE PRINCIPAL DE FACTURACIÓN ---
@@ -72,8 +80,8 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     };
 
     // Filtrado por año seleccionado
-    const yearPayments = useMemo(() => payments.filter(p => new Date(p.date).getFullYear() === selectedYear), [payments, selectedYear]);
-    const yearCosts = useMemo(() => costs.filter(c => new Date(c.paymentDate).getFullYear() === selectedYear), [costs, selectedYear]);
+    const yearPayments = useMemo(() => payments.filter(p => parseDateLocal(p.date).year === selectedYear), [payments, selectedYear]);
+    const yearCosts = useMemo(() => costs.filter(c => parseDateLocal(c.paymentDate).year === selectedYear), [costs, selectedYear]);
 
     const totalIncome = yearPayments.reduce((sum, p) => sum + p.amount, 0);
     const totalCosts = yearCosts.reduce((sum, c) => sum + c.amount, 0);
@@ -84,21 +92,17 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
 
     const getPaymentStatusForMonth = (student: Student, monthIndex: number) => {
         if (student.deactivationDate) {
-            const deactivationDate = new Date(student.deactivationDate);
-            const deactivationYear = deactivationDate.getFullYear();
-            const deactivationMonth = deactivationDate.getMonth();
+            const { year: deactivationYear, month: deactivationMonth } = parseDateLocal(student.deactivationDate);
             if (selectedYear > deactivationYear || (selectedYear === deactivationYear && monthIndex > deactivationMonth)) {
                 return { text: '-', color: 'text-gray-600 hover:bg-gray-700 cursor-pointer opacity-50' };
             }
         }
         if (!student.enrollmentDate) return { text: 'N/A', color: 'text-gray-600' };
 
-        const enrollmentDate = new Date(student.enrollmentDate);
-        const enrollmentYear = enrollmentDate.getFullYear();
-        const enrollmentMonth = enrollmentDate.getMonth();
+        const { year: enrollmentYear, month: enrollmentMonth } = parseDateLocal(student.enrollmentDate);
 
         if (selectedYear < enrollmentYear || (selectedYear === enrollmentYear && monthIndex < enrollmentMonth)) {
-            return { text: 'N/A', color: 'text-gray-600' };
+            return { text: 'N/A', color: 'text-gray-600 font-bold opacity-30 cursor-not-allowed' };
         }
 
         const exceptionKey = `${selectedYear}-${monthIndex}`;
@@ -107,8 +111,10 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
             : student.monthlyFee;
 
         const paymentsForMonth = yearPayments.filter(p => {
-            const paymentDate = new Date(p.date);
-            return p.studentId === student.id && paymentDate.getMonth() === monthIndex;
+            const { month: pMonth, year: pYear } = parseDateLocal(p.date);
+            // pYear check is redundant if yearPayments is already filtered, but safe to keep or remove.
+            // keeping studentId check
+            return p.studentId === student.id && pMonth === monthIndex;
         });
         const totalPaid = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
 
@@ -192,9 +198,9 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
             const matchesCategory = costCategoryFilter ? cost.category === costCategoryFilter : true;
             let matchesDate = true;
             if (costStartDate || costEndDate) {
-                const costDate = new Date(cost.paymentDate);
-                if (costStartDate) matchesDate = matchesDate && costDate >= new Date(costStartDate);
-                if (costEndDate) matchesDate = matchesDate && costDate <= new Date(costEndDate);
+                // Using standard string comparison for YYYY-MM-DD works well
+                if (costStartDate) matchesDate = matchesDate && cost.paymentDate >= costStartDate;
+                if (costEndDate) matchesDate = matchesDate && cost.paymentDate <= costEndDate;
             }
             return matchesSearch && matchesCategory && matchesDate;
         });
@@ -205,8 +211,8 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
         if (!selectedMonthCell) return [];
         const { studentId, monthIndex, year } = selectedMonthCell;
         return payments.filter(p => {
-            const d = new Date(p.date);
-            return p.studentId === studentId && d.getMonth() === monthIndex && d.getFullYear() === year;
+            const { year: pYear, month: pMonth } = parseDateLocal(p.date);
+            return p.studentId === studentId && pMonth === monthIndex && pYear === year;
         });
     }, [selectedMonthCell, payments]);
 
