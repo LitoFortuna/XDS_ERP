@@ -91,6 +91,28 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     const realCurrentYear = new Date().getFullYear();
 
     const getPaymentStatusForMonth = (student: Student, monthIndex: number) => {
+        // 1. Check for payments FIRST. If paid, always show it.
+        const paymentsForMonth = yearPayments.filter(p => {
+            const { month: pMonth, year: pYear } = parseDateLocal(p.date);
+            return p.studentId === student.id && pMonth === monthIndex;
+        });
+        const totalPaid = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
+
+        const baseClasses = "cursor-pointer transition-colors hover:brightness-110";
+
+        if (totalPaid > 0) {
+            const exceptionKey = `${selectedYear}-${monthIndex}`;
+            const expectedFee = student.feeExceptions?.[exceptionKey] !== undefined
+                ? student.feeExceptions[exceptionKey]
+                : student.monthlyFee;
+
+            if (expectedFee > 0 && totalPaid >= expectedFee) {
+                return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-green-500/20 text-green-300` };
+            }
+            return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-orange-500/20 text-orange-300` };
+        }
+
+        // 2. If NO payment, then apply enrollment/deactivation logic
         if (student.deactivationDate) {
             const { year: deactivationYear, month: deactivationMonth } = parseDateLocal(student.deactivationDate);
             if (selectedYear > deactivationYear || (selectedYear === deactivationYear && monthIndex > deactivationMonth)) {
@@ -110,26 +132,11 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
             ? student.feeExceptions[exceptionKey]
             : student.monthlyFee;
 
-        const paymentsForMonth = yearPayments.filter(p => {
-            const { month: pMonth, year: pYear } = parseDateLocal(p.date);
-            // pYear check is redundant if yearPayments is already filtered, but safe to keep or remove.
-            // keeping studentId check
-            return p.studentId === student.id && pMonth === monthIndex;
-        });
-        const totalPaid = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
-
-        const baseClasses = "cursor-pointer transition-colors hover:brightness-110";
         if (expectedFee === 0) {
-            return { text: totalPaid > 0 ? formatCurrency(totalPaid) : 'Exento', color: `${baseClasses} bg-gray-600 text-gray-300` };
-        }
-        if (totalPaid >= expectedFee) {
-            return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-green-500/20 text-green-300` };
-        }
-        if (totalPaid > 0) {
-            return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-orange-500/20 text-orange-300` };
+            return { text: 'Exento', color: `${baseClasses} bg-gray-600 text-gray-300` };
         }
 
-        // Determinar si mostrar impagado
+        // 3. Status for unpaid months
         if (selectedYear < realCurrentYear || (selectedYear === realCurrentYear && monthIndex < currentMonthIndex)) {
             return { text: 'Impagado', color: `${baseClasses} bg-red-500/20 text-red-300` };
         }
