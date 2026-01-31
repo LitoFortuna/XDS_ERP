@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
-    AreaChart, Area, ComposedChart
+    AreaChart, Area, ComposedChart, LabelList
 } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
 import { useAppActions } from '../hooks/useAppActions';
@@ -607,6 +607,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                             <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
                             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} cursor={{ fill: '#1e293b' }} />
                             <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={45}>
+                                <LabelList dataKey="value" position="top" fill="#94a3b8" fontSize={10} fontWeight="bold" />
                                 {demografiaData.map((entry, index) => <Cell key={`cell-${index}`} fill={['#ec4899', '#8b5cf6', '#3b82f6', '#10b981'][index]} />)}
                             </Bar>
                         </BarChart>
@@ -619,11 +620,13 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         Top 5 Profesores (por nº alumnos)
                     </h3>
                     <ResponsiveContainer width="100%" height={260}>
-                        <BarChart layout="vertical" data={instructors.map(i => ({ name: i.name, value: students.filter(s => s.active && classes.filter(c => c.instructorId === i.id).some(c => s.enrolledClassIds.includes(c.id))).length })).sort((a, b) => b.value - a.value).slice(0, 5)}>
+                        <BarChart layout="vertical" data={instructors.map(i => ({ name: i.name, value: students.filter(s => s.active && classes.filter(c => c.instructorId === i.id).some(c => s.enrolledClassIds.includes(c.id))).length })).sort((a, b) => b.value - a.value).slice(0, 5)} margin={{ right: 30 }}>
                             <XAxis type="number" hide />
                             <YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
                             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} cursor={{ fill: '#1e293b' }} />
-                            <Bar dataKey="value" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={25} />
+                            <Bar dataKey="value" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={25}>
+                                <LabelList dataKey="value" position="right" fill="#fff" fontSize={11} fontWeight="black" />
+                            </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -633,7 +636,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 flex flex-col items-center shadow-xl">
                     <h3 className="text-xs font-black text-white mb-6 w-full text-left uppercase tracking-tighter">Resumen Financiero Total ({selectedYear})</h3>
-                    <ResponsiveContainer width="100%" height={160}>
+                    <ResponsiveContainer width="100%" height={200}>
                         <PieChart>
                             <Pie
                                 data={[
@@ -643,24 +646,39 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                                 dataKey="value"
                                 cx="50%"
                                 cy="50%"
-                                outerRadius={65}
+                                innerRadius={50}
+                                outerRadius={70}
                                 stroke="none"
+                                cornerRadius={4}
+                                paddingAngle={4}
                             >
-                                <Cell fill="#8b5cf6" />
+                                <Cell fill="#10b981" />
                                 <Cell fill="#f43f5e" />
                             </Pie>
-                            <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                            <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#fff', fontWeight: 'bold' }} />
+                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                                <tspan x="50%" dy="-6" fontSize="14" fontWeight="900" fill={totalRevenue - totalCosts >= 0 ? "#10b981" : "#f43f5e"}>
+                                    {formatCurrency(totalRevenue - totalCosts)}
+                                </tspan>
+                                <tspan x="50%" dy="18" fontSize="8" fill="#94a3b8" fontWeight="bold" letterSpacing="0.1em" textAnchor="middle">BENEFICIO</tspan>
+                            </text>
                         </PieChart>
                     </ResponsiveContainer>
-                    <div className="flex gap-4 mt-4 text-[9px] font-black uppercase tracking-widest">
-                        <span className="text-rose-500">■ Costes: {formatCurrency(totalCosts)}</span>
-                        <span className="text-purple-500">■ Ingresos: {formatCurrency(totalRevenue)}</span>
+                    <div className="w-full flex flex-col gap-2 mt-2">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 bg-gray-800/50 p-2 rounded-lg">
+                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div>INGRESOS</div>
+                            <span className="text-emerald-400">{formatCurrency(totalRevenue)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 bg-gray-800/50 p-2 rounded-lg">
+                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-rose-500"></div>COSTES</div>
+                            <span className="text-rose-400">{formatCurrency(totalCosts)}</span>
+                        </div>
                     </div>
                 </div>
 
                 <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 flex flex-col items-center shadow-xl">
                     <h3 className="text-xs font-black text-white mb-6 w-full text-left uppercase tracking-tighter">Estado de Matrículas ({selectedYear})</h3>
-                    <ResponsiveContainer width="100%" height={160}>
+                    <ResponsiveContainer width="100%" height={200}>
                         <PieChart>
                             <Pie
                                 data={[
@@ -668,19 +686,33 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                                     { name: 'Inactivos', value: Math.max(0, students.length - activeStudentsCount) }
                                 ]}
                                 dataKey="value"
-                                innerRadius={45}
-                                outerRadius={65}
+                                innerRadius={50}
+                                outerRadius={70}
                                 stroke="none"
+                                cornerRadius={4}
+                                paddingAngle={4}
                             >
                                 <Cell fill="#10b981" />
                                 <Cell fill="#4b5563" />
                             </Pie>
-                            <Tooltip />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#fff', fontWeight: 'bold' }} />
+                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                                <tspan x="50%" dy="-6" fontSize="24" fontWeight="900" fill="#fff">
+                                    {students.length}
+                                </tspan>
+                                <tspan x="50%" dy="18" fontSize="8" fill="#94a3b8" fontWeight="bold" letterSpacing="0.1em" textAnchor="middle">TOTAL</tspan>
+                            </text>
                         </PieChart>
                     </ResponsiveContainer>
-                    <div className="flex gap-4 mt-4 text-[9px] font-black uppercase tracking-widest">
-                        <span className="text-emerald-500">■ Activos: {activeStudentsCount.toLocaleString('es-ES')}</span>
-                        <span className="text-gray-500">■ Otros: {Math.max(0, students.length - activeStudentsCount).toLocaleString('es-ES')}</span>
+                    <div className="w-full flex flex-col gap-2 mt-2">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 bg-gray-800/50 p-2 rounded-lg">
+                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div>ACTIVOS</div>
+                            <span className="text-emerald-400">{activeStudentsCount}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 bg-gray-800/50 p-2 rounded-lg">
+                            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-600"></div>INACTIVOS</div>
+                            <span className="text-gray-400">{Math.max(0, students.length - activeStudentsCount)}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -807,7 +839,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </table>
                 </div>
             </div>
-        </div>
+        </div >
     );
 });
 
