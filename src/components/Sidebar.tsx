@@ -130,7 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
             </svg>
             {!isCollapsed && <span className="ml-3 whitespace-nowrap">Cerrar Sesión</span>}
           </button>
-          {!isCollapsed && <p className="text-xs text-center text-gray-500 whitespace-nowrap overflow-hidden transition-all">XDS ERP v2.0 • 2026</p>}
+          {!isCollapsed && <p className="text-xs text-center text-gray-500 whitespace-nowrap overflow-hidden transition-all">XDS ERP v2.1 • 2026</p>}
         </div>
       </aside>
     </>
