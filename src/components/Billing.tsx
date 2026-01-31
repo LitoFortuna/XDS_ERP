@@ -65,6 +65,15 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     const [costCategoryFilter, setCostCategoryFilter] = useState<CostCategory | ''>('');
     const [costStartDate, setCostStartDate] = useState('');
     const [costEndDate, setCostEndDate] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
     const [selectedMonthCell, setSelectedMonthCell] = useState<{ studentId: string, monthIndex: number, year: number } | null>(null);
     const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
     const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -199,7 +208,7 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
 
     const filteredCosts = useMemo(() => {
-        return yearCosts.filter(cost => {
+        let filtered = yearCosts.filter(cost => {
             const searchString = `${cost.concept} ${cost.beneficiary} ${cost.notes || ''}`.toLowerCase();
             const matchesSearch = searchString.includes(costSearchQuery.toLowerCase());
             const matchesCategory = costCategoryFilter ? cost.category === costCategoryFilter : true;
@@ -211,7 +220,19 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
             }
             return matchesSearch && matchesCategory && matchesDate;
         });
-    }, [yearCosts, costSearchQuery, costCategoryFilter, costStartDate, costEndDate]);
+
+        if (sortConfig) {
+            filtered = [...filtered].sort((a, b) => {
+                const aValue = a[sortConfig.key as keyof Cost];
+                const bValue = b[sortConfig.key as keyof Cost];
+
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return filtered;
+    }, [yearCosts, costSearchQuery, costCategoryFilter, costStartDate, costEndDate, sortConfig]);
 
     const selectedStudent = selectedMonthCell ? students.find(s => s.id === selectedMonthCell.studentId) : null;
     const selectedMonthPayments = useMemo(() => {
@@ -340,11 +361,21 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700">
                                 <tr>
-                                    <th className="px-6 py-3">Fecha</th>
-                                    <th className="px-6 py-3">Concepto</th>
-                                    <th className="px-6 py-3">Categoría</th>
-                                    <th className="px-6 py-3">Beneficiario</th>
-                                    <th className="px-6 py-3">Importe</th>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('paymentDate')}>
+                                        <div className="flex items-center gap-1">Fecha {sortConfig?.key === 'paymentDate' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                                    </th>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('concept')}>
+                                        <div className="flex items-center gap-1">Concepto {sortConfig?.key === 'concept' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                                    </th>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('category')}>
+                                        <div className="flex items-center gap-1">Categoría {sortConfig?.key === 'category' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                                    </th>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('beneficiary')}>
+                                        <div className="flex items-center gap-1">Beneficiario {sortConfig?.key === 'beneficiary' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                                    </th>
+                                    <th className="px-6 py-3 cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('amount')}>
+                                        <div className="flex items-center gap-1">Importe {sortConfig?.key === 'amount' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                                    </th>
                                     <th className="px-6 py-3">Acciones</th>
                                 </tr>
                             </thead>
