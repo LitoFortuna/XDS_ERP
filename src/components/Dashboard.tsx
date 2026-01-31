@@ -80,6 +80,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     }, [students, payments, realToday]);
 
     const [selectedRentMonth, setSelectedRentMonth] = useState(currentMonth);
+    const [selectedCostMonth, setSelectedCostMonth] = useState(currentMonth); // New state for expenses chart
     const [unpaidSearchQuery, setUnpaidSearchQuery] = useState('');
 
     // --- FILTRADO DE DATOS POR AÑO SELECCIONADO ---
@@ -184,6 +185,11 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                 const end = new Date(s.deactivationDate);
                 if (end <= date) return false;
             }
+            // Si el año es el actual y estamos en el mes actual o futuro,
+            // respetamos el flag manual 'active' para que coincida con el KPI
+            if (selectedYear === realToday.getFullYear() && m >= currentMonth && !s.active) {
+                return false;
+            }
             return true;
         }).length;
         return { name, Alumnos: count };
@@ -240,6 +246,24 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
         });
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [activeStudentsAtEndOfPeriod]);
+
+    // --- NUEVO: GASTOS POR CATEGORÍA MES ---
+    const expensesByCategory = useMemo(() => {
+        const relevantCosts = costs.filter(c => {
+            const d = new Date(c.paymentDate);
+            return d.getFullYear() === selectedYear && d.getMonth() === selectedCostMonth;
+        });
+
+        const distribution: Record<string, number> = {};
+        relevantCosts.forEach(c => {
+            distribution[c.category] = (distribution[c.category] || 0) + c.amount;
+        });
+
+        // Ensure we don't have empty chart if no costs (show at least one empty or handle UI)
+        return Object.entries(distribution)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+    }, [costs, selectedYear, selectedCostMonth]);
 
     const finanzasHistory = monthShortNames.map((name, m) => {
         const monthIncome = filteredPayments.filter(p => new Date(p.date).getMonth() === m).reduce((s, p) => s + p.amount, 0);
@@ -346,6 +370,68 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         <Bar dataKey="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} name="Ingresos Estimados" />
                     </ComposedChart>
                 </ResponsiveContainer>
+            </div>
+
+            {/* GRÁFICO 3: Gastos por Categoría (NUEVO) */}
+            <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <span className="w-1 h-4 bg-rose-500 rounded-full shadow-[0_0_8px_#f43f5e]"></span>
+                            Distribución de Gastos ({monthNames[selectedCostMonth]})
+                        </h3>
+                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">Desglose por categoría de gasto</p>
+                    </div>
+                    <select
+                        value={selectedCostMonth}
+                        onChange={(e) => setSelectedCostMonth(parseInt(e.target.value))}
+                        className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none focus:ring-2 focus:ring-rose-500"
+                    >
+                        {monthNames.map((name, index) => (
+                            <option key={name} value={index}>{name} {selectedYear}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex flex-col md:flex-row items-center gap-8">
+                    <div className="w-full md:w-1/2 h-[300px]">
+                        {expensesByCategory.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={expensesByCategory}
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        {expensesByCategory.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px' }} />
+                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-50">
+                                <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <p className="text-xs font-bold uppercase">Sin gastos registrados</p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="w-full md:w-1/2 grid grid-cols-2 gap-3">
+                        {expensesByCategory.map((item, index) => (
+                            <div key={item.name} className="flex items-center justify-between p-3 rounded-xl bg-gray-800/30 border border-gray-800/50">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-tight truncate max-w-[100px]">{item.name}</span>
+                                </div>
+                                <span className="text-xs font-black text-white">{formatCurrency(item.value)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* FILA: Popularidad + Finanzas */}
