@@ -393,24 +393,30 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </select>
                 </div>
                 <div className="flex flex-col md:flex-row items-center gap-8">
-                    <div className="w-full md:w-1/2 h-[300px]">
+                    <div className="w-full md:w-1/2 h-[320px] relative">
                         {expensesByCategory.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={expensesByCategory}
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
+                                        innerRadius={80}
+                                        outerRadius={110}
+                                        paddingAngle={4}
                                         dataKey="value"
                                         stroke="none"
+                                        cornerRadius={6}
                                     >
                                         {expensesByCategory.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px' }} />
-                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
+                                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#fff', fontWeight: 'bold' }} />
+                                    <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                                        <tspan x="50%" dy="-6" fontSize="28" fontWeight="900" fill="#fff" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))' }}>
+                                            {formatCurrency(expensesByCategory.reduce((s, i) => s + i.value, 0))}
+                                        </tspan>
+                                        <tspan x="50%" dy="24" fontSize="10" fill="#94a3b8" fontWeight="bold" letterSpacing="0.1em" textAnchor="middle">TOTAL</tspan>
+                                    </text>
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
@@ -420,16 +426,36 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                             </div>
                         )}
                     </div>
-                    <div className="w-full md:w-1/2 grid grid-cols-2 gap-3">
-                        {expensesByCategory.map((item, index) => (
-                            <div key={item.name} className="flex items-center justify-between p-3 rounded-xl bg-gray-800/30 border border-gray-800/50">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-tight truncate max-w-[100px]">{item.name}</span>
+                    <div className="w-full md:w-1/2 flex flex-col gap-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                        {expensesByCategory.map((item, index) => {
+                            const total = expensesByCategory.reduce((s, i) => s + i.value, 0);
+                            const percent = total > 0 ? (item.value / total) * 100 : 0;
+
+                            return (
+                                <div key={item.name} className="flex flex-col p-3 rounded-xl bg-gray-800/30 border border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-default group">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2.5 h-2.5 rounded-md shadow-sm group-hover:scale-110 transition-transform" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                                            <span className="text-[11px] font-black text-gray-300 uppercase tracking-tight">{item.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded text-right w-10">{percent.toFixed(0)}%</span>
+                                            <span className="text-xs font-black text-white">{formatCurrency(item.value)}</span>
+                                        </div>
+                                    </div>
+                                    <div className="w-full bg-gray-700/50 rounded-full h-1.5 overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full transition-all duration-1000 ease-out"
+                                            style={{
+                                                width: `${percent}%`,
+                                                backgroundColor: COLORS[index % COLORS.length],
+                                                boxShadow: `0 0 10px ${COLORS[index % COLORS.length]}40`
+                                            }}
+                                        ></div>
+                                    </div>
                                 </div>
-                                <span className="text-xs font-black text-white">{formatCurrency(item.value)}</span>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>
