@@ -520,28 +520,76 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
                         Distribución Métodos de Pago ({selectedYear})
                     </h3>
-                    <div className="flex h-full items-center">
-                        <ResponsiveContainer width="100%" height={240}>
-                            <PieChart>
-                                <Pie
-                                    data={[
-                                        { name: 'Efectivo', value: filteredPayments.filter(p => p.paymentMethod === 'Efectivo').reduce((s, p) => s + p.amount, 0) },
-                                        { name: 'Transferencia', value: filteredPayments.filter(p => p.paymentMethod === 'Transferencia').reduce((s, p) => s + p.amount, 0) },
-                                        { name: 'Domiciliación', value: filteredPayments.filter(p => p.paymentMethod === 'Domiciliación').reduce((s, p) => s + p.amount, 0) },
-                                        { name: 'Bizum', value: filteredPayments.filter(p => p.paymentMethod === 'Bizum').reduce((s, p) => s + p.amount, 0) },
-                                    ]}
-                                    innerRadius={55}
-                                    outerRadius={75}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {COLORS.map((entry, index) => <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#2563eb', '#f59e0b'][index % 4]} stroke="none" />)}
-                                </Pie>
-                                <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                                <Legend layout="vertical" align="right" verticalAlign="middle" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
+                    {(() => {
+                        const paymentData = [
+                            { name: 'Efectivo', value: filteredPayments.filter(p => p.paymentMethod === 'Efectivo').reduce((s, p) => s + p.amount, 0), color: '#10b981' },
+                            { name: 'Transferencia', value: filteredPayments.filter(p => p.paymentMethod === 'Transferencia').reduce((s, p) => s + p.amount, 0), color: '#3b82f6' },
+                            { name: 'Domiciliación', value: filteredPayments.filter(p => p.paymentMethod === 'Domiciliación').reduce((s, p) => s + p.amount, 0), color: '#2563eb' },
+                            { name: 'Bizum', value: filteredPayments.filter(p => p.paymentMethod === 'Bizum').reduce((s, p) => s + p.amount, 0), color: '#f59e0b' },
+                        ].sort((a, b) => b.value - a.value);
+
+                        const totalPayments = paymentData.reduce((acc, curr) => acc + curr.value, 0);
+
+                        return (
+                            <div className="flex flex-col sm:flex-row items-center gap-4">
+                                <div className="w-full sm:w-1/2 h-[220px] relative">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={paymentData}
+                                                innerRadius={60}
+                                                outerRadius={80}
+                                                paddingAngle={4}
+                                                dataKey="value"
+                                                stroke="none"
+                                                cornerRadius={4}
+                                            >
+                                                {paymentData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#fff', fontWeight: 'bold' }} />
+                                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                                                <tspan x="50%" dy="-6" fontSize="18" fontWeight="900" fill="#fff" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))' }}>
+                                                    {formatCurrency(totalPayments)}
+                                                </tspan>
+                                                <tspan x="50%" dy="20" fontSize="9" fill="#94a3b8" fontWeight="bold" letterSpacing="0.1em" textAnchor="middle">TOTAL</tspan>
+                                            </text>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="w-full sm:w-1/2 flex flex-col gap-2">
+                                    {paymentData.map((item, index) => {
+                                        const percent = totalPayments > 0 ? (item.value / totalPayments) * 100 : 0;
+                                        return (
+                                            <div key={item.name} className="flex flex-col p-2 rounded-xl bg-gray-800/30 border border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-default group">
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full shadow-sm group-hover:scale-110 transition-transform" style={{ backgroundColor: item.color }}></div>
+                                                        <span className="text-[10px] font-black text-gray-300 uppercase tracking-tight">{item.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[9px] font-bold text-gray-500 bg-gray-800 px-1 py-0.5 rounded text-right w-8">{percent.toFixed(0)}%</span>
+                                                        <span className="text-[10px] font-black text-white">{formatCurrency(item.value)}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="w-full bg-gray-700/50 rounded-full h-1 overflow-hidden">
+                                                    <div
+                                                        className="h-full rounded-full transition-all duration-1000 ease-out"
+                                                        style={{
+                                                            width: `${percent}%`,
+                                                            backgroundColor: item.color,
+                                                            boxShadow: `0 0 8px ${item.color}40`
+                                                        }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
 
