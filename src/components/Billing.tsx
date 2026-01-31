@@ -310,7 +310,7 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                         <input type="text" placeholder="Buscar concepto/beneficiario..." value={costSearchQuery} onChange={e => setCostSearchQuery(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white flex-grow" />
                         <select value={costCategoryFilter} onChange={e => setCostCategoryFilter(e.target.value as CostCategory)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
                             <option value="">Todas las categorías</option>
-                            {['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Marketing', 'Mantenimiento', 'Otros'].map(c => <option key={c} value={c}>{c}</option>)}
+                            {['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Impuestos', 'Marketing', 'Mantenimiento', 'Otros'].map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                         <input type="date" value={costStartDate} onChange={e => setCostStartDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
                         <input type="date" value={costEndDate} onChange={e => setCostEndDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />

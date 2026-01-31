@@ -59,7 +59,7 @@ export interface Payment {
   notes?: string;
 }
 
-export type CostCategory = 'Profesores' | 'Alquiler' | 'Suministros' | 'Licencias' | 'Marketing' | 'Mantenimiento' | 'Otros';
+export type CostCategory = 'Profesores' | 'Alquiler' | 'Suministros' | 'Licencias' | 'Impuestos' | 'Marketing' | 'Mantenimiento' | 'Otros';
 
 export interface Cost {
   id: string;

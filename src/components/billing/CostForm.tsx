@@ -118,7 +118,7 @@ const CostForm: React.FC<CostFormProps> = ({ cost, instructors, initialValues, o
                 <div>
                     <label className="block text-sm font-medium text-gray-300">Categoría</label>
                     <select name="category" value={formData.category} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500">
-                        {(['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Marketing', 'Mantenimiento', 'Otros'] as CostCategory[]).map(c => <option key={c} value={c}>{c}</option>)}
+                        {(['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Impuestos', 'Marketing', 'Mantenimiento', 'Otros'] as CostCategory[]).map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
 
