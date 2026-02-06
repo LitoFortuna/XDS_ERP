@@ -15,6 +15,7 @@ interface MerchandisingProps {
 }
 
 type SortKey = keyof MerchandiseItem | 'status';
+type SaleSortKey = keyof MerchandiseSale | 'studentName';
 type SortDirection = 'asc' | 'desc';
 
 // --- FORMULARIO DE ARTÍCULO ---
@@ -60,9 +61,9 @@ const ItemForm: React.FC<{
                     <label className="block text-sm font-medium text-gray-300">Talla</label>
                     <input type="text" name="size" value={formData.size} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: S, M, L, Única" />
                 </div>
-                 <div>
+                <div>
                     <label className="block text-sm font-medium text-gray-300">Stock</label>
-                    <input type="number" name="stock" value={formData.stock} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required min="0"/>
+                    <input type="number" name="stock" value={formData.stock} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required min="0" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-300">Precio Compra (€)</label>
@@ -102,12 +103,12 @@ const SaleForm: React.FC<{
         paymentMethod: 'Efectivo' as PaymentMethod,
         notes: '',
     });
-    
-    const sortedStudents = useMemo(() => 
+
+    const sortedStudents = useMemo(() =>
         [...students]
             .filter(s => s.active)
             .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
-    [students]);
+        [students]);
 
     const totalAmount = item.salePrice * formData.quantity;
 
@@ -124,7 +125,7 @@ const SaleForm: React.FC<{
         }
         onSubmit({
             itemId: item.id,
-            itemName: `${item.name} ${item.size ? '('+item.size+')' : ''}`,
+            itemName: `${item.name} ${item.size ? '(' + item.size + ')' : ''}`,
             ...formData,
             totalAmount,
             saleDate: new Date().toISOString().split('T')[0],
@@ -133,7 +134,7 @@ const SaleForm: React.FC<{
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-             <div className="bg-gray-900/50 p-4 rounded-md border border-gray-700">
+            <div className="bg-gray-900/50 p-4 rounded-md border border-gray-700">
                 <p className="font-bold text-lg text-white">{item.name} {item.size ? `(${item.size})` : ''}</p>
                 <p className="text-sm text-gray-300">Precio unitario: €{item.salePrice.toFixed(2)}</p>
                 <p className="text-sm text-gray-400">Stock disponible: {item.stock}</p>
@@ -145,7 +146,7 @@ const SaleForm: React.FC<{
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-300">Comprador (opcional)</label>
-                     <select name="studentId" value={formData.studentId} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                    <select name="studentId" value={formData.studentId} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500">
                         <option value="">Venta anónima</option>
                         {sortedStudents.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
@@ -156,7 +157,7 @@ const SaleForm: React.FC<{
                         <option>Efectivo</option><option>Transferencia</option><option>Domiciliación</option><option>Bizum</option>
                     </select>
                 </div>
-                 <div>
+                <div>
                     <label className="block text-sm font-medium text-gray-300">Total</label>
                     <p className="mt-1 text-xl font-bold text-white py-2">€{totalAmount.toFixed(2)}</p>
                 </div>
@@ -165,7 +166,7 @@ const SaleForm: React.FC<{
                     <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"></textarea>
                 </div>
             </div>
-             <div className="flex justify-end space-x-2 pt-4">
+            <div className="flex justify-end space-x-2 pt-4">
                 <button type="button" onClick={onCancel} className="bg-gray-600 text-gray-200 px-4 py-2 rounded-md hover:bg-gray-500">Cancelar</button>
                 <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Registrar Venta</button>
             </div>
@@ -181,14 +182,18 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<MerchandiseItem | undefined>(undefined);
     const [itemForSale, setItemForSale] = useState<MerchandiseItem | undefined>(undefined);
-    
+
     // Filtros y Ordenación
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
 
+    // Sales Filters & Sort
+    const [salesSearchQuery, setSalesSearchQuery] = useState('');
+    const [salesSortConfig, setSalesSortConfig] = useState<{ key: SaleSortKey, direction: SortDirection }>({ key: 'saleDate', direction: 'desc' });
+
     const studentMap = useMemo(() => new Map(students.map(s => [s.id, s.name])), [students]);
-    
+
     // Calcular categorías únicas para el dropdown
     const uniqueCategories = useMemo(() => {
         const cats = new Set(items.map(i => i.category));
@@ -217,6 +222,35 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
         });
     }, [items, searchQuery, categoryFilter, sortConfig]);
 
+    const sortedAndFilteredSales = useMemo(() => {
+        let filtered = sales.filter(sale => {
+            const studentName = sale.studentId ? studentMap.get(sale.studentId) || '' : 'Anónimo';
+            const matchesSearch =
+                sale.itemName.toLowerCase().includes(salesSearchQuery.toLowerCase()) ||
+                studentName.toLowerCase().includes(salesSearchQuery.toLowerCase());
+            return matchesSearch;
+        });
+
+        return filtered.sort((a, b) => {
+            let aValue: any = a[salesSortConfig.key as keyof MerchandiseSale];
+            let bValue: any = b[salesSortConfig.key as keyof MerchandiseSale];
+
+            // Special handling for student name sorting
+            if (salesSortConfig.key === 'studentName') {
+                aValue = a.studentId ? studentMap.get(a.studentId) || '' : 'Anónimo';
+                bValue = b.studentId ? studentMap.get(b.studentId) || '' : 'Anónimo';
+            }
+
+            if (aValue < bValue) {
+                return salesSortConfig.direction === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return salesSortConfig.direction === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+    }, [sales, salesSearchQuery, salesSortConfig, studentMap]);
+
     const requestSort = (key: SortKey) => {
         let direction: SortDirection = 'asc';
         if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -230,6 +264,19 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
         return sortConfig.direction === 'asc' ? '▲' : '▼';
     };
 
+    const requestSaleSort = (key: SaleSortKey) => {
+        let direction: SortDirection = 'asc';
+        if (salesSortConfig.key === key && salesSortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSalesSortConfig({ key, direction });
+    };
+
+    const getSaleSortIndicator = (key: SaleSortKey) => {
+        if (salesSortConfig.key !== key) return null;
+        return salesSortConfig.direction === 'asc' ? '▲' : '▼';
+    };
+
     // Componente de cabecera ordenable
     const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode }> = ({ sortKey, children }) => (
         <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600 transition-colors select-none" onClick={() => requestSort(sortKey)}>
@@ -239,7 +286,16 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
             </div>
         </th>
     );
-    
+
+    const SortableSaleHeader: React.FC<{ sortKey: SaleSortKey; children: React.ReactNode }> = ({ sortKey, children }) => (
+        <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600 transition-colors select-none" onClick={() => requestSaleSort(sortKey)}>
+            <div className="flex items-center gap-1">
+                {children}
+                <span className="text-gray-500 text-xs w-3">{getSaleSortIndicator(sortKey)}</span>
+            </div>
+        </th>
+    );
+
     // Handlers
     const handleOpenItemModal = (item?: MerchandiseItem) => {
         setEditingItem(item);
@@ -262,7 +318,7 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
             deleteItem(item.id);
         }
     };
-    
+
     const handleOpenSaleModal = (item: MerchandiseItem) => {
         if (item.stock < 1) {
             alert('No hay stock disponible para este artículo.');
@@ -288,7 +344,7 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
     return (
         <div className="p-4 sm:p-8">
             <h2 className="text-3xl font-bold mb-6">Merchandising</h2>
-            
+
             <div className="border-b border-gray-700 mb-6">
                 <nav className="-mb-px flex space-x-6" aria-label="Tabs">
                     <button onClick={() => setActiveTab('inventory')} className={`${activeTab === 'inventory' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Inventario</button>
@@ -332,7 +388,7 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
 
                     <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
-                             <thead className="text-xs text-gray-300 uppercase bg-gray-700">
+                            <thead className="text-xs text-gray-300 uppercase bg-gray-700">
                                 <tr>
                                     <SortableHeader sortKey="name">Artículo</SortableHeader>
                                     <SortableHeader sortKey="category">Categoría</SortableHeader>
@@ -341,8 +397,8 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
                                     <SortableHeader sortKey="stock">Stock</SortableHeader>
                                     <th scope="col" className="px-6 py-3">Acciones</th>
                                 </tr>
-                             </thead>
-                             <tbody>
+                            </thead>
+                            <tbody>
                                 {sortedAndFilteredItems.map(item => (
                                     <tr key={item.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                                         <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{item.name} {item.size ? `(${item.size})` : ''}</td>
@@ -364,41 +420,63 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
                                         <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">No se encontraron artículos con los filtros seleccionados.</td>
                                     </tr>
                                 )}
-                             </tbody>
+                            </tbody>
                         </table>
                     </div>
                 </div>
             )}
 
             {activeTab === 'sales' && (
-                 <div>
+                <div>
                     <h3 className="text-2xl font-bold mb-6">Registro de Ventas</h3>
+
+                    {/* FILTROS VENTAS */}
+                    <div className="bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700/50 mb-6 max-w-md">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
+                            <input
+                                type="text"
+                                placeholder="Buscar por artículo o comprador..."
+                                value={salesSearchQuery}
+                                onChange={(e) => setSalesSearchQuery(e.target.value)}
+                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                            />
+                        </div>
+                    </div>
+
                     <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
-                             <thead className="text-xs text-gray-300 uppercase bg-gray-700">
+                            <thead className="text-xs text-gray-300 uppercase bg-gray-700">
                                 <tr>
-                                    <th scope="col" className="px-6 py-3">Fecha</th>
-                                    <th scope="col" className="px-6 py-3">Artículo</th>
-                                    <th scope="col" className="px-6 py-3">Cantidad</th>
-                                    <th scope="col" className="px-6 py-3">Total</th>
-                                    <th scope="col" className="px-6 py-3">Comprador</th>
+                                    <SortableSaleHeader sortKey="saleDate">Fecha</SortableSaleHeader>
+                                    <SortableSaleHeader sortKey="itemName">Artículo</SortableSaleHeader>
+                                    <SortableSaleHeader sortKey="quantity">Cantidad</SortableSaleHeader>
+                                    <SortableSaleHeader sortKey="totalAmount">Total</SortableSaleHeader>
+                                    <SortableSaleHeader sortKey="studentName">Comprador</SortableSaleHeader>
+                                    <th scope="col" className="px-6 py-3">Comentarios</th>
                                     <th scope="col" className="px-6 py-3">Acciones</th>
                                 </tr>
-                             </thead>
-                             <tbody>
-                                {sales.map(sale => (
+                            </thead>
+                            <tbody>
+                                {sortedAndFilteredSales.map(sale => (
                                     <tr key={sale.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
                                         <td className="px-6 py-4 whitespace-nowrap">{new Date(sale.saleDate).toLocaleDateString('es-ES')}</td>
                                         <td className="px-6 py-4 font-medium text-white">{sale.itemName}</td>
                                         <td className="px-6 py-4">{sale.quantity}</td>
                                         <td className="px-6 py-4 font-bold text-green-300">€{sale.totalAmount.toFixed(2)}</td>
                                         <td className="px-6 py-4">{sale.studentId ? studentMap.get(sale.studentId) : 'Anónimo'}</td>
+                                        <td className="px-6 py-4 max-w-xs truncate" title={sale.notes}>{sale.notes || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                             <button onClick={() => handleDeleteSale(sale)} className="font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
+                                            <button onClick={() => handleDeleteSale(sale)} className="font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
                                         </td>
                                     </tr>
                                 ))}
-                             </tbody>
+                                {sortedAndFilteredSales.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500 italic">No se encontraron ventas con los filtros seleccionados.</td>
+                                    </tr>
+                                )}
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -408,7 +486,7 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
             <Modal isOpen={isItemModalOpen} onClose={handleCloseItemModal} title={editingItem ? 'Editar Artículo' : 'Añadir Nuevo Artículo'}>
                 <ItemForm item={editingItem} onSubmit={handleItemSubmit} onCancel={handleCloseItemModal} />
             </Modal>
-             <Modal isOpen={isSaleModalOpen} onClose={handleCloseSaleModal} title="Registrar Venta">
+            <Modal isOpen={isSaleModalOpen} onClose={handleCloseSaleModal} title="Registrar Venta">
                 {itemForSale && <SaleForm item={itemForSale} students={students} onSubmit={handleSaleSubmit} onCancel={handleCloseSaleModal} />}
             </Modal>
         </div>
