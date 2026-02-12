@@ -83,6 +83,11 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     const [selectedCostMonth, setSelectedCostMonth] = useState(currentMonth); // New state for expenses chart
     const [unpaidSearchQuery, setUnpaidSearchQuery] = useState('');
 
+    // Profitability Breakdown Widget State
+    const [profitPeriod, setProfitPeriod] = useState<'month' | 'quarter' | 'ytd' | 'year'>('month');
+    const [profitVariable, setProfitVariable] = useState<'instructor' | 'class' | 'day'>('instructor');
+    const [profitSelectedMonth, setProfitSelectedMonth] = useState(currentMonth);
+
     // --- FILTRADO DE DATOS POR AÑO SELECCIONADO ---
     const filteredPayments = useMemo(() => payments.filter(p => new Date(p.date).getFullYear() === selectedYear), [payments, selectedYear]);
     const filteredCosts = useMemo(() => costs.filter(c => new Date(c.paymentDate).getFullYear() === selectedYear), [costs, selectedYear]);
@@ -309,6 +314,177 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             .sort((a, b) => a.nextBday.getTime() - b.nextBday.getTime())
             .slice(0, 3);
     }, [students]);
+
+    // --- PROFITABILITY BREAKDOWN CALCULATIONS ---
+    const profitabilityBreakdownData = useMemo(() => {
+        // Helper: Get active students for a specific month
+        const getActiveStudentsForMonth = (classId: string, year: number, month: number) => {
+            return students.filter(s => {
+                if (!s.enrolledClassIds.includes(classId)) return false;
+
+                if (s.enrollmentDate) {
+                    const enrollDate = new Date(s.enrollmentDate);
+                    const selectedDate = new Date(year, month, 1);
+                    if (enrollDate > selectedDate) return false;
+                }
+
+                if (s.deactivationDate) {
+                    const deactivDate = new Date(s.deactivationDate);
+                    const selectedDate = new Date(year, month, 1);
+                    if (deactivDate < selectedDate) return false;
+                }
+
+                return true;
+            });
+        };
+
+        // Helper: Calculate average price for a class in a specific month
+        const calculateAvgPriceForMonth = (classId: string, year: number, month: number) => {
+            const enrolledStudents = getActiveStudentsForMonth(classId, year, month);
+            if (enrolledStudents.length === 0) return 0;
+
+            const totalPerClassPrice = enrolledStudents.reduce((sum, student) => {
+                const classCount = student.enrolledClassIds.length;
+                if (classCount === 0) return sum;
+                return sum + (student.monthlyFee / classCount);
+            }, 0);
+
+            return totalPerClassPrice / enrolledStudents.length;
+        };
+
+        // Helper: Calculate instructor cost for a specific month (using previous month's payments)
+        const calculateInstructorCostForMonth = (instructorId: string, year: number, month: number) => {
+            let costMonth = month - 1;
+            let costYear = year;
+            if (costMonth < 0) {
+                costMonth = 11;
+                costYear -= 1;
+            }
+
+            const instructorCosts = costs.filter(c => {
+                if (c.relatedInstructorId !== instructorId) return false;
+                const costDate = new Date(c.paymentDate);
+                return costDate.getMonth() === costMonth && costDate.getFullYear() === costYear;
+            });
+
+            const totalCost = instructorCosts.reduce((sum, c) => sum + c.amount, 0);
+            const instructorClassCount = classes.filter(c => c.instructorId === instructorId).length;
+
+            return instructorClassCount > 0 ? totalCost / instructorClassCount : 0;
+        };
+
+        // Determine which months to include based on period
+        const monthsToInclude: Array<{ year: number; month: number }> = [];
+
+        if (profitPeriod === 'month') {
+            monthsToInclude.push({ year: selectedYear, month: profitSelectedMonth });
+        } else if (profitPeriod === 'quarter') {
+            const quarterStart = Math.floor(profitSelectedMonth / 3) * 3;
+            for (let i = 0; i < 3; i++) {
+                monthsToInclude.push({ year: selectedYear, month: quarterStart + i });
+            }
+        } else if (profitPeriod === 'ytd') {
+            for (let m = 0; m <= currentMonth; m++) {
+                monthsToInclude.push({ year: selectedYear, month: m });
+            }
+        } else { // 'year'
+            for (let m = 0; m < 12; m++) {
+                monthsToInclude.push({ year: selectedYear, month: m });
+            }
+        }
+
+        // Calculate profitability based on selected variable
+        if (profitVariable === 'instructor') {
+            const instructorMap = new Map<string, { revenue: number; cost: number }>();
+
+            instructors.forEach(instructor => {
+                let totalRevenue = 0;
+                let totalCost = 0;
+
+                monthsToInclude.forEach(({ year, month }) => {
+                    const instructorClasses = classes.filter(c => c.instructorId === instructor.id);
+
+                    instructorClasses.forEach(cls => {
+                        const avgPrice = calculateAvgPriceForMonth(cls.id, year, month);
+                        const activeStudents = getActiveStudentsForMonth(cls.id, year, month).length;
+                        totalRevenue += avgPrice * activeStudents;
+                    });
+
+                    const costPerClass = calculateInstructorCostForMonth(instructor.id, year, month);
+                    totalCost += costPerClass * instructorClasses.length;
+                });
+
+                instructorMap.set(instructor.name, { revenue: totalRevenue, cost: totalCost });
+            });
+
+            return Array.from(instructorMap.entries()).map(([name, { revenue, cost }]) => ({
+                name,
+                Ingresos: Math.round(revenue),
+                Costes: Math.round(cost),
+                Beneficio: Math.round(revenue - cost)
+            })).sort((a, b) => b.Beneficio - a.Beneficio);
+
+        } else if (profitVariable === 'class') {
+            const classMap = new Map<string, { revenue: number; cost: number }>();
+
+            classes.forEach(cls => {
+                let totalRevenue = 0;
+                let totalCost = 0;
+
+                monthsToInclude.forEach(({ year, month }) => {
+                    const avgPrice = calculateAvgPriceForMonth(cls.id, year, month);
+                    const activeStudents = getActiveStudentsForMonth(cls.id, year, month).length;
+                    totalRevenue += avgPrice * activeStudents;
+
+                    const costPerClass = calculateInstructorCostForMonth(cls.instructorId, year, month);
+                    totalCost += costPerClass;
+                });
+
+                classMap.set(cls.name, { revenue: totalRevenue, cost: totalCost });
+            });
+
+            return Array.from(classMap.entries()).map(([name, { revenue, cost }]) => ({
+                name,
+                Ingresos: Math.round(revenue),
+                Costes: Math.round(cost),
+                Beneficio: Math.round(revenue - cost)
+            })).sort((a, b) => b.Beneficio - a.Beneficio);
+
+        } else { // 'day'
+            const dayMap = new Map<string, { revenue: number; cost: number }>();
+            const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+            daysOfWeek.forEach(day => {
+                dayMap.set(day, { revenue: 0, cost: 0 });
+            });
+
+            classes.forEach(cls => {
+                cls.days.forEach(day => {
+                    const dayData = dayMap.get(day)!;
+
+                    monthsToInclude.forEach(({ year, month }) => {
+                        const avgPrice = calculateAvgPriceForMonth(cls.id, year, month);
+                        const activeStudents = getActiveStudentsForMonth(cls.id, year, month).length;
+                        dayData.revenue += avgPrice * activeStudents;
+
+                        const costPerClass = calculateInstructorCostForMonth(cls.instructorId, year, month);
+                        dayData.cost += costPerClass;
+                    });
+                });
+            });
+
+            return Array.from(dayMap.entries()).map(([name, { revenue, cost }]) => ({
+                name,
+                Ingresos: Math.round(revenue),
+                Costes: Math.round(cost),
+                Beneficio: Math.round(revenue - cost)
+            })).sort((a, b) => {
+                // Sort by day of week order
+                return daysOfWeek.indexOf(a.name) - daysOfWeek.indexOf(b.name);
+            });
+        }
+    }, [students, classes, instructors, costs, profitPeriod, profitVariable, profitSelectedMonth, selectedYear, currentMonth]);
+
 
     return (
         <div className="p-6 bg-[#0f172a] min-h-screen text-gray-200 pb-24 space-y-8 font-sans">
@@ -863,6 +1039,68 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* PROFITABILITY BREAKDOWN WIDGET */}
+            <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-xl">
+                <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+                    <h3 className="text-xs font-black text-white uppercase tracking-tighter">Desglose de Rentabilidad</h3>
+                    <div className="flex gap-3">
+                        {/* Period Selector */}
+                        <select
+                            value={profitPeriod}
+                            onChange={(e) => setProfitPeriod(e.target.value as 'month' | 'quarter' | 'ytd' | 'year')}
+                            className="bg-gray-800/60 border border-gray-700/50 text-gray-200 text-[10px] px-3 py-2 rounded-xl font-bold uppercase tracking-wider focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        >
+                            <option value="month">Mes</option>
+                            <option value="quarter">Trimestre</option>
+                            <option value="ytd">Año hasta hoy</option>
+                            <option value="year">Año completo</option>
+                        </select>
+
+                        {/* Month selector (only shown when period is 'month' or 'quarter') */}
+                        {(profitPeriod === 'month' || profitPeriod === 'quarter') && (
+                            <select
+                                value={profitSelectedMonth}
+                                onChange={(e) => setProfitSelectedMonth(parseInt(e.target.value))}
+                                className="bg-gray-800/60 border border-gray-700/50 text-gray-200 text-[10px] px-3 py-2 rounded-xl font-bold uppercase tracking-wider focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            >
+                                {monthNames.map((month, idx) => (
+                                    <option key={idx} value={idx}>{month}</option>
+                                ))}
+                            </select>
+                        )}
+
+                        {/* Variable Selector */}
+                        <select
+                            value={profitVariable}
+                            onChange={(e) => setProfitVariable(e.target.value as 'instructor' | 'class' | 'day')}
+                            className="bg-gray-800/60 border border-gray-700/50 text-gray-200 text-[10px] px-3 py-2 rounded-xl font-bold uppercase tracking-wider focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        >
+                            <option value="instructor">Por Profesor</option>
+                            <option value="class">Por Clase</option>
+                            <option value="day">Por Día</option>
+                        </select>
+                    </div>
+                </div>
+                <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={profitabilityBreakdownData} layout="vertical" margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                        <XAxis type="number" stroke="#94a3b8" style={{ fontSize: '10px', fontWeight: 'bold' }} tickFormatter={(v) => formatCurrency(v)} />
+                        <YAxis dataKey="name" type="category" stroke="#94a3b8" width={100} style={{ fontSize: '10px', fontWeight: 'bold' }} />
+                        <Tooltip
+                            formatter={(v: number) => formatCurrency(v)}
+                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                            itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                        <Bar dataKey="Beneficio" fill="#8b5cf6" radius={[0, 8, 8, 0]}>
+                            {profitabilityBreakdownData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.Beneficio >= 0 ? '#10b981' : '#f43f5e'} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
             </div>
         </div >
     );
