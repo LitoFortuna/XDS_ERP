@@ -394,7 +394,6 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
               <SortableHeader sortKey="startTime">Hora inicio</SortableHeader>
               <SortableHeader sortKey="instructorName">Profesor</SortableHeader>
               <SortableHeader sortKey="occupancy">Ocupación</SortableHeader>
-              <SortableHeader sortKey="occupancy">Ocupación</SortableHeader>
               <th scope="col" className="px-6 py-3">Precio medio por alumna</th>
               <th scope="col" className="px-6 py-3">Ingresos Totales</th>
               <th scope="col" className="px-6 py-3">Coste Profesor</th>
