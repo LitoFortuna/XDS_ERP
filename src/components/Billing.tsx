@@ -93,7 +93,36 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     const yearCosts = useMemo(() => costs.filter(c => parseDateLocal(c.paymentDate).year === selectedYear), [costs, selectedYear]);
 
     const totalIncome = yearPayments.reduce((sum, p) => sum + p.amount, 0);
-    const totalCosts = yearCosts.reduce((sum, c) => sum + c.amount, 0);
+    const filteredCosts = useMemo(() => {
+        let filtered = yearCosts.filter(cost => {
+            const searchString = `${cost.concept} ${cost.beneficiary} ${cost.notes || ''}`.toLowerCase();
+            const matchesSearch = searchString.includes(costSearchQuery.toLowerCase());
+            const matchesCategory = costCategoryFilter ? cost.category === costCategoryFilter : true;
+            let matchesDate = true;
+            if (costStartDate || costEndDate) {
+                // Using standard string comparison for YYYY-MM-DD works well
+                if (costStartDate) matchesDate = matchesDate && cost.paymentDate >= costStartDate;
+                if (costEndDate) matchesDate = matchesDate && cost.paymentDate <= costEndDate;
+            }
+            return matchesSearch && matchesCategory && matchesDate;
+        });
+
+        if (sortConfig) {
+            filtered = [...filtered].sort((a, b) => {
+                const aValue = a[sortConfig.key as keyof Cost];
+                const bValue = b[sortConfig.key as keyof Cost];
+
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return filtered;
+    }, [yearCosts, costSearchQuery, costCategoryFilter, costStartDate, costEndDate, sortConfig]);
+
+
+    // NEW LOGIC: Calculate total costs based on FILTERED results, not just the whole year
+    const totalCosts = filteredCosts.reduce((sum, c) => sum + c.amount, 0);
 
     const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const currentMonthIndex = new Date().getMonth();
@@ -207,32 +236,7 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
         .filter(student => (student.active || searchQuery !== '') && student.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
 
-    const filteredCosts = useMemo(() => {
-        let filtered = yearCosts.filter(cost => {
-            const searchString = `${cost.concept} ${cost.beneficiary} ${cost.notes || ''}`.toLowerCase();
-            const matchesSearch = searchString.includes(costSearchQuery.toLowerCase());
-            const matchesCategory = costCategoryFilter ? cost.category === costCategoryFilter : true;
-            let matchesDate = true;
-            if (costStartDate || costEndDate) {
-                // Using standard string comparison for YYYY-MM-DD works well
-                if (costStartDate) matchesDate = matchesDate && cost.paymentDate >= costStartDate;
-                if (costEndDate) matchesDate = matchesDate && cost.paymentDate <= costEndDate;
-            }
-            return matchesSearch && matchesCategory && matchesDate;
-        });
 
-        if (sortConfig) {
-            filtered = [...filtered].sort((a, b) => {
-                const aValue = a[sortConfig.key as keyof Cost];
-                const bValue = b[sortConfig.key as keyof Cost];
-
-                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return filtered;
-    }, [yearCosts, costSearchQuery, costCategoryFilter, costStartDate, costEndDate, sortConfig]);
 
     const selectedStudent = selectedMonthCell ? students.find(s => s.id === selectedMonthCell.studentId) : null;
     const selectedMonthPayments = useMemo(() => {
