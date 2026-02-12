@@ -160,6 +160,9 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
   const [editingClass, setEditingClass] = useState<DanceClass | undefined>(undefined);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
 
+  const [showCostModal, setShowCostModal] = useState(false);
+  const [selectedCostDate, setSelectedCostDate] = useState(new Date());
+
   const getInstructorName = (id: string) => instructors.find(i => i.id === id)?.name || 'Desconocido';
 
   const sortedClasses = useMemo(() => {
@@ -376,6 +379,12 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Horario de Clases</h2>
         <div className="flex items-center gap-4">
+          <button onClick={() => setShowCostModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center mr-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Desglose Costes
+          </button>
           <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             Exportar a CSV
@@ -383,6 +392,99 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
           <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Clase</button>
         </div>
       </div>
+
+      {/* Cost Breakdown Modal */}
+      {showCostModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white">Desglose de Costes de Profesores</h2>
+              <button onClick={() => setShowCostModal(false)} className="text-gray-400 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-6 flex items-center space-x-4">
+              <div>
+                <label className="block text-gray-400 text-sm font-bold mb-2">Mes</label>
+                <select
+                  value={selectedCostDate.getMonth()}
+                  onChange={(e) => {
+                    const newDate = new Date(selectedCostDate);
+                    newDate.setMonth(parseInt(e.target.value));
+                    setSelectedCostDate(newDate);
+                  }}
+                  className="bg-gray-700 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                >
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i} value={i}>{new Date(0, i).toLocaleString('es-ES', { month: 'long' })}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm font-bold mb-2">Año</label>
+                <input
+                  type="number"
+                  value={selectedCostDate.getFullYear()}
+                  onChange={(e) => {
+                    const newDate = new Date(selectedCostDate);
+                    newDate.setFullYear(parseInt(e.target.value));
+                    setSelectedCostDate(newDate);
+                  }}
+                  className="bg-gray-700 text-white rounded px-3 py-2 w-24 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left text-gray-400">
+                <thead className="text-xs text-gray-300 uppercase bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3">Profesor</th>
+                    <th className="px-6 py-3">Total Pagado ({selectedCostDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })})</th>
+                    <th className="px-6 py-3">Nº Clases Actuales</th>
+                    <th className="px-6 py-3">Coste / Clase</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {instructors.map(instructor => {
+                    // Calculate total payments for this instructor in the selected month
+                    const totalPayments = costs
+                      .filter(c => {
+                        if (c.relatedInstructorId !== instructor.id) return false;
+                        const costDate = new Date(c.paymentDate);
+                        return costDate.getMonth() === selectedCostDate.getMonth() &&
+                          costDate.getFullYear() === selectedCostDate.getFullYear();
+                      })
+                      .reduce((sum, c) => sum + c.amount, 0);
+
+                    // Count classes
+                    const classCount = classes.filter(c => c.instructorId === instructor.id).length;
+
+                    const costPerClass = classCount > 0 ? totalPayments / classCount : 0;
+
+                    if (totalPayments === 0 && classCount === 0) return null; // Hide if no activity
+
+                    return (
+                      <tr key={instructor.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700">
+                        <td className="px-6 py-4 font-medium text-white">{instructor.name}</td>
+                        <td className="px-6 py-4 text-green-400">€{totalPayments.toFixed(2)}</td>
+                        <td className="px-6 py-4">{classCount}</td>
+                        <td className="px-6 py-4 font-bold text-white">€{costPerClass.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="mt-4 text-xs text-gray-500">
+                * Nota: El cálculo asume que el número de clases actuales es representativo del mes seleccionado.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs text-gray-300 uppercase bg-gray-700">
