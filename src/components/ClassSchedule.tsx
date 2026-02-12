@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
-import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory } from '../../types';
+import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory, Cost } from '../../types';
 import Modal from './Modal';
 
 interface ClassScheduleProps {
   classes: DanceClass[];
   instructors: Instructor[];
   students: Student[];
+  costs: Cost[];
   addClass: (danceClass: Omit<DanceClass, 'id'>) => void;
   updateClass: (danceClass: DanceClass) => void;
   deleteClass: (id: string) => void;
@@ -154,7 +155,7 @@ export const ClassForm: React.FC<{
 };
 
 
-const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, students, addClass, updateClass, deleteClass }) => {
+const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, students, costs, addClass, updateClass, deleteClass }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<DanceClass | undefined>(undefined);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
@@ -291,11 +292,17 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
   const handleExportCSV = () => {
     const headers = [
       'Nombre de la clase', 'Categoría', 'Día(s)', 'Hora inicio', 'Hora fin',
-      'Profesor', 'Alumnos Inscritos', 'Capacidad', 'Precio Medio Alumna (€)'
+      'Profesor', 'Alumnos Inscritos', 'Capacidad', 'Precio Medio Alumna (€)',
+      'Ingresos Totales (€)', 'Coste Profesor (€)', 'Rentabilidad (€)'
     ];
 
     const dataToExport = sortedClasses.map(c => {
       const enrolledCount = students.filter(s => s.enrolledClassIds.includes(c.id)).length;
+      const avgPrice = calculateAveragePrice(c.id);
+      const totalRevenue = avgPrice * enrolledCount;
+      const instructorCost = calculateInstructorCostPerClass(c.instructorId);
+      const profitability = totalRevenue - instructorCost;
+
       return [
         c.name,
         c.category,
@@ -305,7 +312,10 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
         getInstructorName(c.instructorId),
         enrolledCount,
         c.capacity,
-        calculateAveragePrice(c.id).toFixed(2)
+        avgPrice.toFixed(2),
+        totalRevenue.toFixed(2),
+        instructorCost.toFixed(2),
+        profitability.toFixed(2)
       ];
     });
 
@@ -336,6 +346,32 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
     return totalPerClassPrice / enrolledStudents.length;
   };
 
+  const calculateInstructorCostPerClass = (instructorId: string) => {
+    if (!instructorId) return 0;
+
+    // Get previous month
+    const today = new Date();
+    const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const prevMonth = prevMonthDate.getMonth();
+    const prevYear = prevMonthDate.getFullYear();
+
+    // Filter costs for this instructor in the previous month
+    const instructorCosts = costs.filter(c => {
+      if (c.relatedInstructorId !== instructorId) return false;
+      const costDate = new Date(c.paymentDate);
+      return costDate.getMonth() === prevMonth && costDate.getFullYear() === prevYear;
+    });
+
+    const totalCost = instructorCosts.reduce((sum, c) => sum + c.amount, 0);
+
+    // Count total classes for this instructor
+    const instructorClassCount = classes.filter(c => c.instructorId === instructorId).length;
+
+    if (instructorClassCount === 0) return 0;
+
+    return totalCost / instructorClassCount;
+  };
+
   return (
     <div className="p-4 sm:p-8">
       <div className="flex justify-between items-center mb-6">
@@ -360,6 +396,9 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
               <SortableHeader sortKey="occupancy">Ocupación</SortableHeader>
               <SortableHeader sortKey="occupancy">Ocupación</SortableHeader>
               <th scope="col" className="px-6 py-3">Precio medio por alumna</th>
+              <th scope="col" className="px-6 py-3">Ingresos Totales</th>
+              <th scope="col" className="px-6 py-3">Coste Profesor</th>
+              <th scope="col" className="px-6 py-3">Rentabilidad</th>
               <th scope="col" className="px-6 py-3">Acciones</th>
             </tr>
           </thead>
@@ -375,6 +414,24 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
                   <OccupancyStatus danceClass={c} />
                 </td>
                 <td className="px-6 py-4">€{calculateAveragePrice(c.id).toFixed(2)}</td>
+                <td className="px-6 py-4 font-semibold text-green-300">
+                  €{(calculateAveragePrice(c.id) * students.filter(s => s.enrolledClassIds.includes(c.id)).length).toFixed(2)}
+                </td>
+                <td className="px-6 py-4 text-red-300">
+                  €{calculateInstructorCostPerClass(c.instructorId).toFixed(2)}
+                </td>
+                <td className="px-6 py-4">
+                  {(() => {
+                    const revenue = calculateAveragePrice(c.id) * students.filter(s => s.enrolledClassIds.includes(c.id)).length;
+                    const cost = calculateInstructorCostPerClass(c.instructorId);
+                    const profit = revenue - cost;
+                    return (
+                      <span className={`font-bold ${profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        €{profit.toFixed(2)}
+                      </span>
+                    );
+                  })()}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap space-x-2">
                   <button onClick={() => handleOpenModal(c)} className="font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
                   <button onClick={() => handleDelete(c.id)} className="font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>

@@ -189,6 +189,7 @@ const App: React.FC = () => {
                     classes={rqClasses}
                     instructors={rqInstructors}
                     students={rqStudents}
+                    costs={rqCosts}
                     addClass={addClass}
                     updateClass={updateClass}
                     deleteClass={deleteClass}
