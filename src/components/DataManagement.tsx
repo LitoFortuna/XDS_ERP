@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem } from '../../types';
 import { generateFullBackupZip } from '../utils/csvExportUtils';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface DataManagementProps {
     students: Student[];
@@ -320,12 +322,115 @@ const DataManagement: React.FC<DataManagementProps> = ({
         await batchAddMerchandiseItems(newItems);
     };
 
-    // PDF Report Generation Function
-    const generateMonthlyFinancialReport = () => {
+    // PDF Report Generation Function with Charts
+    const generateMonthlyFinancialReport = async () => {
         const pdf = new jsPDF();
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         let yPos = 20;
+
+        // Helper: Draw a simple bar chart
+        const drawBarChart = (data: Array<{ label: string; value: number }>, x: number, y: number, width: number, height: number, title: string) => {
+            const maxValue = Math.max(...data.map(d => Math.abs(d.value)), 1);
+            const barWidth = width / data.length;
+            const chartHeight = height - 30;
+            const zeroLine = y + chartHeight;
+
+            // Title
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(title, x + width / 2, y, { align: 'center' });
+
+            // Draw bars
+            data.forEach((item, index) => {
+                const barX = x + index * barWidth + 2;
+                const barH = (Math.abs(item.value) / maxValue) * chartHeight;
+                const barY = item.value >= 0 ? zeroLine - barH : zeroLine;
+
+                // Bar color: green for positive, red for negative
+                if (item.value >= 0) {
+                    pdf.setFillColor(16, 185, 129); // Green
+                } else {
+                    pdf.setFillColor(244, 63, 94); // Red
+                }
+                pdf.rect(barX, barY, barWidth - 4, barH, 'F');
+
+                // Label
+                pdf.setFontSize(7);
+                pdf.setFont('helvetica', 'normal');
+                pdf.setTextColor(80, 80, 80);
+                const labelText = item.label.length > 12 ? item.label.substring(0, 10) + '...' : item.label;
+                pdf.text(labelText, barX + (barWidth - 4) / 2, y + height - 15, { align: 'center', angle: 45 });
+
+                // Value on top
+                pdf.setFontSize(6);
+                pdf.text(`${item.value.toFixed(0)}€`, barX + (barWidth - 4) / 2, barY - 2, { align: 'center' });
+            });
+
+            // Reset text color
+            pdf.setTextColor(0, 0, 0);
+        };
+
+        // Helper: Draw a pie chart
+        const drawPieChart = (data: Array<{ label: string; value: number }>, centerX: number, centerY: number, radius: number, title: string) => {
+            const total = data.reduce((sum, d) => sum + d.value, 0);
+            if (total === 0) return;
+
+            let currentAngle = -90; // Start at top
+            const colors = [
+                [16, 185, 129],   // Green
+                [156, 39, 176],   // Purple
+                [244, 63, 94],    // Red
+                [59, 130, 246],   // Blue
+                [251, 191, 36],   // Yellow
+                [236, 72, 153],   // Pink
+            ];
+
+            // Title
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(title, centerX, centerY - radius - 10, { align: 'center' });
+
+            // Draw slices
+            data.forEach((item, index) => {
+                const sliceAngle = (item.value / total) * 360;
+                const color = colors[index % colors.length] as [number, number, number];
+                pdf.setFillColor(color[0], color[1], color[2]);
+
+                // Draw arc (approximate with triangles for simplicity)
+                const steps = Math.max(10, Math.ceil(sliceAngle / 5));
+                const angleStep = (sliceAngle * Math.PI / 180) / steps;
+                const startAngle = currentAngle * Math.PI / 180;
+
+                for (let i = 0; i < steps; i++) {
+                    const angle1 = startAngle + i * angleStep;
+                    const angle2 = startAngle + (i + 1) * angleStep;
+                    pdf.triangle(
+                        centerX,
+                        centerY,
+                        centerX + radius * Math.cos(angle1),
+                        centerY + radius * Math.sin(angle1),
+                        centerX + radius * Math.cos(angle2),
+                        centerY + radius * Math.sin(angle2),
+                        'F'
+                    );
+                }
+
+                currentAngle += sliceAngle;
+            });
+
+            // Legend
+            let legendY = centerY + radius + 10;
+            data.forEach((item, index) => {
+                const color = colors[index % colors.length] as [number, number, number];
+                pdf.setFillColor(color[0], color[1], color[2]);
+                pdf.rect(centerX - radius, legendY, 3, 3, 'F');
+                pdf.setFontSize(7);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(`${item.label}: ${item.value.toFixed(0)}€ (${((item.value / total) * 100).toFixed(1)}%)`, centerX - radius + 5, legendY + 2);
+                legendY += 5;
+            });
+        };
 
         // Helper: Get active students for selected month
         const getActiveStudentsForMonth = (classId: string) => {
@@ -371,83 +476,100 @@ const DataManagement: React.FC<DataManagementProps> = ({
             return true;
         }).length;
 
+        // ===== PAGE 1: Header & Summary =====
         // Header
-        pdf.setFontSize(20);
+        pdf.setFontSize(24);
         pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(79, 70, 229); // Purple
         pdf.text('Reporte Financiero Mensual', pageWidth / 2, yPos, { align: 'center' });
-        yPos += 8;
-        pdf.setFontSize(12);
+        yPos += 10;
+        pdf.setFontSize(14);
+        pdf.setTextColor(107, 114, 128); // Gray
         pdf.setFont('helvetica', 'normal');
         pdf.text(`${monthNames[selectedReportMonth]} ${selectedReportYear}`, pageWidth / 2, yPos, { align: 'center' });
         yPos += 15;
+        pdf.setTextColor(0, 0, 0); // Reset to black
 
-        // Summary Section
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Resumen Ejecutivo', 14, yPos);
+        // Summary Box
+        pdf.setFillColor(249, 250, 251); // Light gray background
+        pdf.roundedRect(10, yPos, pageWidth - 20, 45, 3, 3, 'F');
+        pdf.setDrawColor(229, 231, 235);
+        pdf.roundedRect(10, yPos, pageWidth - 20, 45, 3, 3, 'S');
+
         yPos += 8;
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Resumen Ejecutivo', pageWidth / 2, yPos, { align: 'center' });
+        yPos += 10;
+
+        // Summary metrics in columns
+        const colWidth = (pageWidth - 20) / 3;
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'normal');
-        pdf.text(`Ingresos Totales: ${totalRevenue.toFixed(2)}€`, 14, yPos);
-        yPos += 6;
-        pdf.text(`Gastos Totales: ${totalCosts.toFixed(2)}€`, 14, yPos);
-        yPos += 6;
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(`Beneficio Neto: ${netProfit.toFixed(2)}€`, 14, yPos);
-        yPos += 6;
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`ROI: ${roi}%`, 14, yPos);
-        yPos += 6;
-        pdf.text(`Alumnos Activos: ${activeStudentsCount}`, 14, yPos);
-        yPos += 12;
 
-        // Revenue Breakdown
-        pdf.setFontSize(12);
+        // Column 1: Revenue
+        pdf.setTextColor(16, 185, 129);
+        pdf.text('Ingresos', 15 + colWidth / 2, yPos, { align: 'center' });
+        pdf.setFontSize(14);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Desglose de Ingresos por Método de Pago', 14, yPos);
-        yPos += 8;
+        pdf.text(`${totalRevenue.toFixed(2)}€`, 15 + colWidth / 2, yPos + 6, { align: 'center' });
+
+        // Column 2: Costs
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(244, 63, 94);
+        pdf.text('Gastos', 15 + colWidth + colWidth / 2, yPos, { align: 'center' });
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${totalCosts.toFixed(2)}€`, 15 + colWidth + colWidth / 2, yPos + 6, { align: 'center' });
+
+        // Column 3: Profit
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(netProfit >= 0 ? 16 : 244, netProfit >= 0 ? 185 : 63, netProfit >= 0 ? 129 : 94);
+        pdf.text('Beneficio Neto', 15 + 2 * colWidth + colWidth / 2, yPos, { align: 'center' });
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${netProfit.toFixed(2)}€`, 15 + 2 * colWidth + colWidth / 2, yPos + 6, { align: 'center' });
+
+        yPos += 15;
+        pdf.setTextColor(107, 114, 128);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`ROI: ${roi}% | Alumnos Activos: ${activeStudentsCount}`, pageWidth / 2, yPos, { align: 'center' });
+
+        yPos += 20;
+        pdf.setTextColor(0, 0, 0); // Reset
+
+        // ===== CHART 1: Revenue by Payment Method (Pie Chart) =====
         const paymentMethodBreakdown = monthPayments.reduce((acc, p) => {
             acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + p.amount;
             return acc;
         }, {} as Record<string, number>);
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        Object.entries(paymentMethodBreakdown).forEach(([method, amount]: [string, number]) => {
-            pdf.text(`${method}: ${amount.toFixed(2)}€`, 20, yPos);
-            yPos += 6;
-        });
-        yPos += 6;
 
-        // Cost Breakdown
-        if (yPos > pageHeight - 60) {
-            pdf.addPage();
-            yPos = 20;
+        const paymentMethodData = Object.entries(paymentMethodBreakdown).map(([label, value]: [string, number]) => ({ label, value }));
+        if (paymentMethodData.length > 0) {
+            drawPieChart(paymentMethodData, pageWidth / 2, yPos + 30, 25, 'Ingresos por Método de Pago');
+            yPos += 90;
         }
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Desglose de Gastos por Categoría', 14, yPos);
-        yPos += 8;
+
+        // ===== PAGE 2: Cost Breakdown & Profitability =====
+        pdf.addPage();
+        yPos = 20;
+
+        // CHART 2: Costs by Category (Pie Chart)
         const costCategoryBreakdown = monthCosts.reduce((acc, c) => {
             acc[c.category] = (acc[c.category] || 0) + c.amount;
             return acc;
         }, {} as Record<string, number>);
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        Object.entries(costCategoryBreakdown).forEach(([category, amount]: [string, number]) => {
-            pdf.text(`${category}: ${amount.toFixed(2)}€`, 20, yPos);
-            yPos += 6;
-        });
-        yPos += 6;
 
-        // Profitability by Instructor (Top 5)
-        if (yPos > pageHeight - 60) {
-            pdf.addPage();
-            yPos = 20;
+        const costCategoryData = Object.entries(costCategoryBreakdown).map(([label, value]: [string, number]) => ({ label, value }));
+        if (costCategoryData.length > 0) {
+            drawPieChart(costCategoryData, pageWidth / 2, yPos + 30, 25, 'Gastos por Categoría');
+            yPos += 90;
         }
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Rentabilidad por Profesor (Top 5)', 14, yPos);
-        yPos += 8;
+
+        // CHART 3: Top 5 Instructors by Profitability (Bar Chart)
         const instructorProfitability = instructors.map(instructor => {
             let totalRevenue = 0;
             let totalCost = 0;
@@ -461,20 +583,22 @@ const DataManagement: React.FC<DataManagementProps> = ({
             });
             const instructorMonthCosts = monthCosts.filter(c => c.relatedInstructorId === instructor.id);
             totalCost = instructorMonthCosts.reduce((sum, c) => sum + c.amount, 0);
-            return { name: instructor.name, profit: totalRevenue - totalCost };
-        }).sort((a, b) => b.profit - a.profit).slice(0, 5);
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        instructorProfitability.forEach(({ name, profit }) => {
-            pdf.text(`${name}: ${profit.toFixed(2)}€`, 20, yPos);
-            yPos += 6;
-        });
-        yPos += 6;
+            return { label: instructor.name, value: totalRevenue - totalCost };
+        }).sort((a, b) => b.value - a.value).slice(0, 5);
 
-        // Footer
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'italic');
-        pdf.text(`Generado el ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        if (instructorProfitability.length > 0) {
+            drawBarChart(instructorProfitability, 15, yPos, pageWidth - 30, 60, 'Top 5 Profesores por Rentabilidad');
+        }
+
+        // Footer on all pages
+        const totalPages = pdf.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'italic');
+            pdf.setTextColor(156, 163, 175);
+            pdf.text(`Generado el ${new Date().toLocaleDateString('es-ES')} | Página ${i} de ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        }
 
         // Save PDF
         pdf.save(`Reporte_Financiero_${monthNames[selectedReportMonth]}_${selectedReportYear}.pdf`);
