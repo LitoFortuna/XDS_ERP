@@ -326,7 +326,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
   const handleExportCSV = () => {
     const headers = [
       'Nombre', 'Edad', 'DNI', 'Fecha de Alta', 'Fecha de Baja', 'Fecha de Nacimiento', 'Teléfono', 'Email',
-      'Clases Inscritas', 'Cuota Mensual (€)', 'Forma de Pago', 'IBAN', 'Activo', 'Observaciones'
+      'Clases Inscritas', 'Cuota Mensual (€)', 'Precio/Clase (€)', 'Forma de Pago', 'IBAN', 'Activo', 'Observaciones'
     ];
 
     const dataToExport = sortedAndFilteredStudents.map(student => ([
@@ -340,6 +340,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
       student.email || '',
       getEnrolledClassNames(student.enrolledClassIds),
       student.monthlyFee.toFixed(2),
+      student.enrolledClassIds.length > 0 ? (student.monthlyFee / student.enrolledClassIds.length).toFixed(2) : '-',
       student.paymentMethod,
       student.iban || '',
       student.active ? 'Sí' : 'No',
@@ -428,6 +429,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
               <th scope="col" className="px-6 py-3">Teléfono</th>
               <SortableHeader sortKey="enrolledClasses">Clases Inscritas</SortableHeader>
               <SortableHeader sortKey="monthlyFee">Cuota</SortableHeader>
+              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600 transition-colors">Precio/Clase</th>
               <SortableHeader sortKey="paymentMethod">Pago</SortableHeader>
               <SortableHeader sortKey="active">Estado</SortableHeader>
               <th scope="col" className="px-6 py-3">Acciones</th>
@@ -448,6 +450,11 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
                   <td className="px-6 py-4 font-mono text-xs">{student.phone || '-'}</td>
                   <td className="px-6 py-4 max-w-xs truncate" title={getEnrolledClassNames(student.enrolledClassIds)}>{getEnrolledClassNames(student.enrolledClassIds)}</td>
                   <td className="px-6 py-4 text-purple-300 font-bold whitespace-nowrap">€{student.monthlyFee.toFixed(0)}</td>
+                  <td className="px-6 py-4 text-purple-300 font-bold whitespace-nowrap">
+                    {student.enrolledClassIds.length > 0
+                      ? `€${(student.monthlyFee / student.enrolledClassIds.length).toFixed(2)}`
+                      : '-'}
+                  </td>
                   <td className="px-6 py-4 text-xs">{student.paymentMethod}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-black tracking-tighter ${student.active ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
