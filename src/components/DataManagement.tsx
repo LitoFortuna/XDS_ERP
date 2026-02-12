@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem } from '../../types';
 import { generateFullBackupZip } from '../utils/csvExportUtils';
+import jsPDF from 'jspdf';
 
 interface DataManagementProps {
     students: Student[];
@@ -131,6 +132,10 @@ const ImporterSection: React.FC<{
 const DataManagement: React.FC<DataManagementProps> = ({
     students, instructors, classes, merchandiseItems, payments, costs, batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems
 }) => {
+    const today = new Date();
+    const [selectedReportMonth, setSelectedReportMonth] = useState(today.getMonth());
+    const [selectedReportYear, setSelectedReportYear] = useState(today.getFullYear());
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
     const convertDateToISO = (dateStr: string): string => {
         if (!dateStr || !/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
@@ -315,20 +320,212 @@ const DataManagement: React.FC<DataManagementProps> = ({
         await batchAddMerchandiseItems(newItems);
     };
 
+    // PDF Report Generation Function
+    const generateMonthlyFinancialReport = () => {
+        const pdf = new jsPDF();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        let yPos = 20;
+
+        // Helper: Get active students for selected month
+        const getActiveStudentsForMonth = (classId: string) => {
+            return students.filter(s => {
+                if (!s.enrolledClassIds.includes(classId)) return false;
+                if (s.enrollmentDate) {
+                    const enrollDate = new Date(s.enrollmentDate);
+                    const selectedDate = new Date(selectedReportYear, selectedReportMonth, 1);
+                    if (enrollDate > selectedDate) return false;
+                }
+                if (s.deactivationDate) {
+                    const deactivDate = new Date(s.deactivationDate);
+                    const selectedDate = new Date(selectedReportYear, selectedReportMonth, 1);
+                    if (deactivDate < selectedDate) return false;
+                }
+                return true;
+            });
+        };
+
+        // Calculate metrics for selected month
+        const monthPayments = payments.filter(p => {
+            const d = new Date(p.date);
+            return d.getMonth() === selectedReportMonth && d.getFullYear() === selectedReportYear;
+        });
+        const monthCosts = costs.filter(c => {
+            const d = new Date(c.paymentDate);
+            return d.getMonth() === selectedReportMonth && d.getFullYear() === selectedReportYear;
+        });
+
+        const totalRevenue = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+        const totalCosts = monthCosts.reduce((sum, c) => sum + c.amount, 0);
+        const netProfit = totalRevenue - totalCosts;
+        const roi = totalCosts > 0 ? ((netProfit / totalCosts) * 100).toFixed(1) : '0';
+
+        const activeStudentsCount = students.filter(s => {
+            const enrollDate = new Date(s.enrollmentDate);
+            const selectedDate = new Date(selectedReportYear, selectedReportMonth, 1);
+            if (enrollDate > selectedDate) return false;
+            if (s.deactivationDate) {
+                const deactivDate = new Date(s.deactivationDate);
+                if (deactivDate < selectedDate) return false;
+            }
+            return true;
+        }).length;
+
+        // Header
+        pdf.setFontSize(20);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Reporte Financiero Mensual', pageWidth / 2, yPos, { align: 'center' });
+        yPos += 8;
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${monthNames[selectedReportMonth]} ${selectedReportYear}`, pageWidth / 2, yPos, { align: 'center' });
+        yPos += 15;
+
+        // Summary Section
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Resumen Ejecutivo', 14, yPos);
+        yPos += 8;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Ingresos Totales: ${totalRevenue.toFixed(2)}€`, 14, yPos);
+        yPos += 6;
+        pdf.text(`Gastos Totales: ${totalCosts.toFixed(2)}€`, 14, yPos);
+        yPos += 6;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`Beneficio Neto: ${netProfit.toFixed(2)}€`, 14, yPos);
+        yPos += 6;
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`ROI: ${roi}%`, 14, yPos);
+        yPos += 6;
+        pdf.text(`Alumnos Activos: ${activeStudentsCount}`, 14, yPos);
+        yPos += 12;
+
+        // Revenue Breakdown
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Desglose de Ingresos por Método de Pago', 14, yPos);
+        yPos += 8;
+        const paymentMethodBreakdown = monthPayments.reduce((acc, p) => {
+            acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + p.amount;
+            return acc;
+        }, {} as Record<string, number>);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        Object.entries(paymentMethodBreakdown).forEach(([method, amount]: [string, number]) => {
+            pdf.text(`${method}: ${amount.toFixed(2)}€`, 20, yPos);
+            yPos += 6;
+        });
+        yPos += 6;
+
+        // Cost Breakdown
+        if (yPos > pageHeight - 60) {
+            pdf.addPage();
+            yPos = 20;
+        }
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Desglose de Gastos por Categoría', 14, yPos);
+        yPos += 8;
+        const costCategoryBreakdown = monthCosts.reduce((acc, c) => {
+            acc[c.category] = (acc[c.category] || 0) + c.amount;
+            return acc;
+        }, {} as Record<string, number>);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        Object.entries(costCategoryBreakdown).forEach(([category, amount]: [string, number]) => {
+            pdf.text(`${category}: ${amount.toFixed(2)}€`, 20, yPos);
+            yPos += 6;
+        });
+        yPos += 6;
+
+        // Profitability by Instructor (Top 5)
+        if (yPos > pageHeight - 60) {
+            pdf.addPage();
+            yPos = 20;
+        }
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Rentabilidad por Profesor (Top 5)', 14, yPos);
+        yPos += 8;
+        const instructorProfitability = instructors.map(instructor => {
+            let totalRevenue = 0;
+            let totalCost = 0;
+            const instructorClasses = classes.filter(c => c.instructorId === instructor.id);
+            instructorClasses.forEach(cls => {
+                const activeStudents = getActiveStudentsForMonth(cls.id);
+                const avgPrice = activeStudents.length > 0
+                    ? activeStudents.reduce((sum, s) => sum + (s.monthlyFee / s.enrolledClassIds.length), 0) / activeStudents.length
+                    : 0;
+                totalRevenue += avgPrice * activeStudents.length;
+            });
+            const instructorMonthCosts = monthCosts.filter(c => c.relatedInstructorId === instructor.id);
+            totalCost = instructorMonthCosts.reduce((sum, c) => sum + c.amount, 0);
+            return { name: instructor.name, profit: totalRevenue - totalCost };
+        }).sort((a, b) => b.profit - a.profit).slice(0, 5);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        instructorProfitability.forEach(({ name, profit }) => {
+            pdf.text(`${name}: ${profit.toFixed(2)}€`, 20, yPos);
+            yPos += 6;
+        });
+        yPos += 6;
+
+        // Footer
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'italic');
+        pdf.text(`Generado el ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+        // Save PDF
+        pdf.save(`Reporte_Financiero_${monthNames[selectedReportMonth]}_${selectedReportYear}.pdf`);
+    };
+
     return (
         <div className="p-4 sm:p-8 space-y-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2 className="text-3xl font-bold">Gestión de Datos</h2>
-                <button
-                    onClick={() => generateFullBackupZip({ students, instructors, classes, payments, costs, merchandiseItems })}
-                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all active:scale-95"
-                    title="Descarga todos los datos en un archivo ZIP con archivos CSV compatibles con el importador"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                    </svg>
-                    Exportar Backup Completo (ZIP)
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                        onClick={() => generateFullBackupZip({ students, instructors, classes, payments, costs, merchandiseItems })}
+                        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all active:scale-95"
+                        title="Descarga todos los datos en un archivo ZIP con archivos CSV compatibles con el importador"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                        </svg>
+                        Exportar Backup Completo (ZIP)
+                    </button>
+                    <div className="flex items-center gap-2 bg-gray-800 p-2 rounded-xl">
+                        <select
+                            value={selectedReportMonth}
+                            onChange={(e) => setSelectedReportMonth(parseInt(e.target.value))}
+                            className="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm font-bold"
+                        >
+                            {monthNames.map((month, idx) => (
+                                <option key={idx} value={idx}>{month}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedReportYear}
+                            onChange={(e) => setSelectedReportYear(parseInt(e.target.value))}
+                            className="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm font-bold"
+                        >
+                            {[2023, 2024, 2025, 2026, 2027].map(year => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
+                        </select>
+                        <button
+                            onClick={generateMonthlyFinancialReport}
+                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-green-900/30 transition-all active:scale-95"
+                            title="Genera un reporte financiero en PDF para el mes seleccionado"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                            </svg>
+                            Generar Reporte PDF
+                        </button>
+                    </div>
+                </div>
             </div>
             <div className="space-y-6">
                 <ImporterSection title="Alumnos" templateHeaders={studentHeaders} onImport={handleStudentImport} />
