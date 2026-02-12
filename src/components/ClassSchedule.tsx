@@ -170,6 +170,90 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
 
   const getInstructorName = (id: string) => instructors.find(i => i.id === id)?.name || 'Desconocido';
 
+  const calculateAveragePrice = (classId: string) => {
+    // Filter students who are active in the selected month
+    const enrolledStudents = students.filter(s => {
+      if (!s.enrolledClassIds.includes(classId)) return false;
+
+      // Check enrollment date
+      if (s.enrollmentDate) {
+        const enrollDate = new Date(s.enrollmentDate);
+        const selectedDate = new Date(selectedYear, selectedMonth, 1);
+        if (enrollDate > selectedDate) return false; // Not enrolled yet
+      }
+
+      // Check deactivation date
+      if (s.deactivationDate) {
+        const deactivDate = new Date(s.deactivationDate);
+        const selectedDate = new Date(selectedYear, selectedMonth, 1);
+        if (deactivDate < selectedDate) return false; // Already deactivated
+      }
+
+      return true;
+    });
+
+    if (enrolledStudents.length === 0) return 0;
+
+    const totalPerClassPrice = enrolledStudents.reduce((sum, student) => {
+      const classCount = student.enrolledClassIds.length;
+      if (classCount === 0) return sum;
+      return sum + (student.monthlyFee / classCount);
+    }, 0);
+
+    return totalPerClassPrice / enrolledStudents.length;
+  };
+
+  // Helper to get active students for selected month
+  const getActiveStudentsForMonth = (classId: string) => {
+    return students.filter(s => {
+      if (!s.enrolledClassIds.includes(classId)) return false;
+
+      // Check enrollment date
+      if (s.enrollmentDate) {
+        const enrollDate = new Date(s.enrollmentDate);
+        const selectedDate = new Date(selectedYear, selectedMonth, 1);
+        if (enrollDate > selectedDate) return false; // Not enrolled yet
+      }
+
+      // Check deactivation date
+      if (s.deactivationDate) {
+        const deactivDate = new Date(s.deactivationDate);
+        const selectedDate = new Date(selectedYear, selectedMonth, 1);
+        if (deactivDate < selectedDate) return false; // Already deactivated
+      }
+
+      return true;
+    });
+  };
+
+  const calculateInstructorCostPerClass = (instructorId: string) => {
+    if (!instructorId) return 0;
+
+    // Use PREVIOUS month relative to selected month for instructor costs
+    let costMonth = selectedMonth - 1;
+    let costYear = selectedYear;
+    if (costMonth < 0) {
+      costMonth = 11;
+      costYear -= 1;
+    }
+
+    // Filter costs for this instructor in the cost month
+    const instructorCosts = costs.filter(c => {
+      if (c.relatedInstructorId !== instructorId) return false;
+      const costDate = new Date(c.paymentDate);
+      return costDate.getMonth() === costMonth && costDate.getFullYear() === costYear;
+    });
+
+    const totalCost = instructorCosts.reduce((sum, c) => sum + c.amount, 0);
+
+    // Count total classes for this instructor
+    const instructorClassCount = classes.filter(c => c.instructorId === instructorId).length;
+
+    if (instructorClassCount === 0) return 0;
+
+    return totalCost / instructorClassCount;
+  };
+
   const sortedClasses = useMemo(() => {
     let sortableClasses = [...classes];
     sortableClasses.sort((a, b) => {
@@ -373,89 +457,10 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
     </th>
   );
 
-  const calculateAveragePrice = (classId: string) => {
-    // Filter students who are active in the selected month
-    const enrolledStudents = students.filter(s => {
-      if (!s.enrolledClassIds.includes(classId)) return false;
 
-      // Check enrollment date
-      if (s.enrollmentDate) {
-        const enrollDate = new Date(s.enrollmentDate);
-        const selectedDate = new Date(selectedYear, selectedMonth, 1);
-        if (enrollDate > selectedDate) return false; // Not enrolled yet
-      }
 
-      // Check deactivation date
-      if (s.deactivationDate) {
-        const deactivDate = new Date(s.deactivationDate);
-        const selectedDate = new Date(selectedYear, selectedMonth, 1);
-        if (deactivDate < selectedDate) return false; // Already deactivated
-      }
 
-      return true;
-    });
 
-    if (enrolledStudents.length === 0) return 0;
-
-    const totalPerClassPrice = enrolledStudents.reduce((sum, student) => {
-      const classCount = student.enrolledClassIds.length;
-      if (classCount === 0) return sum;
-      return sum + (student.monthlyFee / classCount);
-    }, 0);
-
-    return totalPerClassPrice / enrolledStudents.length;
-  };
-
-  // Helper to get active students for selected month
-  const getActiveStudentsForMonth = (classId: string) => {
-    return students.filter(s => {
-      if (!s.enrolledClassIds.includes(classId)) return false;
-
-      // Check enrollment date
-      if (s.enrollmentDate) {
-        const enrollDate = new Date(s.enrollmentDate);
-        const selectedDate = new Date(selectedYear, selectedMonth, 1);
-        if (enrollDate > selectedDate) return false; // Not enrolled yet
-      }
-
-      // Check deactivation date
-      if (s.deactivationDate) {
-        const deactivDate = new Date(s.deactivationDate);
-        const selectedDate = new Date(selectedYear, selectedMonth, 1);
-        if (deactivDate < selectedDate) return false; // Already deactivated
-      }
-
-      return true;
-    });
-  };
-
-  const calculateInstructorCostPerClass = (instructorId: string) => {
-    if (!instructorId) return 0;
-
-    // Use PREVIOUS month relative to selected month for instructor costs
-    let costMonth = selectedMonth - 1;
-    let costYear = selectedYear;
-    if (costMonth < 0) {
-      costMonth = 11;
-      costYear -= 1;
-    }
-
-    // Filter costs for this instructor in the cost month
-    const instructorCosts = costs.filter(c => {
-      if (c.relatedInstructorId !== instructorId) return false;
-      const costDate = new Date(c.paymentDate);
-      return costDate.getMonth() === costMonth && costDate.getFullYear() === costYear;
-    });
-
-    const totalCost = instructorCosts.reduce((sum, c) => sum + c.amount, 0);
-
-    // Count total classes for this instructor
-    const instructorClassCount = classes.filter(c => c.instructorId === instructorId).length;
-
-    if (instructorClassCount === 0) return 0;
-
-    return totalCost / instructorClassCount;
-  };
 
   return (
     <div className="p-4 sm:p-8">
