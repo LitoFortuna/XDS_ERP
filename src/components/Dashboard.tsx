@@ -198,22 +198,48 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     const rentabilidadData = useMemo(() => {
         return classes.map(c => {
             const studentsInClass = students.filter(s => s.enrolledClassIds.includes(c.id));
-            const ingresosEstimados = studentsInClass.reduce((sum, s) => {
-                const enrollDate = new Date(s.enrollmentDate);
-                const targetDate = new Date(selectedYear, selectedRentMonth, 1);
-                const nextMonthDate = new Date(selectedYear, selectedRentMonth + 1, 1);
 
-                if (enrollDate >= nextMonthDate) return sum;
-                if (s.deactivationDate && new Date(s.deactivationDate) < targetDate) return sum;
+            // --- NEW LOGIC: Total Revenue = Avg Price per Student * Enrolled Students ---
+            const avgPricePerStudent = (() => {
+                if (studentsInClass.length === 0) return 0;
+                const total = studentsInClass.reduce((sum, s) => {
+                    const numClasses = s.enrolledClassIds.length;
+                    if (numClasses === 0) return sum;
+                    // We use the same logic as ClassSchedule: Monthly Fee / Num Classes
+                    // Note: We ignore fee exceptions here to match the Schedule view logic exactly as requested.
+                    return sum + (s.monthlyFee / numClasses);
+                }, 0);
+                return total / studentsInClass.length;
+            })();
 
-                const exceptionKey = `${selectedYear}-${selectedRentMonth}`;
-                const fee = s.feeExceptions?.[exceptionKey] ?? s.monthlyFee;
-                const proportion = s.enrolledClassIds.length > 0 ? 1 / s.enrolledClassIds.length : 0;
-                return sum + (fee * proportion);
-            }, 0);
+            const ingresosEstimados = avgPricePerStudent * studentsInClass.length;
 
-            const instructor = instructors.find(i => i.id === c.instructorId);
-            const gastosEstimados = (instructor?.ratePerClass ?? 25) * c.days.length * 4;
+
+            // --- NEW LOGIC: Instructor Cost = Total Cost (Prev Month) / Class Count ---
+            const gastosEstimados = (() => {
+                if (!c.instructorId) return 0;
+
+                // Target: Previous month relative to selectedRentMonth/selectedYear
+                // If selectedRentMonth is January (0), previous is Dec (11) of Year-1
+                const prevMonth = selectedRentMonth === 0 ? 11 : selectedRentMonth - 1;
+                const prevYear = selectedRentMonth === 0 ? selectedYear - 1 : selectedYear;
+
+                // Filter costs for this instructor in that specific month
+                const instructorCosts = costs.filter(cost => {
+                    if (cost.relatedInstructorId !== c.instructorId) return false;
+                    const costDate = new Date(cost.paymentDate);
+                    return costDate.getMonth() === prevMonth && costDate.getFullYear() === prevYear;
+                });
+
+                const totalCost = instructorCosts.reduce((sum, cost) => sum + cost.amount, 0);
+
+                // Count total classes for this instructor
+                const instructorClassCount = classes.filter(cls => cls.instructorId === c.instructorId).length;
+
+                if (instructorClassCount === 0) return 0;
+
+                return totalCost / instructorClassCount;
+            })();
 
             return {
                 name: c.name,
@@ -221,7 +247,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                 Gastos: Math.round(gastosEstimados)
             };
         }).sort((a, b) => b.Ingresos - a.Ingresos).slice(0, 30);
-    }, [classes, students, instructors, selectedRentMonth, selectedYear]);
+    }, [classes, students, instructors, costs, selectedRentMonth, selectedYear]);
 
     const popularClasses = useMemo(() => {
         return classes.map(c => ({
