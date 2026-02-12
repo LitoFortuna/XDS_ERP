@@ -163,6 +163,11 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
   const [showCostModal, setShowCostModal] = useState(false);
   const [selectedCostDate, setSelectedCostDate] = useState(new Date());
 
+  // Month/Year selector for main view
+  const today = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+
   const getInstructorName = (id: string) => instructors.find(i => i.id === id)?.name || 'Desconocido';
 
   const sortedClasses = useMemo(() => {
@@ -337,7 +342,27 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
   );
 
   const calculateAveragePrice = (classId: string) => {
-    const enrolledStudents = students.filter(s => s.enrolledClassIds.includes(classId));
+    // Filter students who are active in the selected month
+    const enrolledStudents = students.filter(s => {
+      if (!s.enrolledClassIds.includes(classId)) return false;
+
+      // Check enrollment date
+      if (s.enrollmentDate) {
+        const enrollDate = new Date(s.enrollmentDate);
+        const selectedDate = new Date(selectedYear, selectedMonth, 1);
+        if (enrollDate > selectedDate) return false; // Not enrolled yet
+      }
+
+      // Check deactivation date
+      if (s.deactivationDate) {
+        const deactivDate = new Date(s.deactivationDate);
+        const selectedDate = new Date(selectedYear, selectedMonth, 1);
+        if (deactivDate < selectedDate) return false; // Already deactivated
+      }
+
+      return true;
+    });
+
     if (enrolledStudents.length === 0) return 0;
 
     const totalPerClassPrice = enrolledStudents.reduce((sum, student) => {
@@ -349,19 +374,45 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
     return totalPerClassPrice / enrolledStudents.length;
   };
 
+  // Helper to get active students for selected month
+  const getActiveStudentsForMonth = (classId: string) => {
+    return students.filter(s => {
+      if (!s.enrolledClassIds.includes(classId)) return false;
+
+      // Check enrollment date
+      if (s.enrollmentDate) {
+        const enrollDate = new Date(s.enrollmentDate);
+        const selectedDate = new Date(selectedYear, selectedMonth, 1);
+        if (enrollDate > selectedDate) return false; // Not enrolled yet
+      }
+
+      // Check deactivation date
+      if (s.deactivationDate) {
+        const deactivDate = new Date(s.deactivationDate);
+        const selectedDate = new Date(selectedYear, selectedMonth, 1);
+        if (deactivDate < selectedDate) return false; // Already deactivated
+      }
+
+      return true;
+    });
+  };
+
   const calculateInstructorCostPerClass = (instructorId: string) => {
     if (!instructorId) return 0;
 
-    // Get CURRENT month (as requested by user)
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
+    // Use PREVIOUS month relative to selected month for instructor costs
+    let costMonth = selectedMonth - 1;
+    let costYear = selectedYear;
+    if (costMonth < 0) {
+      costMonth = 11;
+      costYear -= 1;
+    }
 
-    // Filter costs for this instructor in the CURRENT month
+    // Filter costs for this instructor in the cost month
     const instructorCosts = costs.filter(c => {
       if (c.relatedInstructorId !== instructorId) return false;
       const costDate = new Date(c.paymentDate);
-      return costDate.getMonth() === currentMonth && costDate.getFullYear() === currentYear;
+      return costDate.getMonth() === costMonth && costDate.getFullYear() === costYear;
     });
 
     const totalCost = instructorCosts.reduce((sum, c) => sum + c.amount, 0);
@@ -379,6 +430,25 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Horario de Clases</h2>
         <div className="flex items-center gap-4">
+          {/* Month/Year Selector */}
+          <div className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg border border-gray-700">
+            <label className="text-xs text-gray-400 font-semibold uppercase">Mes:</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              className="bg-gray-700 text-white rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 border-0"
+            >
+              {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((month, idx) => (
+                <option key={idx} value={idx}>{month}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="bg-gray-700 text-white rounded px-2 py-1 w-20 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 border-0"
+            />
+          </div>
           <button onClick={() => setShowCostModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center mr-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -515,14 +585,14 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
                 </td>
                 <td className="px-6 py-4">€{calculateAveragePrice(c.id).toFixed(2)}</td>
                 <td className="px-6 py-4 font-semibold text-green-300">
-                  €{(calculateAveragePrice(c.id) * students.filter(s => s.enrolledClassIds.includes(c.id)).length).toFixed(2)}
+                  €{(calculateAveragePrice(c.id) * getActiveStudentsForMonth(c.id).length).toFixed(2)}
                 </td>
                 <td className="px-6 py-4 text-red-300">
                   €{calculateInstructorCostPerClass(c.instructorId).toFixed(2)}
                 </td>
                 <td className="px-6 py-4">
                   {(() => {
-                    const revenue = calculateAveragePrice(c.id) * students.filter(s => s.enrolledClassIds.includes(c.id)).length;
+                    const revenue = calculateAveragePrice(c.id) * getActiveStudentsForMonth(c.id).length;
                     const cost = calculateInstructorCostPerClass(c.instructorId);
                     const profit = revenue - cost;
                     return (
