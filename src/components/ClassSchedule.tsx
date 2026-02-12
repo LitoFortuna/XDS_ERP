@@ -349,17 +349,16 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
   const calculateInstructorCostPerClass = (instructorId: string) => {
     if (!instructorId) return 0;
 
-    // Get previous month
+    // Get CURRENT month (as requested by user)
     const today = new Date();
-    const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const prevMonth = prevMonthDate.getMonth();
-    const prevYear = prevMonthDate.getFullYear();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
 
-    // Filter costs for this instructor in the previous month
+    // Filter costs for this instructor in the CURRENT month
     const instructorCosts = costs.filter(c => {
       if (c.relatedInstructorId !== instructorId) return false;
       const costDate = new Date(c.paymentDate);
-      return costDate.getMonth() === prevMonth && costDate.getFullYear() === prevYear;
+      return costDate.getMonth() === currentMonth && costDate.getFullYear() === currentYear;
     });
 
     const totalCost = instructorCosts.reduce((sum, c) => sum + c.amount, 0);

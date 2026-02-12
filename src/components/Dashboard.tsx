@@ -215,20 +215,19 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             const ingresosEstimados = avgPricePerStudent * studentsInClass.length;
 
 
-            // --- NEW LOGIC: Instructor Cost = Total Cost (Prev Month) / Class Count ---
+            // --- NEW LOGIC: Instructor Cost = Total Cost (SELECTED Month) / Class Count ---
             const gastosEstimados = (() => {
                 if (!c.instructorId) return 0;
 
-                // Target: Previous month relative to selectedRentMonth/selectedYear
-                // If selectedRentMonth is January (0), previous is Dec (11) of Year-1
-                const prevMonth = selectedRentMonth === 0 ? 11 : selectedRentMonth - 1;
-                const prevYear = selectedRentMonth === 0 ? selectedYear - 1 : selectedYear;
+                // Target: SELECTED month/year (as requested by user)
+                const targetMonth = selectedRentMonth;
+                const targetYear = selectedYear;
 
                 // Filter costs for this instructor in that specific month
                 const instructorCosts = costs.filter(cost => {
                     if (cost.relatedInstructorId !== c.instructorId) return false;
                     const costDate = new Date(cost.paymentDate);
-                    return costDate.getMonth() === prevMonth && costDate.getFullYear() === prevYear;
+                    return costDate.getMonth() === targetMonth && costDate.getFullYear() === targetYear;
                 });
 
                 const totalCost = instructorCosts.reduce((sum, cost) => sum + cost.amount, 0);
