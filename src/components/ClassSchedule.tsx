@@ -13,7 +13,7 @@ interface ClassScheduleProps {
   deleteClass: (id: string) => void;
 }
 
-type SortKey = keyof DanceClass | 'instructorName' | 'occupancy';
+type SortKey = keyof DanceClass | 'instructorName' | 'occupancy' | 'avgPrice' | 'revenue' | 'cost' | 'profitability';
 type SortDirection = 'asc' | 'desc';
 
 const addMinutesToTime = (time: string, minutes: number): string => {
@@ -173,19 +173,49 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
   const sortedClasses = useMemo(() => {
     let sortableClasses = [...classes];
     sortableClasses.sort((a, b) => {
-      const key = sortConfig.key;
       let aValue: any;
       let bValue: any;
 
-      if (key === 'instructorName') {
-        aValue = getInstructorName(a.instructorId);
-        bValue = getInstructorName(b.instructorId);
-      } else if (key === 'occupancy') {
-        aValue = students.filter(s => s.enrolledClassIds.includes(a.id)).length;
-        bValue = students.filter(s => s.enrolledClassIds.includes(b.id)).length;
-      } else {
-        aValue = a[key as keyof DanceClass];
-        bValue = b[key as keyof DanceClass];
+      switch (sortConfig.key) {
+        case 'instructorName':
+          aValue = getInstructorName(a.instructorId);
+          bValue = getInstructorName(b.instructorId);
+          break;
+        case 'occupancy':
+          const aEnrolled = students.filter(s => s.enrolledClassIds.includes(a.id)).length;
+          const bEnrolled = students.filter(s => s.enrolledClassIds.includes(b.id)).length;
+          const aPercentage = a.capacity > 0 ? (aEnrolled / a.capacity) * 100 : 0;
+          const bPercentage = b.capacity > 0 ? (bEnrolled / b.capacity) * 100 : 0;
+          aValue = aPercentage;
+          bValue = bPercentage;
+          break;
+        case 'avgPrice':
+          aValue = calculateAveragePrice(a.id);
+          bValue = calculateAveragePrice(b.id);
+          break;
+        case 'revenue':
+          aValue = calculateAveragePrice(a.id) * getActiveStudentsForMonth(a.id).length;
+          bValue = calculateAveragePrice(b.id) * getActiveStudentsForMonth(b.id).length;
+          break;
+        case 'cost':
+          aValue = calculateInstructorCostPerClass(a.instructorId);
+          bValue = calculateInstructorCostPerClass(b.instructorId);
+          break;
+        case 'profitability':
+          const aRevenue = calculateAveragePrice(a.id) * getActiveStudentsForMonth(a.id).length;
+          const aCost = calculateInstructorCostPerClass(a.instructorId);
+          aValue = aRevenue - aCost;
+          const bRevenue = calculateAveragePrice(b.id) * getActiveStudentsForMonth(b.id).length;
+          const bCost = calculateInstructorCostPerClass(b.instructorId);
+          bValue = bRevenue - bCost;
+          break;
+        case 'name':
+        case 'category':
+        case 'startTime':
+        default:
+          aValue = a[sortConfig.key as keyof DanceClass];
+          bValue = b[sortConfig.key as keyof DanceClass];
+          break;
       }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -193,17 +223,19 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
         return sortConfig.direction === 'asc' ? comparison : -comparison;
       }
 
-      // Fallback for non-string types
-      if (aValue < bValue) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
+
+    // The provided snippet included filtering logic, but it was not present in the original code.
+    // Assuming these variables (searchTerm, filterCategory, filterDay) are defined elsewhere
+    // or this part of the snippet was illustrative.
+    // For now, I will omit the filtering logic as it was not in the original context.
+    // If these filters are intended to be added, please provide their definitions.
+
     return sortableClasses;
-  }, [classes, instructors, students, sortConfig]);
+  }, [classes, instructors, students, sortConfig, selectedMonth, selectedYear]);
 
   const requestSort = (key: SortKey) => {
     let direction: SortDirection = 'asc';
@@ -565,10 +597,10 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
               <SortableHeader sortKey="startTime">Hora inicio</SortableHeader>
               <SortableHeader sortKey="instructorName">Profesor</SortableHeader>
               <SortableHeader sortKey="occupancy">Ocupación</SortableHeader>
-              <th scope="col" className="px-6 py-3">Precio medio por alumna</th>
-              <th scope="col" className="px-6 py-3">Ingresos Totales</th>
-              <th scope="col" className="px-6 py-3">Coste Profesor</th>
-              <th scope="col" className="px-6 py-3">Rentabilidad</th>
+              <SortableHeader sortKey="avgPrice">Precio medio por alumna</SortableHeader>
+              <SortableHeader sortKey="revenue">Ingresos Totales</SortableHeader>
+              <SortableHeader sortKey="cost">Coste Profesor</SortableHeader>
+              <SortableHeader sortKey="profitability">Rentabilidad</SortableHeader>
               <th scope="col" className="px-6 py-3">Acciones</th>
             </tr>
           </thead>
