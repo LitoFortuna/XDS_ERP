@@ -54,6 +54,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
         costs,
         nuptialDances,
         events,
+        attendanceRecords,
         setCurrentView: setView
     } = useAppStore();
     const { addPayment } = useAppActions();
@@ -294,6 +295,76 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value);
     }, [costs, selectedYear, selectedCostMonth]);
+
+    // --- NUEVO: EVOLUCIÓN DE ASISTENCIA MENSUAL Y POR CATEGORÍA ---
+    const attendanceMonthlyEvolution = useMemo(() => {
+        return monthShortNames.map((name, m) => {
+            const monthRecords = attendanceRecords.filter(r => {
+                const d = new Date(r.date + 'T12:00:00');
+                return d.getFullYear() === selectedYear && d.getMonth() === m;
+            });
+
+            if (monthRecords.length === 0) {
+                return {
+                    name,
+                    'Tasa Asistencia': 0,
+                    'Asistencias': 0,
+                    'Ausencias': 0
+                };
+            }
+
+            let totalPresents = 0;
+            let totalEnrolled = 0;
+
+            monthRecords.forEach(record => {
+                const enrolledCount = students.filter(s => s.enrolledClassIds.includes(record.classId)).length;
+                totalPresents += record.presentStudentIds.length;
+                totalEnrolled += enrolledCount;
+            });
+
+            const rate = totalEnrolled > 0 ? (totalPresents / totalEnrolled) * 100 : 0;
+            const totalAbsents = Math.max(0, totalEnrolled - totalPresents);
+
+            return {
+                name,
+                'Tasa Asistencia': Math.round(rate),
+                'Asistencias': totalPresents,
+                'Ausencias': totalAbsents
+            };
+        });
+    }, [attendanceRecords, students, selectedYear]);
+
+    const attendanceByCategory = useMemo(() => {
+        const categories = ['Fitness', 'Baile Moderno', 'Competición', 'Especializada'];
+        const data = categories.map(cat => {
+            const catClasses = classes.filter(c => c.category === cat);
+            const classIds = catClasses.map(c => c.id);
+
+            const catRecords = attendanceRecords.filter(r => {
+                const d = new Date(r.date + 'T12:00:00');
+                return d.getFullYear() === selectedYear && classIds.includes(r.classId);
+            });
+
+            if (catRecords.length === 0) {
+                return { name: cat, 'Asistencia': 0, count: 0 };
+            }
+
+            let totalPresents = 0;
+            let totalEnrolled = 0;
+
+            catRecords.forEach(record => {
+                const enrolledCount = students.filter(s => s.enrolledClassIds.includes(record.classId)).length;
+                totalPresents += record.presentStudentIds.length;
+                totalEnrolled += enrolledCount;
+            });
+
+            const rate = totalEnrolled > 0 ? (totalPresents / totalEnrolled) * 100 : 0;
+
+            return { name: cat, 'Asistencia': Math.round(rate), count: catRecords.length };
+        });
+
+        return data.filter(d => d.count > 0 || d.Asistencia > 0);
+    }, [attendanceRecords, classes, students, selectedYear]);
 
     const finanzasHistory = monthShortNames.map((name, m) => {
         const monthIncome = filteredPayments.filter(p => new Date(p.date).getMonth() === m).reduce((s, p) => s + p.amount, 0);
@@ -658,6 +729,50 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                             );
                         })}
                     </div>
+                </div>
+            </div>
+
+            {/* FILA: Evolución de Asistencia */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+                    <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                        <span className="w-1 h-4 bg-purple-500 rounded-full shadow-[0_0_8px_#8b5cf6]"></span>
+                        Evolución de la Asistencia Mensual ({selectedYear})
+                    </h3>
+                    <ResponsiveContainer width="100%" height={280}>
+                        <AreaChart data={attendanceMonthlyEvolution}>
+                            <defs>
+                                <linearGradient id="colorAttendance" x1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} domain={[0, 100]} tickFormatter={v => `${v}%`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '12px' }} formatter={(v: number) => [`${v}%`, 'Tasa de Asistencia']} />
+                            <Area type="monotone" dataKey="Tasa Asistencia" stroke="#8b5cf6" strokeWidth={4} fillOpacity={1} fill="url(#colorAttendance)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+                    <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                        <span className="w-1 h-4 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>
+                        Asistencia Media por Categoría ({selectedYear})
+                    </h3>
+                    <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={attendanceByCategory}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} domain={[0, 100]} tickFormatter={v => `${v}%`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '12px' }} formatter={(v: number) => [`${v}%`, 'Asistencia Media']} />
+                            <Bar dataKey="Asistencia" fill="#10b981" radius={[6, 6, 0, 0]} barSize={40}>
+                                <LabelList dataKey="Asistencia" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={10} fontWeight="bold" />
+                                {attendanceByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b'][index % 4]} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 
