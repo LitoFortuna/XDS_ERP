@@ -83,6 +83,8 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     const [selectedRentMonth, setSelectedRentMonth] = useState(currentMonth);
     const [selectedCostMonth, setSelectedCostMonth] = useState(currentMonth); // New state for expenses chart
     const [unpaidSearchQuery, setUnpaidSearchQuery] = useState('');
+    const [selectedClassId, setSelectedClassId] = useState<string>('all');
+    const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<string>('all');
 
     // Profitability Breakdown Widget State
     const [profitPeriod, setProfitPeriod] = useState<'month' | 'quarter' | 'ytd' | 'year'>('month');
@@ -301,7 +303,17 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
         return monthShortNames.map((name, m) => {
             const monthRecords = attendanceRecords.filter(r => {
                 const d = new Date(r.date + 'T12:00:00');
-                return d.getFullYear() === selectedYear && d.getMonth() === m;
+                if (d.getFullYear() !== selectedYear || d.getMonth() !== m) return false;
+                
+                if (selectedClassId !== 'all' && r.classId !== selectedClassId) return false;
+                
+                if (selectedDayOfWeek !== 'all') {
+                    const daysMap = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                    const recordDayName = daysMap[d.getDay()];
+                    if (recordDayName !== selectedDayOfWeek) return false;
+                }
+                
+                return true;
             });
 
             if (monthRecords.length === 0) {
@@ -332,7 +344,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                 'Ausencias': totalAbsents
             };
         });
-    }, [attendanceRecords, students, selectedYear]);
+    }, [attendanceRecords, students, selectedYear, selectedClassId, selectedDayOfWeek]);
 
     const attendanceByCategory = useMemo(() => {
         const categories = ['Fitness', 'Baile Moderno', 'Competición', 'Especializada'];
@@ -735,10 +747,42 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             {/* FILA: Evolución de Asistencia */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
-                    <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
-                        <span className="w-1 h-4 bg-purple-500 rounded-full shadow-[0_0_8px_#8b5cf6]"></span>
-                        Evolución de la Asistencia Mensual ({selectedYear})
-                    </h3>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <div>
+                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                <span className="w-1 h-4 bg-purple-500 rounded-full shadow-[0_0_8px_#8b5cf6]"></span>
+                                Evolución de la Asistencia Mensual ({selectedYear})
+                            </h3>
+                            <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">Asistencia media según filtros seleccionados</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <select
+                                value={selectedDayOfWeek}
+                                onChange={(e) => setSelectedDayOfWeek(e.target.value)}
+                                className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none focus:ring-2 focus:ring-purple-500"
+                            >
+                                <option value="all">TODOS LOS DÍAS</option>
+                                <option value="Lunes">LUNES</option>
+                                <option value="Martes">MARTES</option>
+                                <option value="Miércoles">MIÉRCOLES</option>
+                                <option value="Jueves">JUEVES</option>
+                                <option value="Viernes">VIERNES</option>
+                                <option value="Sábado">SÁBADO</option>
+                                <option value="Domingo">DOMINGO</option>
+                            </select>
+
+                            <select
+                                value={selectedClassId}
+                                onChange={(e) => setSelectedClassId(e.target.value)}
+                                className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none focus:ring-2 focus:ring-purple-500 max-w-[150px] truncate"
+                            >
+                                <option value="all">TODAS LAS CLASES</option>
+                                {classes.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name.toUpperCase()}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                     <ResponsiveContainer width="100%" height={280}>
                         <AreaChart data={attendanceMonthlyEvolution}>
                             <defs>
