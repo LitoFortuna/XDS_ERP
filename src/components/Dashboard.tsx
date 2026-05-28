@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
-    AreaChart, Area, ComposedChart, LabelList
+    AreaChart, Area, ComposedChart, LabelList, ReferenceLine
 } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
 import { useAppActions } from '../hooks/useAppActions';
@@ -43,6 +43,50 @@ const StatCard: React.FC<{
             </div>
         </div>
     );
+};
+
+const CustomAttendanceTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        const rate = data['Tasa Asistencia'];
+        const presents = data['Asistencias'];
+        const absents = data['Ausencias'];
+        const clases = data['Clases'];
+        const delta = data['delta'];
+
+        return (
+            <div className="bg-[#1e293b]/95 backdrop-blur-md border border-gray-800 p-4 rounded-2xl shadow-2xl min-w-[200px] text-xs">
+                <p className="text-gray-400 font-bold uppercase tracking-wider mb-2 text-[10px]">{label}</p>
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center gap-4">
+                        <span className="text-gray-400">Tasa Asistencia:</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="font-black text-purple-400 text-sm">{rate}%</span>
+                            {delta !== 0 && (
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center ${delta > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                    {delta > 0 ? `+${delta}%` : `${delta}%`}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="border-t border-gray-800/60 my-1.5"></div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Asistencias:</span>
+                        <span className="font-bold text-emerald-400">{presents}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Ausencias:</span>
+                        <span className="font-bold text-rose-400">{absents}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Clases Registradas:</span>
+                        <span className="font-bold text-blue-400">{clases}</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    return null;
 };
 
 const Dashboard: React.FC<DashboardProps> = React.memo(() => {
@@ -300,7 +344,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
 
     // --- NUEVO: EVOLUCIÓN DE ASISTENCIA MENSUAL Y POR CATEGORÍA ---
     const attendanceMonthlyEvolution = useMemo(() => {
-        return monthShortNames.map((name, m) => {
+        const evolution = monthShortNames.map((name, m) => {
             const monthRecords = attendanceRecords.filter(r => {
                 const d = new Date(r.date + 'T12:00:00');
                 if (d.getFullYear() !== selectedYear || d.getMonth() !== m) return false;
@@ -321,7 +365,9 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     name,
                     'Tasa Asistencia': 0,
                     'Asistencias': 0,
-                    'Ausencias': 0
+                    'Ausencias': 0,
+                    'Clases': 0,
+                    delta: 0
                 };
             }
 
@@ -341,10 +387,75 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                 name,
                 'Tasa Asistencia': Math.round(rate),
                 'Asistencias': totalPresents,
-                'Ausencias': totalAbsents
+                'Ausencias': totalAbsents,
+                'Clases': monthRecords.length,
+                delta: 0
             };
         });
+
+        // Calcular deltas de variación mes a mes
+        for (let i = 0; i < evolution.length; i++) {
+            if (i > 0) {
+                const prevRate = evolution[i - 1]['Tasa Asistencia'];
+                const currRate = evolution[i]['Tasa Asistencia'];
+                const hasPrevRecords = evolution[i - 1].Clases > 0;
+                const hasCurrRecords = evolution[i].Clases > 0;
+                if (hasPrevRecords && hasCurrRecords) {
+                    evolution[i].delta = currRate - prevRate;
+                }
+            }
+        }
+
+        return evolution;
     }, [attendanceRecords, students, selectedYear, selectedClassId, selectedDayOfWeek]);
+
+    const attendanceStats = useMemo(() => {
+        const activeMonths = attendanceMonthlyEvolution.filter(m => m.Clases > 0);
+        if (activeMonths.length === 0) {
+            return {
+                averageRate: 0,
+                maxMonth: 'N/A',
+                maxRate: 0,
+                minMonth: 'N/A',
+                minRate: 0,
+                totalSessions: 0,
+                totalPresents: 0
+            };
+        }
+
+        const totalPresents = activeMonths.reduce((sum, m) => sum + m.Asistencias, 0);
+        const totalAbsents = activeMonths.reduce((sum, m) => sum + m.Ausencias, 0);
+        const totalStudents = totalPresents + totalAbsents;
+        const averageRate = totalStudents > 0 ? Math.round((totalPresents / totalStudents) * 100) : 0;
+
+        let maxMonth = activeMonths[0];
+        let minMonth = activeMonths[0];
+        activeMonths.forEach(m => {
+            if (m['Tasa Asistencia'] > maxMonth['Tasa Asistencia']) {
+                maxMonth = m;
+            }
+            if (m['Tasa Asistencia'] < minMonth['Tasa Asistencia']) {
+                minMonth = m;
+            }
+        });
+
+        const totalSessions = activeMonths.reduce((sum, m) => sum + m.Clases, 0);
+
+        const getMonthFullName = (shortName: string) => {
+            const idx = monthShortNames.indexOf(shortName);
+            return idx !== -1 ? monthNames[idx] : shortName;
+        };
+
+        return {
+            averageRate,
+            maxMonth: getMonthFullName(maxMonth.name),
+            maxRate: maxMonth['Tasa Asistencia'],
+            minMonth: getMonthFullName(minMonth.name),
+            minRate: minMonth['Tasa Asistencia'],
+            totalSessions,
+            totalPresents
+        };
+    }, [attendanceMonthlyEvolution]);
 
     const attendanceByCategory = useMemo(() => {
         const categories = ['Fitness', 'Baile Moderno', 'Competición', 'Especializada'];
@@ -784,7 +895,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         </div>
                     </div>
                     <ResponsiveContainer width="100%" height={280}>
-                        <AreaChart data={attendanceMonthlyEvolution}>
+                        <ComposedChart data={attendanceMonthlyEvolution}>
                             <defs>
                                 <linearGradient id="colorAttendance" x1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
@@ -793,11 +904,80 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} domain={[0, 100]} tickFormatter={v => `${v}%`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '12px' }} formatter={(v: number) => [`${v}%`, 'Tasa de Asistencia']} />
-                            <Area type="monotone" dataKey="Tasa Asistencia" stroke="#8b5cf6" strokeWidth={4} fillOpacity={1} fill="url(#colorAttendance)" />
-                        </AreaChart>
+                            
+                            <YAxis 
+                                yAxisId="left"
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{ fill: '#64748b', fontSize: 11 }} 
+                                domain={[0, 100]} 
+                                tickFormatter={v => `${v}%`}
+                            />
+                            
+                            <YAxis 
+                                yAxisId="right"
+                                orientation="right"
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{ fill: '#64748b', fontSize: 11 }}
+                            />
+                            
+                            <Tooltip content={<CustomAttendanceTooltip />} />
+                            <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                            
+                            <Bar yAxisId="right" dataKey="Ausencias" stackId="students" fill="#f43f5e" opacity={0.15} name="Ausencias" radius={[4, 4, 0, 0]} />
+                            <Bar yAxisId="right" dataKey="Asistencias" stackId="students" fill="#10b981" opacity={0.25} name="Asistencias" radius={[4, 4, 0, 0]} />
+                            
+                            {attendanceStats.averageRate > 0 && (
+                                <ReferenceLine 
+                                    yAxisId="left" 
+                                    y={attendanceStats.averageRate} 
+                                    stroke="#8b5cf6" 
+                                    strokeDasharray="4 4" 
+                                    label={{ value: `Media: ${attendanceStats.averageRate}%`, fill: '#8b5cf6', fontSize: 9, fontWeight: 'bold', position: 'insideBottomLeft' }} 
+                                />
+                            )}
+                            
+                            <Area 
+                                yAxisId="left" 
+                                type="monotone" 
+                                dataKey="Tasa Asistencia" 
+                                stroke="#8b5cf6" 
+                                strokeWidth={4} 
+                                fillOpacity={1} 
+                                fill="url(#colorAttendance)" 
+                                name="Tasa Asistencia"
+                            />
+                        </ComposedChart>
                     </ResponsiveContainer>
+
+                    {/* Grid de KPIs Analíticos */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-gray-800/40">
+                        <div className="bg-[#131924] p-3 rounded-2xl border border-gray-800/40">
+                            <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Media Anual</p>
+                            <p className="text-lg font-black text-purple-400 leading-none">{attendanceStats.averageRate}%</p>
+                            <p className="text-[9px] text-gray-500 mt-1">Asistencia general</p>
+                        </div>
+                        <div className="bg-[#131924] p-3 rounded-2xl border border-gray-800/40">
+                            <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Mes Máximo</p>
+                            <p className="text-lg font-black text-emerald-400 leading-none">
+                                {attendanceStats.maxRate > 0 ? `${attendanceStats.maxRate}%` : '0%'}
+                            </p>
+                            <p className="text-[9px] text-gray-500 mt-1 truncate">{attendanceStats.maxMonth}</p>
+                        </div>
+                        <div className="bg-[#131924] p-3 rounded-2xl border border-gray-800/40">
+                            <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Mes Mínimo</p>
+                            <p className="text-lg font-black text-rose-400 leading-none">
+                                {attendanceStats.minRate > 0 ? `${attendanceStats.minRate}%` : '0%'}
+                            </p>
+                            <p className="text-[9px] text-gray-500 mt-1 truncate">{attendanceStats.minMonth}</p>
+                        </div>
+                        <div className="bg-[#131924] p-3 rounded-2xl border border-gray-800/40">
+                            <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Clases Evaluadas</p>
+                            <p className="text-lg font-black text-blue-400 leading-none">{attendanceStats.totalSessions}</p>
+                            <p className="text-[9px] text-gray-500 mt-1">Sesiones totales</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
