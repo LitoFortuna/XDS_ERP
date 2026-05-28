@@ -569,7 +569,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
         }, {} as Record<string, number>);
 
         if (monthEventRevenue > 0) {
-            paymentMethodBreakdown['Eventos'] = monthEventRevenue;
+            paymentMethodBreakdown['Efectivo'] = (paymentMethodBreakdown['Efectivo'] || 0) + monthEventRevenue;
         }
 
         const paymentMethodData = Object.entries(paymentMethodBreakdown).map(([label, value]: [string, number]) => ({ label, value }));

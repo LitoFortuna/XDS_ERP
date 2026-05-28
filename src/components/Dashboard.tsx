@@ -1092,7 +1092,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </h3>
                     {(() => {
                         const paymentData = [
-                            { name: 'Efectivo', value: filteredPayments.filter(p => p.paymentMethod === 'Efectivo').reduce((s, p) => s + p.amount, 0), color: '#10b981' },
+                            { name: 'Efectivo', value: filteredPayments.filter(p => p.paymentMethod === 'Efectivo').reduce((s, p) => s + p.amount, 0) + totalEventRevenue, color: '#10b981' },
                             { name: 'Transferencia', value: filteredPayments.filter(p => p.paymentMethod === 'Transferencia').reduce((s, p) => s + p.amount, 0), color: '#3b82f6' },
                             { name: 'Domiciliación', value: filteredPayments.filter(p => p.paymentMethod === 'Domiciliación').reduce((s, p) => s + p.amount, 0), color: '#2563eb' },
                             { name: 'Bizum', value: filteredPayments.filter(p => p.paymentMethod === 'Bizum').reduce((s, p) => s + p.amount, 0), color: '#f59e0b' },

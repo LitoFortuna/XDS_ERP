@@ -231,7 +231,6 @@ const App: React.FC = () => {
                     students={rqStudents}
                     classes={rqClasses}
                     merchandiseSales={merchandiseSales}
-                    events={events}
                 />;
             case View.MERCHANDISING:
                 return <Merchandising
