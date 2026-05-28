@@ -231,6 +231,7 @@ const App: React.FC = () => {
                     students={rqStudents}
                     classes={rqClasses}
                     merchandiseSales={merchandiseSales}
+                    events={events}
                 />;
             case View.MERCHANDISING:
                 return <Merchandising
@@ -271,6 +272,7 @@ const App: React.FC = () => {
                     merchandiseItems={merchandiseItems}
                     payments={payments}
                     costs={costs}
+                    events={events}
                     batchAddStudents={batchAddStudents}
                     batchAddInstructors={batchAddInstructors}
                     batchAddClasses={batchAddClasses}

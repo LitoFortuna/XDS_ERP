@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem } from '../../types';
+import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem, DanceEvent } from '../../types';
 import { generateFullBackupZip } from '../utils/csvExportUtils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -12,6 +12,7 @@ interface DataManagementProps {
     merchandiseItems: MerchandiseItem[];
     payments: Payment[];
     costs: Cost[];
+    events: DanceEvent[];
     batchAddStudents: (students: Omit<Student, 'id'>[]) => Promise<void>;
     batchAddInstructors: (instructors: Omit<Instructor, 'id'>[]) => Promise<void>;
     batchAddClasses: (classes: Omit<DanceClass, 'id'>[]) => Promise<void>;
@@ -132,7 +133,7 @@ const ImporterSection: React.FC<{
 
 
 const DataManagement: React.FC<DataManagementProps> = ({
-    students, instructors, classes, merchandiseItems, payments, costs, batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems
+    students, instructors, classes, merchandiseItems, payments, costs, events, batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems
 }) => {
     const today = new Date();
     const [selectedReportMonth, setSelectedReportMonth] = useState(today.getMonth());
@@ -451,16 +452,36 @@ const DataManagement: React.FC<DataManagementProps> = ({
         };
 
         // Calculate metrics for selected month
+        // Helper to parse dates timezone-safely (local date)
+        const parseDateLocal = (dateStr: string) => {
+            if (!dateStr) return { year: 0, month: -1 };
+            const cleanStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+            const parts = cleanStr.split('-');
+            return {
+                year: parts.length >= 1 ? parseInt(parts[0], 10) : 0,
+                month: parts.length >= 2 ? parseInt(parts[1], 10) - 1 : -1
+            };
+        };
+
         const monthPayments = payments.filter(p => {
-            const d = new Date(p.date);
-            return d.getMonth() === selectedReportMonth && d.getFullYear() === selectedReportYear;
+            const parsed = parseDateLocal(p.date);
+            return parsed.month === selectedReportMonth && parsed.year === selectedReportYear;
         });
         const monthCosts = costs.filter(c => {
-            const d = new Date(c.paymentDate);
-            return d.getMonth() === selectedReportMonth && d.getFullYear() === selectedReportYear;
+            const parsed = parseDateLocal(c.paymentDate);
+            return parsed.month === selectedReportMonth && parsed.year === selectedReportYear;
+        });
+        const monthEvents = events.filter(e => {
+            const parsed = parseDateLocal(e.date);
+            return e.price > 0 && parsed.month === selectedReportMonth && parsed.year === selectedReportYear;
         });
 
-        const totalRevenue = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+        const monthEventRevenue = monthEvents.reduce((sum, event) => {
+            const ticketCount = event.participants?.reduce((pSum, p) => pSum + (p.ticketCount || 0), 0) || 0;
+            return sum + (ticketCount * event.price);
+        }, 0);
+
+        const totalRevenue = monthPayments.reduce((sum, p) => sum + p.amount, 0) + monthEventRevenue;
         const totalCosts = monthCosts.reduce((sum, c) => sum + c.amount, 0);
         const netProfit = totalRevenue - totalCosts;
         const roi = totalCosts > 0 ? ((netProfit / totalCosts) * 100).toFixed(1) : '0';
@@ -546,6 +567,10 @@ const DataManagement: React.FC<DataManagementProps> = ({
             acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + p.amount;
             return acc;
         }, {} as Record<string, number>);
+
+        if (monthEventRevenue > 0) {
+            paymentMethodBreakdown['Eventos'] = monthEventRevenue;
+        }
 
         const paymentMethodData = Object.entries(paymentMethodBreakdown).map(([label, value]: [string, number]) => ({ label, value }));
         if (paymentMethodData.length > 0) {

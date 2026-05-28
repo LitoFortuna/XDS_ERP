@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
-import { Payment, Student, DanceClass, MerchandiseSale } from '../../types';
+import { Payment, Student, DanceClass, MerchandiseSale, DanceEvent } from '../../types';
 
 interface QuarterlyInvoicingProps {
     payments: Payment[];
     students: Student[];
     classes: DanceClass[];
     merchandiseSales: MerchandiseSale[];
+    events: DanceEvent[];
 }
 
 /**
@@ -43,7 +44,7 @@ const InfoCard: React.FC<{ title: string; total: number }> = ({ title, total }) 
     );
 };
 
-const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, students, classes, merchandiseSales }) => {
+const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, students, classes, merchandiseSales, events }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const selectedYear = currentDate.getFullYear();
@@ -91,6 +92,21 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
             fitnessTotal += sale.totalAmount;
         }
 
+        const filteredEvents = events.filter(e => {
+            const eventDate = new Date(e.date);
+            return e.price > 0 &&
+                   eventDate.getFullYear() === year &&
+                   quarterMonths.includes(eventDate.getMonth());
+        });
+
+        let eventTicketSales = 0;
+        for (const event of filteredEvents) {
+            const ticketCount = event.participants?.reduce((sum, p) => sum + (p.ticketCount || 0), 0) || 0;
+            eventTicketSales += ticketCount * event.price;
+        }
+
+        fitnessTotal += eventTicketSales;
+
         for (const payment of filteredPayments) {
             const student = studentMap.get(payment.studentId);
             if (!student) continue;
@@ -115,14 +131,15 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
         }
 
         return { baileTotal, fitnessTotal };
-    }, [selectedYear, selectedQuarter, payments, merchandiseSales, studentMap, classMap]);
+    }, [selectedYear, selectedQuarter, payments, merchandiseSales, events, studentMap, classMap]);
 
     const availableYears = useMemo(() => {
         const years = new Set([new Date().getFullYear()]);
         payments.forEach(p => years.add(new Date(p.date).getFullYear()));
         merchandiseSales.forEach(s => years.add(new Date(s.saleDate).getFullYear()));
+        events.forEach(e => years.add(new Date(e.date).getFullYear()));
         return Array.from(years).sort((a, b) => b - a);
-    }, [payments, merchandiseSales]);
+    }, [payments, merchandiseSales, events]);
 
     return (
         <div className="p-4 sm:p-8">
@@ -154,7 +171,7 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
                 <ul className="list-disc list-inside space-y-1">
                     <li>Solo se incluyen los importes cobrados por métodos de pago distintos a 'Efectivo'.</li>
                     <li><strong>Baile:</strong> Incluye las cuotas mensuales de alumnos inscritos en clases de 'Baile Moderno' o 'Competición'.</li>
-                    <li><strong>Fitness y Otros:</strong> Incluye cuotas de alumnos solo en 'Fitness' o 'Especializada', ventas de merchandising y otros conceptos.</li>
+                    <li><strong>Fitness y Otros:</strong> Incluye cuotas de alumnos solo en 'Fitness' o 'Especializada', ventas de merchandising, entradas de eventos y otros conceptos.</li>
                 </ul>
             </div>
         </div>

@@ -166,7 +166,18 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
         return d.getMonth() === currentMonth && d.getFullYear() === selectedYear;
     }).length;
 
-    const totalRevenue = filteredPayments.reduce((acc, p) => acc + p.amount, 0);
+    const totalEventRevenue = useMemo(() => {
+        return events.reduce((sum, event) => {
+            if (!event.date || event.price <= 0) return sum;
+            const parts = event.date.split('-');
+            const eventYear = parts.length >= 1 ? parseInt(parts[0], 10) : -1;
+            if (eventYear !== selectedYear) return sum;
+            const ticketCount = event.participants?.reduce((pSum, p) => pSum + (p.ticketCount || 0), 0) || 0;
+            return sum + (ticketCount * event.price);
+        }, 0);
+    }, [events, selectedYear]);
+
+    const totalRevenue = filteredPayments.reduce((acc, p) => acc + p.amount, 0) + totalEventRevenue;
     const totalCosts = filteredCosts.reduce((acc, c) => acc + c.amount, 0);
     const profit = totalRevenue - totalCosts;
     const roi = totalCosts > 0 ? ((profit / totalCosts) * 100).toFixed(1) : '0';
@@ -490,9 +501,28 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     }, [attendanceRecords, classes, students, selectedYear]);
 
     const finanzasHistory = monthShortNames.map((name, m) => {
-        const monthIncome = filteredPayments.filter(p => new Date(p.date).getMonth() === m).reduce((s, p) => s + p.amount, 0);
-        const monthCost = filteredCosts.filter(c => new Date(c.paymentDate).getMonth() === m).reduce((s, c) => s + c.amount, 0);
-        return { name: name.toLowerCase(), Ingresos: monthIncome, Gastos: monthCost };
+        const monthIncome = filteredPayments.filter(p => {
+            const parts = p.date.split('-');
+            return parts.length >= 2 && parseInt(parts[1], 10) - 1 === m;
+        }).reduce((s, p) => s + p.amount, 0);
+        const monthEventIncome = events.reduce((sum, event) => {
+            if (!event.date || event.price <= 0) return sum;
+            const parts = event.date.split('-');
+            if (parts.length >= 2) {
+                const eventYear = parseInt(parts[0], 10);
+                const eventMonth = parseInt(parts[1], 10) - 1;
+                if (eventYear === selectedYear && eventMonth === m) {
+                    const tickets = event.participants?.reduce((pSum, p) => pSum + (p.ticketCount || 0), 0) || 0;
+                    return sum + (tickets * event.price);
+                }
+            }
+            return sum;
+        }, 0);
+        const monthCost = filteredCosts.filter(c => {
+            const parts = c.paymentDate.split('-');
+            return parts.length >= 2 && parseInt(parts[1], 10) - 1 === m;
+        }).reduce((s, c) => s + c.amount, 0);
+        return { name: name.toLowerCase(), Ingresos: monthIncome + monthEventIncome, Gastos: monthCost };
     });
 
     const upcomingBirthdays = useMemo(() => {

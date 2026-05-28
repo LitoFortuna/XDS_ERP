@@ -39,7 +39,8 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
         students,
         classes,
         merchandiseSales,
-        instructors
+        instructors,
+        events
     } = useAppStore();
 
     const {
@@ -92,7 +93,16 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     const yearPayments = useMemo(() => payments.filter(p => parseDateLocal(p.date).year === selectedYear), [payments, selectedYear]);
     const yearCosts = useMemo(() => costs.filter(c => parseDateLocal(c.paymentDate).year === selectedYear), [costs, selectedYear]);
 
-    const totalIncome = yearPayments.reduce((sum, p) => sum + p.amount, 0);
+    const tuitionIncome = yearPayments.reduce((sum, p) => sum + p.amount, 0);
+    const totalEventIncome = useMemo(() => {
+        return events.reduce((sum, event) => {
+            const eventYear = parseDateLocal(event.date).year;
+            if (eventYear !== selectedYear || event.price <= 0) return sum;
+            const tickets = event.participants?.reduce((pSum, p) => pSum + (p.ticketCount || 0), 0) || 0;
+            return sum + (tickets * event.price);
+        }, 0);
+    }, [events, selectedYear]);
+    const totalIncome = tuitionIncome + totalEventIncome;
     const filteredCosts = useMemo(() => {
         let filtered = yearCosts.filter(cost => {
             const searchString = `${cost.concept} ${cost.beneficiary} ${cost.notes || ''}`.toLowerCase();
@@ -283,6 +293,9 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                             <div className="text-right">
                                 <p className="text-sm text-gray-400">Ingresos {selectedYear}</p>
                                 <p className="text-xl font-bold text-green-400">{formatCurrency(totalIncome)}</p>
+                                <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                                    Cuotas: {formatCurrency(tuitionIncome, 0)} • Eventos: {formatCurrency(totalEventIncome, 0)}
+                                </p>
                             </div>
                             <button
                                 onClick={handleExportPayments}
