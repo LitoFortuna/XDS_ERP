@@ -856,8 +856,8 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             </div>
 
             {/* FILA: Evolución de Asistencia */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl flex flex-col justify-between">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                         <div>
                             <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -894,7 +894,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                             </select>
                         </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={280}>
+                    <ResponsiveContainer width="100%" height={350}>
                         <ComposedChart data={attendanceMonthlyEvolution}>
                             <defs>
                                 <linearGradient id="colorAttendance" x1="0" x2="0" y2="1">
@@ -980,12 +980,12 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </div>
                 </div>
 
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+                <div className="lg:col-span-1 bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl flex flex-col justify-between">
                     <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                         <span className="w-1 h-4 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>
                         Asistencia Media por Categoría ({selectedYear})
                     </h3>
-                    <ResponsiveContainer width="100%" height={280}>
+                    <ResponsiveContainer width="100%" height={350}>
                         <BarChart data={attendanceByCategory}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} />
