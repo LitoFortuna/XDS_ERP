@@ -68,6 +68,8 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     const [costStartDate, setCostStartDate] = useState('');
     const [costEndDate, setCostEndDate] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+    const [monthSortConfig, setMonthSortConfig] = useState<{ monthIndex: number, direction: 'asc' | 'desc' } | null>(null);
+    const [studentStatusFilter, setStudentStatusFilter] = useState<{ inactive: boolean; unpaid: boolean; partial: boolean }>({ inactive: false, unpaid: false, partial: false });
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -75,6 +77,18 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
             direction = 'desc';
         }
         setSortConfig({ key, direction });
+    };
+
+    const handleMonthSort = (monthIndex: number) => {
+        let direction: 'asc' | 'desc' = 'desc'; // Highest amount first makes more sense on first click
+        if (monthSortConfig && monthSortConfig.monthIndex === monthIndex && monthSortConfig.direction === 'desc') {
+            direction = 'asc';
+        }
+        setMonthSortConfig({ monthIndex, direction });
+    };
+
+    const toggleStatusFilter = (key: 'inactive' | 'unpaid' | 'partial') => {
+        setStudentStatusFilter(prev => ({ ...prev, [key]: !prev[key] }));
     };
     const [selectedMonthCell, setSelectedMonthCell] = useState<{ studentId: string, monthIndex: number, year: number } | null>(null);
     const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined);
@@ -138,7 +152,9 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     const currentMonthIndex = new Date().getMonth();
     const realCurrentYear = new Date().getFullYear();
 
-    const getPaymentStatusForMonth = (student: Student, monthIndex: number) => {
+    type MonthStatus = 'paid' | 'partial' | 'unpaid' | 'exempt' | 'na';
+
+    const getPaymentStatusForMonth = (student: Student, monthIndex: number): { text: string; color: string; status: MonthStatus; amount: number } => {
         // 1. Check for payments FIRST. If paid, always show it.
         const paymentsForMonth = yearPayments.filter(p => {
             const { month: pMonth, year: pYear } = parseDateLocal(p.date);
@@ -155,24 +171,24 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                 : student.monthlyFee;
 
             if (expectedFee > 0 && totalPaid >= expectedFee) {
-                return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-green-500/20 text-green-300` };
+                return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-green-500/20 text-green-300`, status: 'paid', amount: totalPaid };
             }
-            return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-orange-500/20 text-orange-300` };
+            return { text: formatCurrency(totalPaid), color: `${baseClasses} bg-orange-500/20 text-orange-300`, status: 'partial', amount: totalPaid };
         }
 
         // 2. If NO payment, then apply enrollment/deactivation logic
         if (student.deactivationDate) {
             const { year: deactivationYear, month: deactivationMonth } = parseDateLocal(student.deactivationDate);
             if (selectedYear > deactivationYear || (selectedYear === deactivationYear && monthIndex > deactivationMonth)) {
-                return { text: '-', color: 'text-gray-600 hover:bg-gray-700 cursor-pointer opacity-50' };
+                return { text: '-', color: 'text-gray-600 hover:bg-gray-700 cursor-pointer opacity-50', status: 'na', amount: 0 };
             }
         }
-        if (!student.enrollmentDate) return { text: 'N/A', color: 'text-gray-600' };
+        if (!student.enrollmentDate) return { text: 'N/A', color: 'text-gray-600', status: 'na', amount: 0 };
 
         const { year: enrollmentYear, month: enrollmentMonth } = parseDateLocal(student.enrollmentDate);
 
         if (selectedYear < enrollmentYear || (selectedYear === enrollmentYear && monthIndex < enrollmentMonth)) {
-            return { text: 'N/A', color: 'text-gray-600 font-bold opacity-30 cursor-not-allowed' };
+            return { text: 'N/A', color: 'text-gray-600 font-bold opacity-30 cursor-not-allowed', status: 'na', amount: 0 };
         }
 
         const exceptionKey = `${selectedYear}-${monthIndex}`;
@@ -181,14 +197,14 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
             : student.monthlyFee;
 
         if (expectedFee === 0) {
-            return { text: 'Exento', color: `${baseClasses} bg-gray-600 text-gray-300` };
+            return { text: 'Exento', color: `${baseClasses} bg-gray-600 text-gray-300`, status: 'exempt', amount: 0 };
         }
 
         // 3. Status for unpaid months
         if (selectedYear < realCurrentYear || (selectedYear === realCurrentYear && monthIndex < currentMonthIndex)) {
-            return { text: 'Impagado', color: `${baseClasses} bg-red-500/20 text-red-300` };
+            return { text: 'Impagado', color: `${baseClasses} bg-red-500/20 text-red-300`, status: 'unpaid', amount: 0 };
         }
-        return { text: '-', color: `${baseClasses} text-gray-500 hover:bg-gray-700` };
+        return { text: '-', color: `${baseClasses} text-gray-500 hover:bg-gray-700`, status: 'na', amount: 0 };
     };
 
     const handleOpenCostModal = (cost?: Cost) => {
@@ -242,9 +258,43 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
         setEditingStudent(undefined);
     };
 
-    const filteredStudents = students
-        .filter(student => (student.active || searchQuery !== '') && student.name.toLowerCase().includes(searchQuery.toLowerCase()))
-        .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+    const hasMonthStatusInYear = (student: Student, targetStatus: MonthStatus) => {
+        for (let i = 0; i < 12; i++) {
+            if (getPaymentStatusForMonth(student, i).status === targetStatus) return true;
+        }
+        return false;
+    };
+
+    const anyStudentStatusFilterActive = studentStatusFilter.inactive || studentStatusFilter.unpaid || studentStatusFilter.partial;
+
+    const filteredStudents = useMemo(() => {
+        let list = students.filter(student => {
+            if (!student.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+
+            if (anyStudentStatusFilterActive) {
+                return (studentStatusFilter.inactive && !student.active)
+                    || (studentStatusFilter.unpaid && hasMonthStatusInYear(student, 'unpaid'))
+                    || (studentStatusFilter.partial && hasMonthStatusInYear(student, 'partial'));
+            }
+
+            return student.active || searchQuery !== '';
+        });
+
+        if (monthSortConfig) {
+            const { monthIndex, direction } = monthSortConfig;
+            list = [...list].sort((a, b) => {
+                const aAmount = getPaymentStatusForMonth(a, monthIndex).amount;
+                const bAmount = getPaymentStatusForMonth(b, monthIndex).amount;
+                if (aAmount !== bAmount) return direction === 'asc' ? aAmount - bAmount : bAmount - aAmount;
+                return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+            });
+        } else {
+            list = [...list].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+        }
+
+        return list;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [students, searchQuery, studentStatusFilter, anyStudentStatusFilterActive, monthSortConfig, yearPayments, selectedYear]);
 
 
 
@@ -285,9 +335,42 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
 
             {activeTab === 'income' && (
                 <div>
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="w-1/3">
-                            <input type="text" placeholder="Buscar alumno..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
+                    <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="w-64">
+                                <input type="text" placeholder="Buscar alumno..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => toggleStatusFilter('inactive')}
+                                    className={`px-3 py-2 rounded text-xs font-bold border transition-colors ${studentStatusFilter.inactive ? 'bg-gray-500 text-white border-gray-400' : 'bg-gray-700 text-gray-300 border-gray-600 hover:border-gray-500'}`}
+                                    title={`Mostrar solo alumnos inactivos (${selectedYear})`}
+                                >
+                                    Inactivos
+                                </button>
+                                <button
+                                    onClick={() => toggleStatusFilter('unpaid')}
+                                    className={`px-3 py-2 rounded text-xs font-bold border transition-colors ${studentStatusFilter.unpaid ? 'bg-red-600 text-white border-red-500' : 'bg-gray-700 text-gray-300 border-gray-600 hover:border-red-500/50'}`}
+                                    title={`Mostrar solo alumnos con al menos un mes impagado en ${selectedYear}`}
+                                >
+                                    Con impagos
+                                </button>
+                                <button
+                                    onClick={() => toggleStatusFilter('partial')}
+                                    className={`px-3 py-2 rounded text-xs font-bold border transition-colors ${studentStatusFilter.partial ? 'bg-orange-600 text-white border-orange-500' : 'bg-gray-700 text-gray-300 border-gray-600 hover:border-orange-500/50'}`}
+                                    title={`Mostrar solo alumnos con al menos un pago parcial en ${selectedYear}`}
+                                >
+                                    Con pagos parciales
+                                </button>
+                                {anyStudentStatusFilterActive && (
+                                    <button
+                                        onClick={() => setStudentStatusFilter({ inactive: false, unpaid: false, partial: false })}
+                                        className="text-xs text-gray-400 hover:text-white underline"
+                                    >
+                                        Limpiar filtros
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="text-right">
@@ -317,7 +400,16 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
                                 <tr>
                                     <th className="px-4 py-3 bg-gray-700 sticky left-0 z-10">Alumno</th>
-                                    {months.map((m, i) => <th key={i} className="px-2 py-3 text-center">{m.substring(0, 3)}</th>)}
+                                    {months.map((m, i) => (
+                                        <th
+                                            key={i}
+                                            className="px-2 py-3 text-center cursor-pointer hover:text-white transition-colors select-none"
+                                            onClick={() => handleMonthSort(i)}
+                                            title={`Ordenar alumnos por importe de ${m}`}
+                                        >
+                                            {m.substring(0, 3)} {monthSortConfig?.monthIndex === i && (monthSortConfig.direction === 'asc' ? '↑' : '↓')}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
