@@ -15,6 +15,18 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
+        // Without these, a stale service worker can keep serving an old cached index.html that
+        // references JS chunk hashes from a previous build — once Vercel stops serving those old
+        // files, the SPA rewrite falls back to index.html for them, the browser gets HTML where
+        // it expected a JS module, and the app never boots (blank screen). clientsClaim +
+        // skipWaiting make a new SW take over existing open tabs immediately instead of waiting
+        // for every tab to close first; cleanupOutdatedCaches drops old precache entries instead
+        // of leaving them around to be served by mistake.
+        workbox: {
+          clientsClaim: true,
+          skipWaiting: true,
+          cleanupOutdatedCaches: true,
+        },
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
           name: 'Xen Dance Space',
