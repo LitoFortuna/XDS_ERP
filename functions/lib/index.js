@@ -1,17 +1,26 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkSpecialDates = exports.getVapidPublicKey = exports.onNewActivityLog = void 0;
+exports.checkSpecialDates = exports.studentLogin = exports.getVapidPublicKey = exports.onNewActivityLog = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const webpush = require("web-push");
 admin.initializeApp();
-// VAPID keys for Web Push
-const VAPID_PUBLIC_KEY = 'BH3e-LWfoyhlsgJXLK81MgSFmjW9ZtvFCyfy7rJ1K_kJaD-pExZdG48T8sSjJt4-KCrkPO2RDQSRmO_Xsb8my1I';
-const VAPID_PRIVATE_KEY = 'N0JBhsFr2Yi6ljLg4uRgiyuICpuRqf68WPZO61b8WQE';
+// VAPID keys for Web Push — loaded from functions/.env (gitignored), never hardcoded in source.
+// Rotate by regenerating with `npx web-push generate-vapid-keys`, updating .env, and also
+// updating VAPID_PUBLIC_KEY in src/config/vapidKeys.ts on the client (that one's fine to commit
+// — only the private key is a secret). Rotating invalidates existing push subscriptions;
+// notificationUtils.subscribeToPush() detects the mismatch and silently resubscribes.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
 const VAPID_EMAIL = 'mailto:raulfdz3@gmail.com';
 // Configure web-push
-webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
+else {
+    console.error('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY missing from environment — push notifications will fail.');
+}
 /**
  * Triggered when a new activity log is created
  * Sends push notification to SuperAdmin
@@ -75,6 +84,45 @@ exports.onNewActivityLog = (0, firestore_1.onDocumentCreated)('activityLogs/{log
  */
 exports.getVapidPublicKey = (0, https_1.onRequest)({ cors: true }, (req, res) => {
     res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+/**
+ * Callable used by the Student Portal login. The portal has no real session today — it just
+ * trusts whatever studentId is in localStorage. This verifies phone+password server-side
+ * (Admin SDK, so it can check the password regardless of Firestore rules) and, on success,
+ * mints a real Firebase Auth custom token with uid == studentId. The client exchanges it via
+ * signInWithCustomToken, which is what lets firestore.rules grant that student read access to
+ * her own students/{id}/private/sensitive doc (DNI/IBAN) without making it public.
+ */
+exports.studentLogin = (0, https_1.onCall)({ cors: true }, async (request) => {
+    var _a, _b, _c, _d;
+    const phone = (_b = (_a = request.data) === null || _a === void 0 ? void 0 : _a.phone) === null || _b === void 0 ? void 0 : _b.trim();
+    const password = (_d = (_c = request.data) === null || _c === void 0 ? void 0 : _c.password) !== null && _d !== void 0 ? _d : '';
+    if (!phone || !password) {
+        throw new https_1.HttpsError('invalid-argument', 'Falta teléfono o contraseña.');
+    }
+    const snapshot = await admin.firestore()
+        .collection('students')
+        .where('phone', '==', phone)
+        .limit(1)
+        .get();
+    if (snapshot.empty) {
+        throw new https_1.HttpsError('not-found', 'No se encontró ningún alumno con ese teléfono.');
+    }
+    const studentDoc = snapshot.docs[0];
+    const student = studentDoc.data();
+    if (!student.active) {
+        throw new https_1.HttpsError('permission-denied', 'Este alumno no está activo. Contacta con la administración.');
+    }
+    // Misma lógica de contraseña que StudentLogin.tsx (PrimerApellido + 2026), verificada aquí
+    // para poder emitir una sesión real de Firebase Auth.
+    const parts = String(student.name || '').trim().split(/\s+/);
+    const surname = parts.length > 1 ? parts[1] : parts[0];
+    const expectedPassword = `${surname}2026`.toLowerCase();
+    if (password.toLowerCase() !== expectedPassword) {
+        throw new https_1.HttpsError('unauthenticated', 'Contraseña incorrecta.');
+    }
+    const token = await admin.auth().createCustomToken(studentDoc.id);
+    return { token, studentId: studentDoc.id };
 });
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const nodemailer = require("nodemailer");

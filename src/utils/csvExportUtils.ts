@@ -1,7 +1,7 @@
 
 import {
     Payment, Cost, Student, Instructor, DanceClass, MerchandiseItem,
-    PaymentMethod, CostPaymentMethod, ClassCategory, DayOfWeek, CostCategory
+    PaymentMethod, CostPaymentMethod, ClassCategory, DayOfWeek, CostCategory, StudentPrivateData
 } from '../../types';
 import JSZip from 'jszip';
 
@@ -95,7 +95,11 @@ export const exportCostsToCSV = (costs: Cost[]): string => {
 /**
  * Converts a list of students to a CSV string following the import template
  */
-export const exportStudentsToCSV = (students: Student[], classes: DanceClass[]): string => {
+export const exportStudentsToCSV = (
+    students: Student[],
+    classes: DanceClass[],
+    privateDataMap: Record<string, StudentPrivateData> = {}
+): string => {
     const headers = [
         'Nombre Completo',
         'DNI',
@@ -119,14 +123,14 @@ export const exportStudentsToCSV = (students: Student[], classes: DanceClass[]):
 
         return [
             s.name,
-            s.dni || '',
+            privateDataMap[s.id]?.dni || '',
             formatDateForCSV(s.enrollmentDate),
             formatDateForCSV(s.birthDate),
             s.phone || '',
             s.email || '',
             s.monthlyFee,
             s.paymentMethod,
-            s.iban || '',
+            privateDataMap[s.id]?.iban || '',
             s.active ? 'true' : 'false',
             s.notes || '',
             enrolledClassNames
@@ -234,10 +238,11 @@ export const generateFullBackupZip = async (data: {
     payments: Payment[];
     costs: Cost[];
     merchandiseItems: MerchandiseItem[];
+    studentPrivateDataMap?: Record<string, StudentPrivateData>;
 }) => {
     const zip = new JSZip();
 
-    zip.file('01_alumnos.csv', '\uFEFF' + exportStudentsToCSV(data.students, data.classes));
+    zip.file('01_alumnos.csv', '\uFEFF' + exportStudentsToCSV(data.students, data.classes, data.studentPrivateDataMap));
     zip.file('02_profesores.csv', '\uFEFF' + exportInstructorsToCSV(data.instructors));
     zip.file('03_clases.csv', '\uFEFF' + exportClassesToCSV(data.classes, data.instructors));
     zip.file('04_ingresos_cobros.csv', '\uFEFF' + exportPaymentsToCSV(data.payments, data.students));

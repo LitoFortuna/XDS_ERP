@@ -1,30 +1,74 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Lista blanca de administradores reales del ERP.
+    // Debe reflejar exactamente ROLE_ASSIGNMENTS en src/services/domain/userProfileService.ts.
+    // Cualquier usuario de Firebase Auth que NO esté aquí (p.ej. una cuenta autorregistrada)
+    // no obtiene permiso de escritura, sin importar el rol que su propio perfil declare.
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.email in ['raulfdz3@gmail.com', 'info@xendance.space'];
+    }
+
     // Reglas específicas para solicitudes de cambio de datos
     match /changeRequests/{requestId} {
       // Cualquiera puede CREAR solicitudes (los estudiantes las crean)
       allow create: if true;
       // Cualquiera puede LEER (para que los estudiantes vean sus solicitudes)
       allow read: if true;
-      // Solo usuarios autenticados pueden ACTUALIZAR (admins aprueban/rechazan)
-      allow update, delete: if request.auth != null;
+      // Solo administradores pueden ACTUALIZAR (aprobar/rechazar)
+      allow update, delete: if isAdmin();
     }
-    
+
     // Reglas para progreso de estudiantes (gamificación)
     match /studentProgress/{progressId} {
       // Cualquiera puede LEER y CREAR su progreso
       allow read, create: if true;
-      // Solo usuarios autenticados pueden ACTUALIZAR/ELIMINAR (admins)
-      allow update, delete: if request.auth != null;
+      // Solo administradores pueden ACTUALIZAR/ELIMINAR
+      allow update, delete: if isAdmin();
     }
-    
-    // Regla global:
-    // - Cualquiera puede LEER (necesario para el Portal de Alumno)
-    // - Solo Administradores autenticados pueden ESCRIBIR/MODIFICAR
-    match /{document=**} {
+
+    // Perfiles de usuario: cada uno puede crear el suyo propio, pero nunca con rol elevado
+    // (eso evita que una cuenta autorregistrada se autoasigne 'Admin'/'SuperAdmin').
+    // Solo un administrador ya reconocido puede cambiar roles.
+    match /userProfiles/{uid} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && !(request.resource.data.role in ['SuperAdmin', 'Admin']);
+      allow update, delete: if isAdmin();
     }
+
+    // Alumnas: el documento principal es público de lectura (lo necesita el Portal de Alumno,
+    // que no usa Firebase Auth), pero los datos sensibles (DNI, IBAN) viven en una subcolección
+    // aparte que NUNCA es pública. Solo un admin, o la propia alumna autenticada con el token de
+    // Firebase que le entrega la Cloud Function studentLogin (uid == studentId), puede leerla.
+    // Esta regla también cubre las consultas collectionGroup('private') de la exportación CSV.
+    match /students/{studentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /private/{doc} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == studentId);
+        allow write: if isAdmin();
+      }
+    }
+
+    // Resto de colecciones de nivel superior de la app: de lectura pública (necesario para el
+    // Portal de Alumno) y escritura solo para administradores.
+    // IMPORTANTE: se enumeran explícitamente (en vez de usar un comodín /{document=**}) porque
+    // un comodín recursivo también haría público el contenido de students/{id}/private de arriba
+    // — Firestore evalúa TODAS las reglas que apliquen a una ruta con OR, así que una regla
+    // pública en cualquier sitio bastaría para filtrar los datos que acabamos de restringir.
+    match /instructors/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /classes/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /payments/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /costs/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /events/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /nuptialDances/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /merchandiseItems/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /merchandiseSales/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /attendance/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /activityLogs/{id} { allow read: if true; allow write: if isAdmin(); }
   }
 }

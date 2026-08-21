@@ -5,7 +5,8 @@ import StudentLogin from './components/portal/StudentLogin';
 import StudentPortal from './components/portal/StudentPortal';
 import { Student } from '../types';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from './config/firebase';
+import { signOut } from 'firebase/auth';
+import { db, auth } from './config/firebase';
 
 import { InstallPrompt } from './components/InstallPrompt';
 
@@ -69,6 +70,7 @@ const MainRouter: React.FC = () => {
 
     const handleStudentLogout = () => {
         localStorage.removeItem('student_portal_id');
+        signOut(auth).catch(() => { /* best-effort: local state is cleared regardless */ });
         setCurrentStudent(null);
         setMode('portal');
     };

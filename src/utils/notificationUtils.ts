@@ -45,24 +45,42 @@ export const subscribeToPush = async (userId: string): Promise<PushSubscription 
         // Check if subscription already exists
         let subscription = await registration.pushManager.getSubscription();
 
+        const { VAPID_PUBLIC_KEY } = await import('../config/vapidKeys');
+
+        const urlBase64ToUint8Array = (base64String: string) => {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        };
+
+        const uint8ArrayToBase64Url = (buffer: ArrayBuffer) => {
+            let binary = '';
+            new Uint8Array(buffer).forEach(b => { binary += String.fromCharCode(b); });
+            return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        };
+
+        if (subscription) {
+            // A subscription from a previously rotated VAPID key won't match the current public
+            // key — the push service would then silently reject anything we send. Drop it so we
+            // fall through to creating a fresh one below.
+            const existingKey = subscription.options.applicationServerKey
+                ? uint8ArrayToBase64Url(subscription.options.applicationServerKey)
+                : null;
+            if (existingKey !== VAPID_PUBLIC_KEY.replace(/=+$/, '')) {
+                console.log('[Push] Stale subscription (VAPID key rotated) — resubscribing');
+                await subscription.unsubscribe();
+                subscription = null;
+            }
+        }
+
         if (!subscription) {
-            // Import VAPID key
-            const { VAPID_PUBLIC_KEY } = await import('../config/vapidKeys');
-
-            // Convert VAPID key to Uint8Array
-            const urlBase64ToUint8Array = (base64String: string) => {
-                const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                const base64 = (base64String + padding)
-                    .replace(/-/g, '+')
-                    .replace(/_/g, '/');
-                const rawData = window.atob(base64);
-                const outputArray = new Uint8Array(rawData.length);
-                for (let i = 0; i < rawData.length; ++i) {
-                    outputArray[i] = rawData.charCodeAt(i);
-                }
-                return outputArray;
-            };
-
             subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)

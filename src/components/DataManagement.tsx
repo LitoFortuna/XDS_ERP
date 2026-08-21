@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem, DanceEvent } from '../../types';
+import { Student, Instructor, DanceClass, Payment, Cost, PaymentMethod, ClassCategory, DayOfWeek, CostCategory, CostPaymentMethod, MerchandiseItem, DanceEvent, StudentPrivateData } from '../../types';
 import { generateFullBackupZip } from '../utils/csvExportUtils';
+import { getEventRevenue } from '../utils/eventRevenue';
+import { batchSetStudentPrivateData, fetchAllStudentPrivateData } from '../services/domain/studentService';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -13,7 +15,7 @@ interface DataManagementProps {
     payments: Payment[];
     costs: Cost[];
     events: DanceEvent[];
-    batchAddStudents: (students: Omit<Student, 'id'>[]) => Promise<void>;
+    batchAddStudents: (students: Omit<Student, 'id'>[]) => Promise<string[]>;
     batchAddInstructors: (instructors: Omit<Instructor, 'id'>[]) => Promise<void>;
     batchAddClasses: (classes: Omit<DanceClass, 'id'>[]) => Promise<void>;
     batchAddPayments: (payments: Omit<Payment, 'id'>[]) => Promise<void>;
@@ -231,6 +233,8 @@ const DataManagement: React.FC<DataManagementProps> = ({
 
     // --- Lógica de importación ---
     const handleStudentImport = async (data: string[][]) => {
+        const privateDataByRow: StudentPrivateData[] = data.map(row => ({ dni: row[1], iban: row[8] }));
+
         const newStudents: Omit<Student, 'id'>[] = data.map(row => {
             const classNames = row[11] ? row[11].split(';').map(s => s.trim()) : [];
             const enrolledClassIds = classNames
@@ -238,20 +242,21 @@ const DataManagement: React.FC<DataManagementProps> = ({
                 .filter((id): id is string => !!id);
             return {
                 name: row[0],
-                dni: row[1],
                 enrollmentDate: convertDateToISO(row[2]),
                 birthDate: row[3] ? convertDateToISO(row[3]) : undefined,
                 phone: row[4],
                 email: row[5],
                 monthlyFee: parseFloat(row[6]) || 0,
                 paymentMethod: row[7] as PaymentMethod,
-                iban: row[8],
                 active: row[9].toLowerCase() === 'true',
                 notes: row[10],
                 enrolledClassIds: enrolledClassIds,
             };
         });
-        await batchAddStudents(newStudents);
+        const newIds = await batchAddStudents(newStudents);
+        await batchSetStudentPrivateData(
+            newIds.map((studentId, i) => ({ studentId, data: privateDataByRow[i] }))
+        );
     };
 
     const handleInstructorImport = async (data: string[][]) => {
@@ -476,10 +481,7 @@ const DataManagement: React.FC<DataManagementProps> = ({
             return e.price > 0 && parsed.month === selectedReportMonth && parsed.year === selectedReportYear;
         });
 
-        const monthEventRevenue = monthEvents.reduce((sum, event) => {
-            const ticketCount = event.participants?.reduce((pSum, p) => pSum + (p.ticketCount || 0), 0) || 0;
-            return sum + (ticketCount * event.price);
-        }, 0);
+        const monthEventRevenue = monthEvents.reduce((sum, event) => sum + getEventRevenue(event), 0);
 
         const totalRevenue = monthPayments.reduce((sum, p) => sum + p.amount, 0) + monthEventRevenue;
         const totalCosts = monthCosts.reduce((sum, c) => sum + c.amount, 0);
@@ -635,7 +637,10 @@ const DataManagement: React.FC<DataManagementProps> = ({
                 <h2 className="text-3xl font-bold">Gestión de Datos</h2>
                 <div className="flex flex-col sm:flex-row gap-3">
                     <button
-                        onClick={() => generateFullBackupZip({ students, instructors, classes, payments, costs, merchandiseItems })}
+                        onClick={async () => {
+                            const studentPrivateDataMap = await fetchAllStudentPrivateData();
+                            generateFullBackupZip({ students, instructors, classes, payments, costs, merchandiseItems, studentPrivateDataMap });
+                        }}
                         className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all active:scale-95"
                         title="Descarga todos los datos en un archivo ZIP con archivos CSV compatibles con el importador"
                     >

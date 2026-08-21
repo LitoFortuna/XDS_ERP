@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem, DanceEvent, ChangeRequest } from '../../../types';
+import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem, DanceEvent, ChangeRequest, StudentPrivateData } from '../../../types';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
+import { getStudentPrivateData } from '../../services/domain/studentService';
 import { createChangeRequest, getChangeRequestsByStudent } from '../../../services/changeRequestService';
 import { getStudentProgress, getLevelInfo } from '../../../services/progressService';
 import BottomNavigation, { PortalPage } from './BottomNavigation';
@@ -25,6 +26,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
     const [merchandise, setMerchandise] = useState<MerchandiseItem[]>([]);
     const [events, setEvents] = useState<DanceEvent[]>([]);
     const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
+    const [privateData, setPrivateData] = useState<StudentPrivateData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
     const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -83,7 +85,14 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     getStudentProgress(student.id),
 
                     // Instructors (for name resolution)
-                    getDocs(collection(db, 'instructors'))
+                    getDocs(collection(db, 'instructors')),
+
+                    // Private data (DNI/IBAN) — requires the Firebase Auth session from login to
+                    // be ready; if it isn't (or the fetch fails for any reason) we just show
+                    // "Pendiente" instead of blocking the rest of the portal.
+                    auth.authStateReady()
+                        .then(() => getStudentPrivateData(student.id))
+                        .catch(() => null)
                 ]);
 
                 // Destructure results manually since we have mixed types (Data[] vs Snapshot)
@@ -95,6 +104,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 const requestsData = results[5] as ChangeRequest[];
                 const progressData = results[6] as StudentProgress;
                 const instructorsSnapshot = results[7] as any; // QuerySnapshot
+                const privateDataResult = results[8] as StudentPrivateData | null;
 
                 // Create instructor map
                 const instructorMap = new Map();
@@ -115,6 +125,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 setMerchandise(merchandiseData);
                 setEvents(eventsData);
                 setChangeRequests(requestsData);
+                setPrivateData(privateDataResult);
 
                 // Set progress summary for HomePage
                 setCurrentStreak(progressData.currentStreak);
@@ -152,7 +163,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 phone: student.phone,
                 birthDate: student.birthDate,
                 email: student.email,
-                dni: student.dni,
+                dni: privateData?.dni,
             }, formData);
 
             alert('✅ Solicitud enviada correctamente. Será revisada por el equipo administrativo.');
@@ -244,6 +255,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                         {currentPage === 'profile' && (
                             <ProfilePage
                                 student={student}
+                                privateData={privateData}
                                 allClasses={classes}
                                 changeRequests={changeRequests}
                                 onRequestChange={handleRequestChange}
@@ -273,6 +285,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
             {showChangeRequestModal && (
                 <ChangeRequestModal
                     student={student}
+                    studentDni={privateData?.dni}
                     onClose={() => setShowChangeRequestModal(false)}
                     onSubmit={handleSubmitChangeRequest}
                     isSubmitting={isSubmittingRequest}
@@ -285,18 +298,19 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 // Change Request Modal Component
 interface ChangeRequestModalProps {
     student: Student;
+    studentDni?: string;
     onClose: () => void;
     onSubmit: (formData: any) => void;
     isSubmitting: boolean;
 }
 
-const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({ student, onClose, onSubmit, isSubmitting }) => {
+const ChangeRequestModal: React.FC<ChangeRequestModalProps> = ({ student, studentDni, onClose, onSubmit, isSubmitting }) => {
     const [formData, setFormData] = useState({
         name: student.name,
         phone: student.phone,
         birthDate: student.birthDate || '',
         email: student.email || '',
-        dni: student.dni || '',
+        dni: studentDni || '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {

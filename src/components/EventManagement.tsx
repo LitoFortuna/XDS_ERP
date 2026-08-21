@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { DanceEvent, Student, EventType, EventParticipant } from '../../types';
 import Modal from './Modal';
+import { getEventTicketCount, getEventRevenue } from '../utils/eventRevenue';
 
 interface EventManagementProps {
     events: DanceEvent[];
@@ -352,8 +353,8 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredEvents.length > 0 ? (
                     filteredEvents.map(event => {
-                        const totalTickets = event.participants?.reduce((sum, p) => sum + p.ticketCount, 0) || 0;
-                        const totalRevenue = totalTickets * event.price;
+                        const totalTickets = getEventTicketCount(event);
+                        const totalRevenue = getEventRevenue(event);
                         return (
                             <div key={event.id} className="bg-gray-800 rounded-2xl overflow-hidden shadow-xl border border-gray-700/50 hover:border-purple-500/50 transition-all group flex flex-col h-full">
                                 <div className="relative h-48 bg-gray-900">
@@ -472,11 +473,11 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                             </div>
                             <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700 flex flex-col items-center">
                                 <span className="text-[10px] text-gray-500 uppercase font-bold">Entradas Totales</span>
-                                <span className="text-2xl font-black text-purple-400">{viewingParticipantsEvent.participants?.reduce((s, p) => s + p.ticketCount, 0) || 0}</span>
+                                <span className="text-2xl font-black text-purple-400">{getEventTicketCount(viewingParticipantsEvent)}</span>
                             </div>
                             <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700 flex flex-col items-center">
                                 <span className="text-[10px] text-gray-500 uppercase font-bold">Recaudación</span>
-                                <span className="text-2xl font-black text-green-400">€{((viewingParticipantsEvent.participants?.reduce((s, p) => s + p.ticketCount, 0) || 0) * viewingParticipantsEvent.price).toLocaleString()}</span>
+                                <span className="text-2xl font-black text-green-400">€{getEventRevenue(viewingParticipantsEvent).toLocaleString()}</span>
                             </div>
                         </div>
 

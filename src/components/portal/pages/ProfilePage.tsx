@@ -1,8 +1,9 @@
 import React from 'react';
-import { Student, DanceClass, ChangeRequest } from '../../../../types';
+import { Student, DanceClass, ChangeRequest, StudentPrivateData } from '../../../../types';
 
 interface ProfilePageProps {
     student: Student;
+    privateData: StudentPrivateData | null;
     allClasses: DanceClass[];
     changeRequests: ChangeRequest[];
     onRequestChange: () => void;
@@ -10,6 +11,7 @@ interface ProfilePageProps {
 
 const ProfilePage: React.FC<ProfilePageProps> = ({
     student,
+    privateData,
     allClasses,
     changeRequests,
     onRequestChange
@@ -87,7 +89,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                     {renderDataField('NombreCompleto', student.name)}
                     {renderDataField('Teléfono', student.phone)}
                     {renderDataField('Email', student.email)}
-                    {renderDataField('DNI / NIE', student.dni)}
+                    {renderDataField('DNI / NIE', privateData?.dni)}
                     {renderDataField('Fecha de Nacimiento', student.birthDate, true)}
                     <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-800 flex items-center justify-between">
                         <div>

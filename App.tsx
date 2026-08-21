@@ -76,49 +76,28 @@ const App: React.FC = () => {
 
     // Sync React Query data to Zustand Store (Legacy Support)
     // Only update if data actually changed to prevent infinite loops
+    // Sync React Query data to Zustand Store (Legacy Support for components not yet migrated).
+    // Synced unconditionally whenever the query result reference changes — React Query only
+    // produces a new reference when the underlying data actually changed, so this also
+    // propagates edits (not just additions/removals), unlike a `.length` comparison would.
     useEffect(() => {
-        if (rqStudents) {
-            const current = useAppStore.getState().students;
-            if (current.length !== rqStudents.length) {
-                useAppStore.getState().setStudents(rqStudents);
-            }
-        }
+        if (rqStudents) useAppStore.getState().setStudents(rqStudents);
     }, [rqStudents]);
 
     useEffect(() => {
-        if (rqInstructors) {
-            const current = useAppStore.getState().instructors;
-            if (current.length !== rqInstructors.length) {
-                useAppStore.getState().setInstructors(rqInstructors);
-            }
-        }
+        if (rqInstructors) useAppStore.getState().setInstructors(rqInstructors);
     }, [rqInstructors]);
 
     useEffect(() => {
-        if (rqClasses) {
-            const current = useAppStore.getState().classes;
-            if (current.length !== rqClasses.length) {
-                useAppStore.getState().setClasses(rqClasses);
-            }
-        }
+        if (rqClasses) useAppStore.getState().setClasses(rqClasses);
     }, [rqClasses]);
 
     useEffect(() => {
-        if (rqPayments) {
-            const current = useAppStore.getState().payments;
-            if (current.length !== rqPayments.length) {
-                useAppStore.getState().setPayments(rqPayments);
-            }
-        }
+        if (rqPayments) useAppStore.getState().setPayments(rqPayments);
     }, [rqPayments]);
 
     useEffect(() => {
-        if (rqCosts) {
-            const current = useAppStore.getState().costs;
-            if (current.length !== rqCosts.length) {
-                useAppStore.getState().setCosts(rqCosts);
-            }
-        }
+        if (rqCosts) useAppStore.getState().setCosts(rqCosts);
     }, [rqCosts]);
 
     // Handle App Badge

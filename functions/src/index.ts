@@ -1,17 +1,25 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { onRequest } from 'firebase-functions/v2/https';
+import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import * as webpush from 'web-push';
 
 admin.initializeApp();
 
-// VAPID keys for Web Push
-const VAPID_PUBLIC_KEY = 'BH3e-LWfoyhlsgJXLK81MgSFmjW9ZtvFCyfy7rJ1K_kJaD-pExZdG48T8sSjJt4-KCrkPO2RDQSRmO_Xsb8my1I';
-const VAPID_PRIVATE_KEY = 'N0JBhsFr2Yi6ljLg4uRgiyuICpuRqf68WPZO61b8WQE';
+// VAPID keys for Web Push — loaded from functions/.env (gitignored), never hardcoded in source.
+// Rotate by regenerating with `npx web-push generate-vapid-keys`, updating .env, and also
+// updating VAPID_PUBLIC_KEY in src/config/vapidKeys.ts on the client (that one's fine to commit
+// — only the private key is a secret). Rotating invalidates existing push subscriptions;
+// notificationUtils.subscribeToPush() detects the mismatch and silently resubscribes.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
 const VAPID_EMAIL = 'mailto:raulfdz3@gmail.com';
 
 // Configure web-push
-webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} else {
+    console.error('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY missing from environment — push notifications will fail.');
+}
 
 /**
  * Triggered when a new activity log is created
@@ -88,6 +96,53 @@ export const onNewActivityLog = onDocumentCreated('activityLogs/{logId}', async 
  */
 export const getVapidPublicKey = onRequest({ cors: true }, (req, res) => {
     res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+/**
+ * Callable used by the Student Portal login. The portal has no real session today — it just
+ * trusts whatever studentId is in localStorage. This verifies phone+password server-side
+ * (Admin SDK, so it can check the password regardless of Firestore rules) and, on success,
+ * mints a real Firebase Auth custom token with uid == studentId. The client exchanges it via
+ * signInWithCustomToken, which is what lets firestore.rules grant that student read access to
+ * her own students/{id}/private/sensitive doc (DNI/IBAN) without making it public.
+ */
+export const studentLogin = onCall({ cors: true }, async (request) => {
+    const phone = (request.data?.phone as string | undefined)?.trim();
+    const password = (request.data?.password as string | undefined) ?? '';
+
+    if (!phone || !password) {
+        throw new HttpsError('invalid-argument', 'Falta teléfono o contraseña.');
+    }
+
+    const snapshot = await admin.firestore()
+        .collection('students')
+        .where('phone', '==', phone)
+        .limit(1)
+        .get();
+
+    if (snapshot.empty) {
+        throw new HttpsError('not-found', 'No se encontró ningún alumno con ese teléfono.');
+    }
+
+    const studentDoc = snapshot.docs[0];
+    const student = studentDoc.data();
+
+    if (!student.active) {
+        throw new HttpsError('permission-denied', 'Este alumno no está activo. Contacta con la administración.');
+    }
+
+    // Misma lógica de contraseña que StudentLogin.tsx (PrimerApellido + 2026), verificada aquí
+    // para poder emitir una sesión real de Firebase Auth.
+    const parts = String(student.name || '').trim().split(/\s+/);
+    const surname = parts.length > 1 ? parts[1] : parts[0];
+    const expectedPassword = `${surname}2026`.toLowerCase();
+
+    if (password.toLowerCase() !== expectedPassword) {
+        throw new HttpsError('unauthenticated', 'Contraseña incorrecta.');
+    }
+
+    const token = await admin.auth().createCustomToken(studentDoc.id);
+    return { token, studentId: studentDoc.id };
 });
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';

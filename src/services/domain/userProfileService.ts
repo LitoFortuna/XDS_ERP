@@ -22,8 +22,9 @@ export const getUserProfile = async (uid: string, email: string): Promise<UserPr
         return docSnap.data() as UserProfile;
     }
 
-    // Create new profile with assigned role
-    const role = ROLE_ASSIGNMENTS[email] || 'Admin';
+    // Create new profile. Unknown emails never get an elevated role from the client —
+    // actual write access is enforced server-side in firestore.rules against the same allowlist.
+    const role = ROLE_ASSIGNMENTS[email] || 'Instructor';
     const newProfile: UserProfile = {
         uid,
         email,
@@ -48,5 +49,5 @@ export const updateUserProfile = async (uid: string, updates: Partial<UserProfil
  * Gets the role for a user by email
  */
 export const getUserRole = (email: string): UserRole => {
-    return ROLE_ASSIGNMENTS[email] || 'Admin';
+    return ROLE_ASSIGNMENTS[email] || 'Instructor';
 };

@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
 import { useAppActions } from '../hooks/useAppActions';
+import { getEventRevenue } from '../utils/eventRevenue';
 
 interface DashboardProps {
     // Props handled via Zustand
@@ -172,8 +173,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             const parts = event.date.split('-');
             const eventYear = parts.length >= 1 ? parseInt(parts[0], 10) : -1;
             if (eventYear !== selectedYear) return sum;
-            const ticketCount = event.participants?.reduce((pSum, p) => pSum + (p.ticketCount || 0), 0) || 0;
-            return sum + (ticketCount * event.price);
+            return sum + getEventRevenue(event);
         }, 0);
     }, [events, selectedYear]);
 
@@ -512,8 +512,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                 const eventYear = parseInt(parts[0], 10);
                 const eventMonth = parseInt(parts[1], 10) - 1;
                 if (eventYear === selectedYear && eventMonth === m) {
-                    const tickets = event.participants?.reduce((pSum, p) => pSum + (p.ticketCount || 0), 0) || 0;
-                    return sum + (tickets * event.price);
+                    return sum + getEventRevenue(event);
                 }
             }
             return sum;

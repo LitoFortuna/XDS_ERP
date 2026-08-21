@@ -11,14 +11,20 @@ export interface Student {
   birthDate?: string; // Made optional
   phone?: string;     // Made optional
   email?: string;     // Made optional
-  dni?: string;       // Added optional field
   enrolledClassIds: string[];
   monthlyFee: number;
   paymentMethod: PaymentMethod;
-  iban?: string;
   active: boolean;
   notes?: string;
   feeExceptions?: { [key: string]: number }; // Key: "YYYY-M", Value: specific amount for that month
+}
+
+// dni/iban live in students/{id}/private/sensitive, NOT on the main Student doc, which is
+// publicly readable (needed by the unauthenticated Student Portal). Firestore rules restrict
+// reads of this subdocument to admins or the student's own authenticated session.
+export interface StudentPrivateData {
+  dni?: string;
+  iban?: string;
 }
 
 export interface Instructor {

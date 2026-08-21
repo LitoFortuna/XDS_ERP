@@ -1,14 +1,15 @@
 
-import React, { useState, useMemo } from 'react';
-import { Student, DanceClass, PaymentMethod, MerchandiseSale } from '../../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Student, DanceClass, PaymentMethod, MerchandiseSale, StudentPrivateData } from '../../types';
 import Modal from './Modal';
+import { getStudentPrivateData, setStudentPrivateData, fetchAllStudentPrivateData } from '../services/domain/studentService';
 
 interface StudentListProps {
   students: Student[];
   classes: DanceClass[];
   merchandiseSales: MerchandiseSale[];
-  addStudent: (student: Omit<Student, 'id'>) => void;
-  updateStudent: (student: Student) => void;
+  addStudent: (student: Omit<Student, 'id'>) => Promise<string>;
+  updateStudent: (student: Student) => Promise<void>;
   deleteStudent: (id: string) => void;
 }
 
@@ -32,12 +33,11 @@ export const StudentForm: React.FC<{
   student?: Student,
   classes: DanceClass[],
   merchandiseSales: MerchandiseSale[],
-  onSubmit: (student: Omit<Student, 'id'> | Student) => void,
+  onSubmit: (student: Omit<Student, 'id'> | Student, privateData: StudentPrivateData) => void,
   onCancel: () => void
 }> = ({ student, classes, merchandiseSales, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: student?.name || '',
-    dni: student?.dni || '',
     email: student?.email || '',
     phone: student?.phone || '',
     birthDate: student?.birthDate || '',
@@ -46,10 +46,33 @@ export const StudentForm: React.FC<{
     enrolledClassIds: student?.enrolledClassIds || [],
     monthlyFee: student?.monthlyFee ?? 19,
     paymentMethod: student?.paymentMethod || 'Efectivo' as PaymentMethod,
-    iban: student?.iban || '',
     active: student?.active !== undefined ? student.active : true,
     notes: student?.notes || '',
   });
+
+  // DNI/IBAN live in students/{id}/private/sensitive (never public) — loaded separately.
+  const [privateData, setPrivateData] = useState<StudentPrivateData>({ dni: '', iban: '' });
+  const [loadingPrivateData, setLoadingPrivateData] = useState(!!student);
+
+  useEffect(() => {
+    if (!student) {
+      setLoadingPrivateData(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingPrivateData(true);
+    getStudentPrivateData(student.id).then(data => {
+      if (cancelled) return;
+      setPrivateData({ dni: data?.dni || '', iban: data?.iban || '' });
+      setLoadingPrivateData(false);
+    });
+    return () => { cancelled = true; };
+  }, [student?.id]);
+
+  const handlePrivateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPrivateData(prev => ({ ...prev, [name]: value }));
+  };
 
   const sortedClasses = useMemo(() =>
     [...classes].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
@@ -93,9 +116,9 @@ export const StudentForm: React.FC<{
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (student) {
-      onSubmit({ ...student, ...formData });
+      onSubmit({ ...student, ...formData }, privateData);
     } else {
-      onSubmit(formData);
+      onSubmit(formData, privateData);
     }
   };
 
@@ -108,7 +131,7 @@ export const StudentForm: React.FC<{
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-300">DNI (Opcional)</label>
-          <input type="text" name="dni" value={formData.dni} onChange={handleChange} placeholder="12345678X" className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
+          <input type="text" name="dni" value={privateData.dni} onChange={handlePrivateChange} disabled={loadingPrivateData} placeholder={loadingPrivateData ? 'Cargando...' : '12345678X'} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-300">Fecha de Alta</label>
@@ -152,7 +175,7 @@ export const StudentForm: React.FC<{
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-300">IBAN (opcional)</label>
-          <input type="text" name="iban" value={formData.iban} onChange={handleChange} placeholder="ES00 0000 0000 0000 0000 0000" className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
+          <input type="text" name="iban" value={privateData.iban} onChange={handlePrivateChange} disabled={loadingPrivateData} placeholder={loadingPrivateData ? 'Cargando...' : 'ES00 0000 0000 0000 0000 0000'} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50" />
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-300">Observaciones</label>
@@ -285,11 +308,14 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
     setIsModalOpen(false);
   };
 
-  const handleSubmit = (student: Omit<Student, 'id'> | Student) => {
+  const handleSubmit = async (student: Omit<Student, 'id'> | Student, privateData: StudentPrivateData) => {
+    const hasPrivateData = !!(privateData.dni || privateData.iban);
     if ('id' in student) {
-      updateStudent(student);
+      await updateStudent(student);
+      if (hasPrivateData) await setStudentPrivateData(student.id, privateData);
     } else {
-      addStudent(student);
+      const newId = await addStudent(student);
+      if (hasPrivateData) await setStudentPrivateData(newId, privateData);
     }
     handleCloseModal();
   };
@@ -323,7 +349,9 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
     document.body.removeChild(link);
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
+    const privateDataMap = await fetchAllStudentPrivateData();
+
     const headers = [
       'Nombre', 'Edad', 'DNI', 'Fecha de Alta', 'Fecha de Baja', 'Fecha de Nacimiento', 'Teléfono', 'Email',
       'Clases Inscritas', 'Cuota Mensual (€)', 'Precio/Clase (€)', 'Forma de Pago', 'IBAN', 'Activo', 'Observaciones'
@@ -332,7 +360,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
     const dataToExport = sortedAndFilteredStudents.map(student => ([
       student.name,
       calculateAge(student.birthDate) ?? '-',
-      student.dni || '',
+      privateDataMap[student.id]?.dni || '',
       new Date(student.enrollmentDate).toLocaleDateString('es-ES'),
       student.deactivationDate ? new Date(student.deactivationDate).toLocaleDateString('es-ES') : '',
       student.birthDate ? new Date(student.birthDate).toLocaleDateString('es-ES') : '',
@@ -342,7 +370,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
       student.monthlyFee.toFixed(2),
       student.enrolledClassIds.length > 0 ? (student.monthlyFee / student.enrolledClassIds.length).toFixed(2) : '-',
       student.paymentMethod,
-      student.iban || '',
+      privateDataMap[student.id]?.iban || '',
       student.active ? 'Sí' : 'No',
       student.notes || ''
     ]));

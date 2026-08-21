@@ -1,10 +1,18 @@
 
 import React, { useState } from 'react';
+import { httpsCallable } from 'firebase/functions';
+import { signInWithCustomToken } from 'firebase/auth';
+import { auth, functions } from '../../config/firebase';
 import { findStudentByPhone } from '../../services/domain/studentService';
 import { Student } from '../../../types';
 
 interface StudentLoginProps {
     onLoginSuccess: (student: Student) => void;
+}
+
+interface StudentLoginResult {
+    token: string;
+    studentId: string;
 }
 
 const StudentLogin: React.FC<StudentLoginProps> = ({ onLoginSuccess }) => {
@@ -13,52 +21,41 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLoginSuccess }) => {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const checkPassword = (studentName: string, inputPass: string): boolean => {
-        const parts = studentName.trim().split(/\s+/);
-        // Si tiene más de una palabra, asumimos que la segunda es el primer apellido.
-        // Si solo tiene una, usamos esa.
-        const surname = parts.length > 1 ? parts[1] : parts[0];
-
-        // Contraseña esperada: Apellido + 2026 (Case insensitive)
-        const expectedPass = `${surname}2026`.toLowerCase();
-
-        // Contraseña introducida también a minúsculas para comparar
-        return inputPass.toLowerCase() === expectedPass;
-    };
-
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
 
         try {
-            console.log('[StudentLogin] Attempting login with phone:', phone.trim());
-            const student = await findStudentByPhone(phone.trim());
-            console.log('[StudentLogin] Student found:', student);
+            // El teléfono+contraseña se verifican en el servidor (Cloud Function studentLogin),
+            // que emite un token real de Firebase Auth. Eso es lo que permite a firestore.rules
+            // dejar leer a esta alumna su propio DNI/IBAN sin hacerlos públicos para todo el mundo.
+            const studentLogin = httpsCallable<{ phone: string; password: string }, StudentLoginResult>(functions, 'studentLogin');
+            const result = await studentLogin({ phone: phone.trim(), password });
+            const { token, studentId } = result.data;
 
+            await signInWithCustomToken(auth, token);
+
+            const student = await findStudentByPhone(phone.trim());
             if (!student) {
                 setError('No se encontró ningún alumno con ese teléfono.');
                 setIsLoading(false);
                 return;
             }
 
-            if (!student.active) {
-                setError('Este alumno no está activo. Contacta con la administración.');
-                setIsLoading(false);
-                return;
-            }
-
-            if (checkPassword(student.name, password)) {
-                console.log('[StudentLogin] Login successful, saving student ID:', student.id);
-                console.log('[StudentLogin] Student data:', JSON.stringify(student, null, 2));
-                localStorage.setItem('student_portal_id', student.id);
-                onLoginSuccess(student);
-            } else {
-                setError('Contraseña incorrecta. (Pista: PrimerApellido2026)');
-            }
-        } catch (err) {
+            localStorage.setItem('student_portal_id', studentId);
+            onLoginSuccess(student);
+        } catch (err: any) {
             console.error('[StudentLogin] Error:', err);
-            setError('Error de conexión. Inténtalo de nuevo.');
+            if (err?.code === 'functions/not-found') {
+                setError('No se encontró ningún alumno con ese teléfono.');
+            } else if (err?.code === 'functions/permission-denied') {
+                setError('Este alumno no está activo. Contacta con la administración.');
+            } else if (err?.code === 'functions/unauthenticated') {
+                setError('Contraseña incorrecta. (Pista: PrimerApellido2026)');
+            } else {
+                setError('Error de conexión. Inténtalo de nuevo.');
+            }
         } finally {
             setIsLoading(false);
         }

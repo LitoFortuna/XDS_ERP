@@ -1,0 +1,23 @@
+{
+  "name": "xds-erp-mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol Server for XDS ERP",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "inspector": "npx @modelcontextprotocol/inspector tsx src/index.ts",
+        "migrate:student-private-data": "tsx src/migratePrivateStudentData.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "firebase-admin": "^11.11.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
+  }
+}

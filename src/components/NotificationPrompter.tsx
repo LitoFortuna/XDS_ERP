@@ -12,6 +12,14 @@ const NotificationPrompter: React.FC = () => {
         const checkPermission = async () => {
             if (!('Notification' in window)) return;
 
+            if (Notification.permission === 'granted') {
+                // Already granted in a previous visit — nothing to prompt, but silently refresh
+                // the subscription so a rotated VAPID key (see notificationUtils.subscribeToPush)
+                // gets picked up without the user having to manually re-enable notifications.
+                if (user) await subscribeToPush(user.uid);
+                return;
+            }
+
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
 
             if (Notification.permission === 'default' && isStandalone) {
@@ -21,7 +29,7 @@ const NotificationPrompter: React.FC = () => {
         };
 
         checkPermission();
-    }, []);
+    }, [user]);
 
     const handleEnable = async () => {
         const granted = await requestNotificationPermission();

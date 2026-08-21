@@ -5,6 +5,7 @@ import { StudentForm } from './StudentList';
 import { useAppStore } from '../store/useAppStore';
 import { useAppActions } from '../hooks/useAppActions';
 import { exportPaymentsToCSV, exportCostsToCSV, downloadCSV } from '../utils/csvExportUtils';
+import { getEventRevenue } from '../utils/eventRevenue';
 import MonthlyDetailModal from './billing/MonthlyDetailModal';
 import PaymentForm from './billing/PaymentForm';
 import CostForm from './billing/CostForm';
@@ -98,8 +99,7 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
         return events.reduce((sum, event) => {
             const eventYear = parseDateLocal(event.date).year;
             if (eventYear !== selectedYear || event.price <= 0) return sum;
-            const tickets = event.participants?.reduce((pSum, p) => pSum + (p.ticketCount || 0), 0) || 0;
-            return sum + (tickets * event.price);
+            return sum + getEventRevenue(event);
         }, 0);
     }, [events, selectedYear]);
     const totalIncome = tuitionIncome + totalEventIncome;
