@@ -1,4 +1,5 @@
 import firebase from 'firebase/compat/app';
+import { getApp } from 'firebase/app';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getFunctions } from 'firebase/functions';
@@ -12,10 +13,15 @@ const firebaseConfig = {
   appId: "1:958181098277:web:8af680b63c7f223fec90cc"
 };
 
-const app = firebase.initializeApp(firebaseConfig);
-const db = getFirestore(app as any);
-const auth = getAuth(app as any);
-const functions = getFunctions(app as any);
+firebase.initializeApp(firebaseConfig);
+// getApp() returns the underlying modular FirebaseApp registered by the compat call above —
+// passing the compat wrapper itself (as the `as any` casts used to) works for firestore/auth
+// but the functions component isn't registered against it, so getFunctions() throws
+// "Service functions is not available". Using the real modular app avoids that.
+const app = getApp();
+const db = getFirestore(app);
+const auth = getAuth(app);
+const functions = getFunctions(app);
 
 // Enable offline persistence
 enableIndexedDbPersistence(db).catch((err) => {

@@ -3,10 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchCosts, addCost, updateCost, deleteCost } from '../../services/domain/financeService';
 import { Cost } from '../../../types';
 
+// See useStudents.ts for why this needs a stable reference instead of a `= []` default.
+const EMPTY_COSTS: Cost[] = [];
+
 export const useCosts = () => {
     const queryClient = useQueryClient();
 
-    const { data: costs = [], isLoading, error } = useQuery({
+    const { data: costs = EMPTY_COSTS, isLoading, error } = useQuery({
         queryKey: ['costs'],
         queryFn: fetchCosts,
         staleTime: 1000 * 60 * 5, // 5 minutes cache

@@ -3,10 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchInstructors, addInstructor, updateInstructor, deleteInstructor } from '../../services/domain/instructorService';
 import { Instructor } from '../../../types';
 
+// See useStudents.ts for why this needs a stable reference instead of a `= []` default.
+const EMPTY_INSTRUCTORS: Instructor[] = [];
+
 export const useInstructors = () => {
     const queryClient = useQueryClient();
 
-    const { data: instructors = [], isLoading, error } = useQuery({
+    const { data: instructors = EMPTY_INSTRUCTORS, isLoading, error } = useQuery({
         queryKey: ['instructors'],
         queryFn: fetchInstructors,
         staleTime: 1000 * 60 * 30, // 30 minutes cache (teachers change rarely)

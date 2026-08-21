@@ -3,10 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchClasses, addClass, updateClass, deleteClass } from '../../services/domain/classService';
 import { DanceClass } from '../../../types';
 
+// See useStudents.ts for why this needs a stable reference instead of a `= []` default.
+const EMPTY_CLASSES: DanceClass[] = [];
+
 export const useClasses = () => {
     const queryClient = useQueryClient();
 
-    const { data: classes = [], isLoading, error } = useQuery({
+    const { data: classes = EMPTY_CLASSES, isLoading, error } = useQuery({
         queryKey: ['classes'],
         queryFn: fetchClasses,
         staleTime: 1000 * 60 * 15, // 15 minutes cache
