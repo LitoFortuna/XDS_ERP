@@ -1,5 +1,5 @@
 
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, Unsubscribe, runTransaction, getDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, Unsubscribe, runTransaction, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { MerchandiseItem, MerchandiseSale } from '../../../types';
 
@@ -9,6 +9,12 @@ export const subscribeToMerchandiseItems = (callback: (items: MerchandiseItem[])
     return onSnapshot(q, (snapshot) => {
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MerchandiseItem)));
     });
+};
+
+export const fetchMerchandiseItems = async (): Promise<MerchandiseItem[]> => {
+    const q = query(collection(db, 'merchandiseItems'), orderBy('name'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MerchandiseItem));
 };
 
 export const addMerchandiseItem = async (item: Omit<MerchandiseItem, 'id'>) => {
@@ -37,6 +43,12 @@ export const subscribeToMerchandiseSales = (callback: (sales: MerchandiseSale[])
     return onSnapshot(q, (snapshot) => {
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MerchandiseSale)));
     });
+};
+
+export const fetchMerchandiseSales = async (): Promise<MerchandiseSale[]> => {
+    const q = query(collection(db, 'merchandiseSales'), orderBy('saleDate', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MerchandiseSale));
 };
 
 /**

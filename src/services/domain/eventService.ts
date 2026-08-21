@@ -1,5 +1,5 @@
 
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, Unsubscribe } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDocs, Unsubscribe } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { DanceEvent } from '../../../types';
 
@@ -8,6 +8,12 @@ export const subscribeToEvents = (callback: (events: DanceEvent[]) => void): Uns
     return onSnapshot(q, (snapshot) => {
         callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DanceEvent)));
     });
+};
+
+export const fetchEvents = async (): Promise<DanceEvent[]> => {
+    const q = query(collection(db, 'events'), orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DanceEvent));
 };
 
 export const addEvent = async (event: Omit<DanceEvent, 'id'>) => {

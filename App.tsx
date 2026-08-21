@@ -18,6 +18,10 @@ import { useInstructors } from './src/hooks/queries/useInstructors';
 import { useClasses } from './src/hooks/queries/useClasses';
 import { usePayments } from './src/hooks/queries/usePayments';
 import { useCosts } from './src/hooks/queries/useCosts';
+import { useNuptialDances } from './src/hooks/queries/useNuptialDances';
+import { useEvents } from './src/hooks/queries/useEvents';
+import { useMerchandiseItems, useMerchandiseSales } from './src/hooks/queries/useMerchandise';
+import { useAttendance } from './src/hooks/queries/useAttendance';
 
 // Lazy Loaded Components
 const Dashboard = lazy(() => import('./src/components/Dashboard'));
@@ -48,6 +52,11 @@ const App: React.FC = () => {
     const { classes: rqClasses, addClass, updateClass, deleteClass } = useClasses();
     const { payments: rqPayments, addPayment, updatePayment, deletePayment } = usePayments();
     const { costs: rqCosts, addCost, updateCost, deleteCost } = useCosts();
+    const { nuptialDances: rqNuptialDances } = useNuptialDances();
+    const { events: rqEvents } = useEvents();
+    const { merchandiseItems: rqMerchandiseItems } = useMerchandiseItems();
+    const { merchandiseSales: rqMerchandiseSales } = useMerchandiseSales();
+    const { attendanceRecords: rqAttendanceRecords } = useAttendance();
 
     // Actions & State
     const actions = useAppActions();
@@ -67,11 +76,6 @@ const App: React.FC = () => {
         classes,
         payments,
         costs,
-        nuptialDances,
-        events,
-        merchandiseItems,
-        merchandiseSales,
-        attendanceRecords
     } = useAppStore();
 
     // Sync React Query data to Zustand Store (Legacy Support)
@@ -99,6 +103,26 @@ const App: React.FC = () => {
     useEffect(() => {
         if (rqCosts) useAppStore.getState().setCosts(rqCosts);
     }, [rqCosts]);
+
+    useEffect(() => {
+        if (rqNuptialDances) useAppStore.getState().setNuptialDances(rqNuptialDances);
+    }, [rqNuptialDances]);
+
+    useEffect(() => {
+        if (rqEvents) useAppStore.getState().setEvents(rqEvents);
+    }, [rqEvents]);
+
+    useEffect(() => {
+        if (rqMerchandiseItems) useAppStore.getState().setMerchandiseItems(rqMerchandiseItems);
+    }, [rqMerchandiseItems]);
+
+    useEffect(() => {
+        if (rqMerchandiseSales) useAppStore.getState().setMerchandiseSales(rqMerchandiseSales);
+    }, [rqMerchandiseSales]);
+
+    useEffect(() => {
+        if (rqAttendanceRecords) useAppStore.getState().setAttendanceRecords(rqAttendanceRecords);
+    }, [rqAttendanceRecords]);
 
     // Handle App Badge
     useEffect(() => {
@@ -142,8 +166,8 @@ const App: React.FC = () => {
                     instructors={rqInstructors}
                     payments={rqPayments}
                     costs={rqCosts}
-                    nuptialDances={nuptialDances}
-                    events={events}
+                    nuptialDances={rqNuptialDances}
+                    events={rqEvents}
                     setView={setCurrentView}
                     addPayment={addPayment}
                 />;
@@ -151,14 +175,14 @@ const App: React.FC = () => {
                 return <Attendance
                     students={rqStudents}
                     classes={classes}
-                    attendanceRecords={attendanceRecords}
+                    attendanceRecords={rqAttendanceRecords}
                     onSaveAttendance={actions.saveAttendance}
                 />;
             case View.STUDENTS:
                 return <StudentList
                     students={rqStudents}
                     classes={classes}
-                    merchandiseSales={merchandiseSales}
+                    merchandiseSales={rqMerchandiseSales}
                     addStudent={addStudent} // Use RQ mutation
                     updateStudent={updateStudent} // Use RQ mutation 
                     deleteStudent={deleteStudent} // Use RQ mutation
@@ -194,7 +218,7 @@ const App: React.FC = () => {
                     costs={rqCosts}
                     students={rqStudents}
                     classes={rqClasses}
-                    merchandiseSales={merchandiseSales}
+                    merchandiseSales={rqMerchandiseSales}
                     instructors={rqInstructors}
                     addPayment={addPayment}
                     updatePayment={updatePayment}
@@ -209,12 +233,12 @@ const App: React.FC = () => {
                     payments={rqPayments}
                     students={rqStudents}
                     classes={rqClasses}
-                    merchandiseSales={merchandiseSales}
+                    merchandiseSales={rqMerchandiseSales}
                 />;
             case View.MERCHANDISING:
                 return <Merchandising
-                    items={merchandiseItems}
-                    sales={merchandiseSales}
+                    items={rqMerchandiseItems}
+                    sales={rqMerchandiseSales}
                     students={students}
                     addItem={actions.addMerchandiseItem}
                     updateItem={actions.updateMerchandiseItem}
@@ -224,7 +248,7 @@ const App: React.FC = () => {
                 />;
             case View.NUPTIAL_DANCES:
                 return <NuptialDances
-                    nuptialDances={nuptialDances}
+                    nuptialDances={rqNuptialDances}
                     instructors={instructors}
                     addNuptialDance={actions.addNuptialDance}
                     updateNuptialDance={actions.updateNuptialDance}
@@ -232,7 +256,7 @@ const App: React.FC = () => {
                 />;
             case View.EVENTS:
                 return <EventManagement
-                    events={events}
+                    events={rqEvents}
                     students={students}
                     addEvent={actions.addEvent}
                     updateEvent={actions.updateEvent}
@@ -247,10 +271,10 @@ const App: React.FC = () => {
                     students={students}
                     instructors={instructors}
                     classes={classes}
-                    merchandiseItems={merchandiseItems}
+                    merchandiseItems={rqMerchandiseItems}
                     payments={payments}
                     costs={costs}
-                    events={events}
+                    events={rqEvents}
                     batchAddStudents={batchAddStudents}
                     batchAddInstructors={batchAddInstructors}
                     batchAddClasses={batchAddClasses}
@@ -265,8 +289,8 @@ const App: React.FC = () => {
                     instructors={instructors}
                     payments={payments}
                     costs={costs}
-                    nuptialDances={nuptialDances}
-                    events={events}
+                    nuptialDances={rqNuptialDances}
+                    events={rqEvents}
                     setView={setCurrentView}
                     addPayment={actions.addPayment}
                 />;

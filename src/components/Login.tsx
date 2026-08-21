@@ -38,8 +38,11 @@ const Login: React.FC = () => {
         <div className="text-center">
           <div className="mx-auto mb-2 flex justify-center">
             <img
-              src="https://www.xendance.space/wp-content/uploads/2020/03/Xen-Dance-Logo-2024-para-fondo-oscuro.png"
+              src="/login-logo.png"
               alt="Xen Dance Space Logo"
+              width={400}
+              height={400}
+              fetchPriority="high"
               className="h-40 w-auto drop-shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-transform hover:scale-105 duration-300"
             />
           </div>
