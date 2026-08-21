@@ -45,26 +45,46 @@ export const useInitializeData = () => {
     useEffect(() => {
         if (!store.user) return;
 
+        // dataLoading flips to false once every subscription below has delivered its first
+        // snapshot, instead of a fixed timer — with the IndexedDB persistence cache this is
+        // usually near-instant, but a blind 1.5s delay made every admin wait that long even
+        // when data was already sitting in cache. The safety timer is just a fallback in case
+        // one listener never resolves (offline, permission error, etc.), so the loading screen
+        // can't get stuck forever.
+        let resolvedCount = 0;
+        let settled = false;
+        const TOTAL_SUBSCRIPTIONS = 5;
+
+        const markResolved = () => {
+            if (settled) return;
+            resolvedCount++;
+            if (resolvedCount >= TOTAL_SUBSCRIPTIONS) {
+                settled = true;
+                store.setDataLoading(false);
+            }
+        };
+
         const unsubscribers = [
             // subscribeToStudents(store.setStudents), // Migrated to React Query
             // subscribeToInstructors(store.setInstructors), // Migrated to React Query
             // subscribeToClasses(store.setClasses), // Migrated to React Query
             // subscribeToPayments(store.setPayments), // Migrated to React Query
             // subscribeToCosts(store.setCosts), // Migrated to React Query
-            subscribeToNuptialDances(store.setNuptialDances),
-            subscribeToEvents(store.setEvents),
-            subscribeToMerchandiseItems(store.setMerchandiseItems),
-            subscribeToMerchandiseSales(store.setMerchandiseSales),
-            subscribeToAttendance(store.setAttendanceRecords),
+            subscribeToNuptialDances((data) => { store.setNuptialDances(data); markResolved(); }),
+            subscribeToEvents((data) => { store.setEvents(data); markResolved(); }),
+            subscribeToMerchandiseItems((data) => { store.setMerchandiseItems(data); markResolved(); }),
+            subscribeToMerchandiseSales((data) => { store.setMerchandiseSales(data); markResolved(); }),
+            subscribeToAttendance((data) => { store.setAttendanceRecords(data); markResolved(); }),
         ];
 
-        const timer = setTimeout(() => {
+        const safetyTimer = setTimeout(() => {
+            settled = true;
             store.setDataLoading(false);
-        }, 1500);
+        }, 5000);
 
         return () => {
             unsubscribers.forEach(unsub => unsub());
-            clearTimeout(timer);
+            clearTimeout(safetyTimer);
         };
     }, [store.user]);
 

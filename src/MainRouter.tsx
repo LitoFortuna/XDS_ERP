@@ -1,8 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
-import App from '../App';
-import StudentLogin from './components/portal/StudentLogin';
-import StudentPortal from './components/portal/StudentPortal';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Student } from '../types';
 import { doc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -10,11 +7,41 @@ import { db, auth } from './config/firebase';
 
 import { InstallPrompt } from './components/InstallPrompt';
 
+// The full admin ERP and the full student portal are two separate apps that only ever share a
+// visitor with each other in dev/testing — erp.xendance.space and alumni.xendance.space each
+// only ever need one of them. Loading both eagerly (as plain imports) meant every visitor
+// downloaded both apps' code regardless of which domain they were on. lazy() + the synchronous
+// initial-mode detection below (see getInitialMode) means only the chunk that's actually needed
+// ever gets requested.
+const App = lazy(() => import('../App'));
+const StudentLogin = lazy(() => import('./components/portal/StudentLogin'));
+const StudentPortal = lazy(() => import('./components/portal/StudentPortal'));
+
+const RouteLoader = () => (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin"></div>
+    </div>
+);
+
+// Determined synchronously (not in a useEffect) so the very first render already picks the right
+// mode — otherwise React would start fetching the App chunk by default on every load, even on
+// alumni.xendance.space, before correcting itself a tick later.
+const getInitialMode = (): 'erp' | 'portal' => {
+    if (typeof window === 'undefined') return 'erp';
+    const hostname = window.location.hostname;
+    const path = window.location.pathname;
+    if (hostname.includes('alumni.xendance.space')) return 'portal';
+    if (hostname.includes('erp.xendance.space')) return 'erp';
+    if (path === '/portal' || path === '/portal/') return 'portal';
+    if (localStorage.getItem('student_portal_id')) return 'portal';
+    return 'erp';
+};
+
 const MainRouter: React.FC = () => {
     // Simple routing state
     // 'erp': Admin interface
     // 'portal': Student portal
-    const [mode, setMode] = useState<'erp' | 'portal'>('erp');
+    const [mode, setMode] = useState<'erp' | 'portal'>(getInitialMode);
     const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
     const [isLoadingStudent, setIsLoadingStudent] = useState(false);
 
@@ -123,7 +150,9 @@ const MainRouter: React.FC = () => {
             return (
                 <>
                     <InstallPrompt />
-                    <StudentPortal student={currentStudent} onLogout={handleStudentLogout} />
+                    <Suspense fallback={<RouteLoader />}>
+                        <StudentPortal student={currentStudent} onLogout={handleStudentLogout} />
+                    </Suspense>
                 </>
             );
         }
@@ -131,7 +160,9 @@ const MainRouter: React.FC = () => {
         return (
             <div>
                 <InstallPrompt />
-                <StudentLogin onLoginSuccess={handleStudentLoginSuccess} />
+                <Suspense fallback={<RouteLoader />}>
+                    <StudentLogin onLoginSuccess={handleStudentLoginSuccess} />
+                </Suspense>
                 <div className="fixed bottom-4 right-4">
                     <button
                         onClick={switchToERP}
@@ -150,7 +181,9 @@ const MainRouter: React.FC = () => {
     return (
         <>
             <InstallPrompt />
-            <App />
+            <Suspense fallback={<RouteLoader />}>
+                <App />
+            </Suspense>
         </>
     );
 };
