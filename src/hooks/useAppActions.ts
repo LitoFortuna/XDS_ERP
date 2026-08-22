@@ -16,6 +16,7 @@ import {
     addPayment as addPaymentToDb,
     updatePayment as updatePaymentInDb,
     deletePayment as deletePaymentFromDb,
+    batchAddPayments as batchAddPaymentsToDb,
     addCost as addCostToDb,
     updateCost as updateCostInDb,
     deleteCost as deleteCostFromDb,
@@ -129,6 +130,21 @@ export const useAppActions = () => {
                 actorEmail: userProfile.email,
                 actorName: userProfile.name,
                 description: `Cobro registrado: ${payment.amount}€ de ${student?.name || 'Alumno'} (${payment.concept})`,
+                targetRole: 'SuperAdmin'
+            });
+        }
+    };
+
+    const addPaymentsBatch = async (paymentsToCreate: Omit<Payment, 'id'>[]) => {
+        await batchAddPaymentsToDb(paymentsToCreate);
+        queryClient.invalidateQueries({ queryKey: ['payments'] });
+
+        if (userProfile && userProfile.role === 'Admin') {
+            await logActivity({
+                type: 'payment',
+                actorEmail: userProfile.email,
+                actorName: userProfile.name,
+                description: `${paymentsToCreate.length} cobro(s) registrados por conciliación bancaria`,
                 targetRole: 'SuperAdmin'
             });
         }
@@ -289,7 +305,7 @@ export const useAppActions = () => {
         addStudent, updateStudent, deleteStudent,
         addInstructor, updateInstructor, deleteInstructor,
         addClass, updateClass, deleteClass,
-        addPayment, updatePayment, deletePayment,
+        addPayment, updatePayment, deletePayment, addPaymentsBatch,
         addCost, updateCost, deleteCost,
         addNuptialDance, updateNuptialDance, deleteNuptialDance,
         addEvent, updateEvent, deleteEvent,

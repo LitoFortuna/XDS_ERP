@@ -6,9 +6,10 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  size?: 'md' | 'xl';
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md' }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
@@ -35,8 +36,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
       onMouseDown={handleMouseDown}
       onClick={handleBackdropClick}
     >
-      <div 
-        className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl m-4"
+      <div
+        className={`bg-gray-800 rounded-lg shadow-xl w-full m-4 ${size === 'xl' ? 'max-w-5xl' : 'max-w-2xl'}`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()} // Importante: evita que el clic inicial dentro del modal se registre en el overlay
       >

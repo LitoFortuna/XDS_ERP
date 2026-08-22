@@ -9,6 +9,7 @@ import { getEventRevenue } from '../utils/eventRevenue';
 import MonthlyDetailModal from './billing/MonthlyDetailModal';
 import PaymentForm from './billing/PaymentForm';
 import CostForm from './billing/CostForm';
+import BankReconciliation from './billing/BankReconciliation';
 
 
 const formatCurrency = (v: number, decimals: number = 2) => {
@@ -48,6 +49,7 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
         addPayment,
         updatePayment,
         deletePayment,
+        addPaymentsBatch,
         addCost,
         updateCost,
         deleteCost,
@@ -55,6 +57,7 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     } = useAppActions();
 
     const [activeTab, setActiveTab] = useState<'income' | 'costs'>('income');
+    const [isReconciliationModalOpen, setIsReconciliationModalOpen] = useState(false);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const availableYears = [2024, 2025, 2026, 2027];
 
@@ -390,6 +393,9 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                                 </svg>
                                 <span>Exportar</span>
                             </button>
+                            <button onClick={() => setIsReconciliationModalOpen(true)} className="bg-blue-600/20 text-blue-300 px-4 py-2 rounded hover:bg-blue-600/30 border border-blue-500/30 font-bold transition-all shadow-sm">
+                                Conciliar Domiciliaciones
+                            </button>
                             <button onClick={() => setIsIncomeModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 shadow-lg shadow-green-900/20 font-bold transition-transform active:scale-95">
                                 + Nuevo Cobro
                             </button>
@@ -512,6 +518,13 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
             <Modal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} title="Registrar Cobro">
                 <PaymentForm students={students} onSubmit={(p) => { addPayment(p); setIsIncomeModalOpen(false); }} onCancel={() => setIsIncomeModalOpen(false)} />
             </Modal>
+            <BankReconciliation
+                isOpen={isReconciliationModalOpen}
+                onClose={() => setIsReconciliationModalOpen(false)}
+                students={students}
+                payments={payments}
+                onConfirm={addPaymentsBatch}
+            />
             <Modal isOpen={isCostModalOpen} onClose={handleCloseCostModal} title={editingCost ? 'Editar Coste' : 'Registrar Coste'}>
                 <CostForm cost={editingCost} instructors={instructors} initialValues={costToDuplicate} onSubmit={handleCostSubmit} onCancel={handleCloseCostModal} />
             </Modal>
