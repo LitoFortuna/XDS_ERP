@@ -9,8 +9,9 @@ export const fetchAttendance = async (): Promise<AttendanceRecord[]> => {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
 };
 
-export const addAttendance = async (record: Omit<AttendanceRecord, 'id'>) => {
-    await addDoc(collection(db, 'attendance'), record);
+export const addAttendance = async (record: Omit<AttendanceRecord, 'id'>): Promise<string> => {
+    const docRef = await addDoc(collection(db, 'attendance'), record);
+    return docRef.id;
 };
 
 export const updateAttendance = async (record: AttendanceRecord) => {

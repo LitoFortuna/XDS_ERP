@@ -47,18 +47,6 @@ const App: React.FC = () => {
     // Initialize Data & Subscriptions
     useInitializeData();
 
-    // React Query Hooks
-    const { students: rqStudents, addStudent, updateStudent, deleteStudent } = useStudents();
-    const { instructors: rqInstructors, addInstructor, updateInstructor, deleteInstructor } = useInstructors();
-    const { classes: rqClasses, addClass, updateClass, deleteClass } = useClasses();
-    const { payments: rqPayments, addPayment, updatePayment, deletePayment } = usePayments();
-    const { costs: rqCosts, addCost, updateCost, deleteCost } = useCosts();
-    const { nuptialDances: rqNuptialDances } = useNuptialDances();
-    const { events: rqEvents } = useEvents();
-    const { merchandiseItems: rqMerchandiseItems } = useMerchandiseItems();
-    const { merchandiseSales: rqMerchandiseSales } = useMerchandiseSales();
-    const { attendanceRecords: rqAttendanceRecords } = useAttendance();
-
     // Actions & State
     const actions = useAppActions();
     const {
@@ -78,6 +66,37 @@ const App: React.FC = () => {
         payments,
         costs,
     } = useAppStore();
+
+    // Vistas visitadas en esta sesión: se usa para diferir la carga de las colecciones más
+    // pesadas (asistencia, tienda) hasta que el admin realmente entra en la pantalla que las
+    // necesita, en vez de descargarlas todas de golpe al abrir el ERP sin importar dónde aterriza.
+    // Una vez visitada una vista se queda "activada" (no se desmonta la query al salir) para que
+    // volver a esa pantalla no dispare una nueva descarga.
+    const [visitedViews, setVisitedViews] = React.useState<Set<View>>(() => new Set([currentView]));
+    useEffect(() => {
+        setVisitedViews(prev => (prev.has(currentView) ? prev : new Set(prev).add(currentView)));
+    }, [currentView]);
+
+    const needsAttendance = visitedViews.has(View.ATTENDANCE);
+    const needsMerchandiseItems = visitedViews.has(View.MERCHANDISING) || visitedViews.has(View.DATA_MANAGEMENT);
+    const needsMerchandiseSales = needsMerchandiseItems
+        || visitedViews.has(View.STUDENTS)
+        || visitedViews.has(View.BILLING)
+        || visitedViews.has(View.QUARTERLY_INVOICING);
+
+    // React Query Hooks. students/instructors/classes/payments/costs/nuptialDances/events se
+    // cargan siempre porque el Dashboard (la vista por defecto al entrar) ya los necesita todos;
+    // asistencia y tienda quedan diferidos a needsAttendance/needsMerchandise* de arriba.
+    const { students: rqStudents, addStudent, updateStudent, deleteStudent } = useStudents();
+    const { instructors: rqInstructors, addInstructor, updateInstructor, deleteInstructor } = useInstructors();
+    const { classes: rqClasses, addClass, updateClass, deleteClass } = useClasses();
+    const { payments: rqPayments, addPayment, updatePayment, deletePayment } = usePayments();
+    const { costs: rqCosts, addCost, updateCost, deleteCost } = useCosts();
+    const { nuptialDances: rqNuptialDances } = useNuptialDances();
+    const { events: rqEvents } = useEvents();
+    const { merchandiseItems: rqMerchandiseItems } = useMerchandiseItems(needsMerchandiseItems);
+    const { merchandiseSales: rqMerchandiseSales } = useMerchandiseSales(needsMerchandiseSales);
+    const { attendanceRecords: rqAttendanceRecords } = useAttendance(needsAttendance);
 
     // Sync React Query data to Zustand Store (Legacy Support)
     // Only update if data actually changed to prevent infinite loops

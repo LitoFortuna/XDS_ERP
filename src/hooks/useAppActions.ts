@@ -332,12 +332,23 @@ export const useAppActions = () => {
     };
 
     const saveAttendance = async (record: Omit<AttendanceRecord, 'id'> | AttendanceRecord) => {
+        let savedRecord: AttendanceRecord;
         if ('id' in record) {
             await updateAttendanceInDb(record);
+            savedRecord = record;
         } else {
-            await addAttendanceToDb(record);
+            const id = await addAttendanceToDb(record);
+            savedRecord = { ...record, id };
         }
-        queryClient.invalidateQueries({ queryKey: ['attendance'] });
+        // Actualiza la caché directamente en vez de invalidar y volver a descargar TODA la
+        // colección de asistencia (que crece sin parar) por cada clase a la que se pasa lista.
+        queryClient.setQueryData<AttendanceRecord[]>(['attendance'], (old = []) => {
+            const idx = old.findIndex(r => r.id === savedRecord.id);
+            if (idx === -1) return [savedRecord, ...old];
+            const copy = [...old];
+            copy[idx] = savedRecord;
+            return copy;
+        });
 
         // Refresca el progreso (gamificación) de cada alumna afectada por este pase de lista.
         await Promise.all(
