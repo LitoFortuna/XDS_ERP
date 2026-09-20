@@ -77,7 +77,10 @@ const App: React.FC = () => {
         setVisitedViews(prev => (prev.has(currentView) ? prev : new Set(prev).add(currentView)));
     }, [currentView]);
 
-    const needsAttendance = visitedViews.has(View.ATTENDANCE);
+    // El Dashboard también consume attendanceRecords (alertas de riesgo de abandono, evolución y
+    // categorías de asistencia) vía el store, no solo la vista de Asistencia -- sin esto, esos
+    // widgets se quedarían vacíos hasta que el admin visitara Asistencia por separado.
+    const needsAttendance = visitedViews.has(View.ATTENDANCE) || visitedViews.has(View.DASHBOARD);
     const needsMerchandiseItems = visitedViews.has(View.MERCHANDISING) || visitedViews.has(View.DATA_MANAGEMENT);
     const needsMerchandiseSales = needsMerchandiseItems
         || visitedViews.has(View.STUDENTS)

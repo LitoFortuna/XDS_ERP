@@ -220,6 +220,21 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     const globalCapacity = classes.reduce((acc, c) => acc + c.capacity, 0);
     const globalOccupancy = globalCapacity > 0 ? ((activeStudentsCount / globalCapacity) * 100).toFixed(1) : '0';
 
+    // Índice studentId|año|mes -> total pagado ese mes, construido una sola vez por cambio de
+    // `payments`. Antes, el bucle de impagados de abajo hacía un payments.filter() por cada
+    // combinación alumno×mes (hasta 365 alumnos × 12 meses), recorriendo el array `payments`
+    // COMPLETO cada vez -- con años de histórico eso es un cálculo síncrono muy pesado en cada
+    // carga del Dashboard.
+    const paidAmountByStudentMonth = useMemo(() => {
+        const map = new Map<string, number>();
+        payments.forEach(p => {
+            const pd = new Date(p.date);
+            const key = `${p.studentId}|${pd.getFullYear()}|${pd.getMonth()}`;
+            map.set(key, (map.get(key) || 0) + p.amount);
+        });
+        return map;
+    }, [payments]);
+
     // --- LÓGICA DE IMPAGADOS FILTRADA POR AÑO ---
     const unpaidStudentsInfo = useMemo(() => {
         const maxMonthToCheck = selectedYear < realToday.getFullYear() ? 11 : (selectedYear === realToday.getFullYear() ? currentMonth : -1);
@@ -242,11 +257,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     if (monthDate < new Date(enrollmentDate.getFullYear(), enrollmentDate.getMonth(), 1)) continue;
                     if (student.deactivationDate && monthDate > new Date(student.deactivationDate)) continue;
 
-                    const paymentsForMonth = payments.filter(p => {
-                        const pd = new Date(p.date);
-                        return p.studentId === student.id && pd.getMonth() === m && pd.getFullYear() === selectedYear;
-                    });
-                    const paid = paymentsForMonth.reduce((sum, p) => sum + p.amount, 0);
+                    const paid = paidAmountByStudentMonth.get(`${student.id}|${selectedYear}|${m}`) || 0;
 
                     const expected = getExpectedFee(student, selectedYear, m);
 
@@ -259,7 +270,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             })
             .filter(info => info.totalDebt > 0)
             .sort((a, b) => b.totalDebt - a.totalDebt);
-    }, [students, payments, currentMonth, selectedYear]);
+    }, [students, paidAmountByStudentMonth, currentMonth, selectedYear]);
 
     const filteredUnpaidStudents = useMemo(() => {
         return unpaidStudentsInfo.filter(student =>
@@ -387,6 +398,20 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             .sort((a, b) => b.value - a.value);
     }, [costs, selectedYear, selectedCostMonth]);
 
+    // Nº de alumnas inscritas por clase, calculado una sola vez por cambio de `students` en vez
+    // de recorrer la lista completa de alumnas por cada registro de asistencia (dos usos abajo,
+    // una vez por mes/categoría) -- con años de histórico de asistencia esto evita repetir el
+    // mismo recuento cientos de veces por el mismo classId.
+    const enrolledCountByClassId = useMemo(() => {
+        const map = new Map<string, number>();
+        students.forEach(s => {
+            s.enrolledClassIds.forEach(id => {
+                map.set(id, (map.get(id) || 0) + 1);
+            });
+        });
+        return map;
+    }, [students]);
+
     // --- NUEVO: EVOLUCIÓN DE ASISTENCIA MENSUAL Y POR CATEGORÍA ---
     const attendanceMonthlyEvolution = useMemo(() => {
         const evolution = monthShortNames.map((name, m) => {
@@ -420,7 +445,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             let totalEnrolled = 0;
 
             monthRecords.forEach(record => {
-                const enrolledCount = students.filter(s => s.enrolledClassIds.includes(record.classId)).length;
+                const enrolledCount = enrolledCountByClassId.get(record.classId) || 0;
                 totalPresents += record.presentStudentIds.length;
                 totalEnrolled += enrolledCount;
             });
@@ -452,7 +477,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
         }
 
         return evolution;
-    }, [attendanceRecords, students, selectedYear, selectedClassId, selectedDayOfWeek]);
+    }, [attendanceRecords, enrolledCountByClassId, selectedYear, selectedClassId, selectedDayOfWeek]);
 
     const attendanceStats = useMemo(() => {
         const activeMonths = attendanceMonthlyEvolution.filter(m => m.Clases > 0);
@@ -521,7 +546,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             let totalEnrolled = 0;
 
             catRecords.forEach(record => {
-                const enrolledCount = students.filter(s => s.enrolledClassIds.includes(record.classId)).length;
+                const enrolledCount = enrolledCountByClassId.get(record.classId) || 0;
                 totalPresents += record.presentStudentIds.length;
                 totalEnrolled += enrolledCount;
             });
@@ -532,7 +557,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
         });
 
         return data.filter(d => d.count > 0 || d.Asistencia > 0);
-    }, [attendanceRecords, classes, students, selectedYear]);
+    }, [attendanceRecords, classes, enrolledCountByClassId, selectedYear]);
 
     const finanzasHistory = monthShortNames.map((name, m) => {
         const monthIncome = filteredPayments.filter(p => {

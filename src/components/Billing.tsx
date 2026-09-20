@@ -18,6 +18,8 @@ interface BillingProps {
     // Props handled via Zustand
 }
 
+const EMPTY_PAYMENTS: Payment[] = [];
+
 const Billing: React.FC<BillingProps> = React.memo(() => {
     const {
         payments,
@@ -137,11 +139,28 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
 
     const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+    // Índice studentId|año|mes -> pagos de ese mes, construido una vez por cambio de `payments`.
+    // getPaymentStatusForMonth se llama cientos de veces por render (una por alumno y mes visible
+    // en la tabla); sin este índice, cada llamada recorría el array `payments` COMPLETO (todos los
+    // años) para quedarse solo con el mes que le toca -- con un histórico de pagos grande eso es
+    // O(alumnos × meses × pagos) en cada render de la pantalla de Facturación.
+    const paymentsByStudentMonth = useMemo(() => {
+        const map = new Map<string, Payment[]>();
+        payments.forEach(p => {
+            const { year, month } = parseDateLocal(p.date);
+            const key = `${p.studentId}|${year}|${month}`;
+            const existing = map.get(key);
+            if (existing) existing.push(p); else map.set(key, [p]);
+        });
+        return map;
+    }, [payments]);
+
     // Lógica de negocio (qué cuota corresponde, si está pagada/parcial/impagada/exenta) vive en
     // src/utils/paymentStatus.ts -- pura y con tests (ver src/utils/paymentStatus.test.ts). Esto
     // solo traduce ese resultado al texto/color exacto que ya se mostraba antes de extraerla.
     const getPaymentStatusForMonth = (student: Student, monthIndex: number): { text: string; color: string; status: MonthStatus; amount: number } => {
-        const result = getPaymentStatusForMonthPure(student, selectedYear, monthIndex, payments);
+        const relevantPayments = paymentsByStudentMonth.get(`${student.id}|${selectedYear}|${monthIndex}`) ?? EMPTY_PAYMENTS;
+        const result = getPaymentStatusForMonthPure(student, selectedYear, monthIndex, relevantPayments);
         const baseClasses = "cursor-pointer transition-colors hover:brightness-110";
 
         switch (result.status) {
