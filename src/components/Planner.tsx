@@ -1,0 +1,463 @@
+import React, { useMemo, useState } from 'react';
+import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority } from '../../types';
+import { useAppStore } from '../store/useAppStore';
+import { usePlannerTasks } from '../hooks/queries/usePlannerTasks';
+import Modal from './Modal';
+
+const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const CATEGORIES: PlannerTaskCategory[] = ['Administrativo', 'Clases', 'Eventos', 'Marketing', 'Otro'];
+const PRIORITY_LABEL: Record<PlannerTaskPriority, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
+const PRIORITY_ORDER: Record<PlannerTaskPriority, number> = { high: 0, medium: 1, low: 2 };
+const PRIORITY_CHIP: Record<PlannerTaskPriority, string> = {
+    high: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    medium: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    low: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+};
+const PRIORITY_DOT: Record<PlannerTaskPriority, string> = { high: 'bg-rose-400', medium: 'bg-amber-400', low: 'bg-sky-400' };
+
+// Fecha local en YYYY-MM-DD. toISOString() convierte a UTC y, en horario español, desplazaría el
+// día a ayer cerca de medianoche -- aquí todo el calendario trabaja con fechas locales puras.
+const toIsoLocal = (d: Date) => {
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+};
+
+const formatLongDate = (iso: string) =>
+    new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+
+const compareTasks = (a: PlannerTask, b: PlannerTask) => {
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    const timeA = a.dueTime || '99:99';
+    const timeB = b.dueTime || '99:99';
+    if (timeA !== timeB) return timeA.localeCompare(timeB);
+    return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+};
+
+interface TaskDraft {
+    id?: string;
+    title: string;
+    description: string;
+    dueDate: string;
+    dueTime: string;
+    priority: PlannerTaskPriority;
+    category: PlannerTaskCategory;
+}
+
+const emptyDraft = (dueDate: string): TaskDraft => ({
+    title: '',
+    description: '',
+    dueDate,
+    dueTime: '',
+    priority: 'medium',
+    category: 'Administrativo',
+});
+
+const inputClass = 'w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent';
+
+const Planner: React.FC = () => {
+    const { tasks, isLoading, error, addTask, updateTask, deleteTask } = usePlannerTasks();
+    const events = useAppStore(state => state.events);
+
+    const todayIso = toIsoLocal(new Date());
+    const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
+    const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
+    const [selectedDate, setSelectedDate] = useState(todayIso);
+    const [showCompleted, setShowCompleted] = useState(true);
+    const [draft, setDraft] = useState<TaskDraft | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState('');
+
+    const visibleTasks = useMemo(() => (showCompleted ? tasks : tasks.filter(t => !t.completed)), [tasks, showCompleted]);
+
+    const tasksByDate = useMemo(() => {
+        const map = new Map<string, PlannerTask[]>();
+        visibleTasks.forEach(t => {
+            if (!t.dueDate) return;
+            const list = map.get(t.dueDate);
+            if (list) list.push(t); else map.set(t.dueDate, [t]);
+        });
+        map.forEach(list => list.sort(compareTasks));
+        return map;
+    }, [visibleTasks]);
+
+    const eventsByDate = useMemo(() => {
+        const map = new Map<string, string[]>();
+        events.forEach(ev => {
+            if (!ev.date || ev.deletedAt) return;
+            const list = map.get(ev.date);
+            const label = ev.time ? `${ev.time} · ${ev.name}` : ev.name;
+            if (list) list.push(label); else map.set(ev.date, [label]);
+        });
+        return map;
+    }, [events]);
+
+    const overdueTasks = useMemo(
+        () => tasks.filter(t => !t.completed && t.dueDate && t.dueDate < todayIso).sort((a, b) => a.dueDate!.localeCompare(b.dueDate!)),
+        [tasks, todayIso]
+    );
+    const undatedTasks = useMemo(
+        () => visibleTasks.filter(t => !t.dueDate).sort(compareTasks),
+        [visibleTasks]
+    );
+    const pendingCount = useMemo(() => tasks.filter(t => !t.completed).length, [tasks]);
+
+    // Cuadrícula del mes: semanas de lunes a domingo, con huecos de los meses vecinos.
+    const calendarCells = useMemo(() => {
+        const first = new Date(viewYear, viewMonth, 1);
+        const offset = (first.getDay() + 6) % 7;
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const cells: (string | null)[] = Array(offset).fill(null);
+        for (let day = 1; day <= daysInMonth; day++) cells.push(toIsoLocal(new Date(viewYear, viewMonth, day)));
+        while (cells.length % 7 !== 0) cells.push(null);
+        return cells;
+    }, [viewYear, viewMonth]);
+
+    const goToMonth = (delta: number) => {
+        const d = new Date(viewYear, viewMonth + delta, 1);
+        setViewYear(d.getFullYear());
+        setViewMonth(d.getMonth());
+    };
+
+    const goToToday = () => {
+        const now = new Date();
+        setViewYear(now.getFullYear());
+        setViewMonth(now.getMonth());
+        setSelectedDate(toIsoLocal(now));
+    };
+
+    const openNew = (dueDate: string) => {
+        setSaveError('');
+        setDraft(emptyDraft(dueDate));
+    };
+
+    const openEdit = (task: PlannerTask) => {
+        setSaveError('');
+        setDraft({
+            id: task.id,
+            title: task.title,
+            description: task.description || '',
+            dueDate: task.dueDate || '',
+            dueTime: task.dueTime || '',
+            priority: task.priority,
+            category: task.category,
+        });
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!draft || !draft.title.trim()) return;
+        setIsSaving(true);
+        setSaveError('');
+        try {
+            const base = {
+                title: draft.title.trim(),
+                description: draft.description.trim() || undefined,
+                dueDate: draft.dueDate || undefined,
+                // Una hora sin fecha no significa nada, así que se descarta.
+                dueTime: draft.dueDate && draft.dueTime ? draft.dueTime : undefined,
+                priority: draft.priority,
+                category: draft.category,
+            };
+            if (draft.id) {
+                const existing = tasks.find(t => t.id === draft.id);
+                if (!existing) throw new Error('La tarea ya no existe.');
+                await updateTask({ ...existing, ...base });
+            } else {
+                await addTask({ ...base, completed: false, createdAt: new Date().toISOString() });
+            }
+            if (draft.dueDate) {
+                setSelectedDate(draft.dueDate);
+                const d = new Date(draft.dueDate + 'T12:00:00');
+                setViewYear(d.getFullYear());
+                setViewMonth(d.getMonth());
+            }
+            setDraft(null);
+        } catch (err: any) {
+            setSaveError(err?.message || 'No se pudo guardar la tarea.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleToggle = async (task: PlannerTask) => {
+        try {
+            await updateTask({
+                ...task,
+                completed: !task.completed,
+                completedAt: task.completed ? undefined : new Date().toISOString(),
+            });
+        } catch (err: any) {
+            alert(err?.message || 'No se pudo actualizar la tarea.');
+        }
+    };
+
+    const handleDelete = async (task: PlannerTask) => {
+        if (!window.confirm(`¿Eliminar la tarea "${task.title}"? Esta acción no se puede deshacer.`)) return;
+        try {
+            await deleteTask(task.id);
+        } catch (err: any) {
+            alert(err?.message || 'No se pudo eliminar la tarea.');
+        }
+    };
+
+    const renderTaskRow = (task: PlannerTask, showDate = false) => (
+        <div key={task.id} className={`flex items-start gap-3 p-3 rounded-lg border bg-gray-800/60 ${task.completed ? 'border-gray-700/50 opacity-60' : 'border-gray-700'}`}>
+            <input
+                type="checkbox"
+                checked={task.completed}
+                onChange={() => handleToggle(task)}
+                aria-label={`Marcar "${task.title}" como ${task.completed ? 'pendiente' : 'hecha'}`}
+                className="mt-1 h-4 w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
+            />
+            <div className="flex-1 min-w-0">
+                <p className={`text-sm font-semibold text-white break-words ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</p>
+                {task.description && <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line break-words">{task.description}</p>}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${PRIORITY_CHIP[task.priority]}`}>{PRIORITY_LABEL[task.priority]}</span>
+                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-700/60 px-1.5 py-0.5 rounded">{task.category}</span>
+                    {showDate && task.dueDate && (
+                        <span className="text-[10px] font-semibold text-gray-400">{new Date(task.dueDate + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                    )}
+                    {task.dueTime && <span className="text-[10px] font-semibold text-gray-400">{task.dueTime}</span>}
+                </div>
+            </div>
+            <div className="flex gap-1 flex-shrink-0">
+                <button onClick={() => openEdit(task)} title="Editar" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.879.513L7 17l.659-3.949a2 2 0 01.513-.879z" /></svg>
+                </button>
+                <button onClick={() => handleDelete(task)} title="Eliminar" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+            </div>
+        </div>
+    );
+
+    const selectedTasks = tasksByDate.get(selectedDate) || [];
+    const selectedEvents = eventsByDate.get(selectedDate) || [];
+
+    return (
+        <div className="p-4 sm:p-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div>
+                    <h2 className="text-3xl font-bold text-white">Calendario y Tareas</h2>
+                    <p className="text-sm text-gray-400 mt-1">
+                        {pendingCount} {pendingCount === 1 ? 'tarea pendiente' : 'tareas pendientes'}
+                        {overdueTasks.length > 0 && <span className="text-rose-400 font-semibold"> · {overdueTasks.length} atrasada{overdueTasks.length > 1 ? 's' : ''}</span>}
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <label className="flex items-center text-xs text-gray-400 cursor-pointer hover:text-gray-200">
+                        <input
+                            type="checkbox"
+                            checked={showCompleted}
+                            onChange={e => setShowCompleted(e.target.checked)}
+                            className="mr-2 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                        />
+                        Mostrar hechas
+                    </label>
+                    <button
+                        onClick={() => openNew(selectedDate)}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2 px-5 rounded-lg shadow-lg text-sm"
+                    >
+                        + Nueva tarea
+                    </button>
+                </div>
+            </div>
+
+            {error && (
+                <div className="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-500/30 text-sm text-red-300">
+                    No se pudieron cargar las tareas. Si el problema continúa, comprueba que las reglas de Firestore incluyen la colección "calendarTasks".
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div className="xl:col-span-2 bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => goToMonth(-1)} aria-label="Mes anterior" className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <button onClick={() => goToMonth(1)} aria-label="Mes siguiente" className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                            <h3 className="text-xl font-bold text-white ml-2">{MONTH_NAMES[viewMonth]} {viewYear}</h3>
+                        </div>
+                        <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200">Hoy</button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 mb-1">
+                        {WEEKDAY_LABELS.map(label => (
+                            <div key={label} className="text-center text-[10px] font-black uppercase tracking-widest text-gray-500 py-1">{label}</div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                        {calendarCells.map((iso, idx) => {
+                            if (!iso) return <div key={`empty-${idx}`} className="min-h-[84px] rounded-lg bg-gray-900/30" />;
+                            const dayTasks = tasksByDate.get(iso) || [];
+                            const dayEvents = eventsByDate.get(iso) || [];
+                            const isToday = iso === todayIso;
+                            const isSelected = iso === selectedDate;
+                            const hasOverdue = iso < todayIso && dayTasks.some(t => !t.completed);
+                            return (
+                                <button
+                                    key={iso}
+                                    onClick={() => setSelectedDate(iso)}
+                                    onDoubleClick={() => openNew(iso)}
+                                    title="Doble clic para añadir una tarea en este día"
+                                    className={`min-h-[84px] text-left p-1.5 rounded-lg border transition-colors flex flex-col gap-1 ${isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-700 bg-gray-900/40 hover:bg-gray-700/40'}`}
+                                >
+                                    <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-purple-600 text-white' : hasOverdue ? 'text-rose-400' : 'text-gray-300'}`}>
+                                        {Number(iso.slice(8, 10))}
+                                    </span>
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                        {dayTasks.slice(0, 2).map(t => (
+                                            <span key={t.id} className={`flex items-center gap-1 text-[10px] leading-tight truncate ${t.completed ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[t.priority]}`} />
+                                                <span className="truncate">{t.title}</span>
+                                            </span>
+                                        ))}
+                                        {dayTasks.length > 2 && <span className="text-[10px] text-gray-500 font-semibold">+{dayTasks.length - 2} más</span>}
+                                        {dayEvents.length > 0 && (
+                                            <span className="text-[10px] text-purple-300 font-semibold truncate">★ {dayEvents.length === 1 ? dayEvents[0] : `${dayEvents.length} eventos`}</span>
+                                        )}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-3">Clic en un día para ver sus tareas · doble clic para añadir una nueva en ese día.</p>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-base font-bold text-white capitalize">{formatLongDate(selectedDate)}</h3>
+                            <button onClick={() => openNew(selectedDate)} className="text-xs font-bold text-purple-300 hover:text-purple-200">+ Añadir</button>
+                        </div>
+                        {isLoading ? (
+                            <p className="text-sm text-gray-500">Cargando tareas...</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {selectedEvents.map((label, i) => (
+                                    <div key={`ev-${i}`} className="flex items-center gap-2 p-3 rounded-lg border border-purple-500/30 bg-purple-900/20 text-sm text-purple-200">
+                                        <span>★</span><span className="break-words">{label}</span>
+                                    </div>
+                                ))}
+                                {selectedTasks.map(t => renderTaskRow(t))}
+                                {selectedTasks.length === 0 && selectedEvents.length === 0 && (
+                                    <p className="text-sm text-gray-500">Nada planificado para este día.</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {overdueTasks.length > 0 && (
+                        <div className="bg-rose-950/20 rounded-xl border border-rose-500/30 shadow-lg p-4">
+                            <h3 className="text-sm font-bold text-rose-300 uppercase tracking-wider mb-3">Atrasadas ({overdueTasks.length})</h3>
+                            <div className="space-y-2">{overdueTasks.map(t => renderTaskRow(t, true))}</div>
+                        </div>
+                    )}
+
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-4">
+                        <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">Sin fecha ({undatedTasks.length})</h3>
+                        {undatedTasks.length > 0 ? (
+                            <div className="space-y-2">{undatedTasks.map(t => renderTaskRow(t))}</div>
+                        ) : (
+                            <p className="text-sm text-gray-500">Las tareas sin fecha aparecerán aquí hasta que las planifiques.</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <Modal isOpen={draft !== null} onClose={() => setDraft(null)} title={draft?.id ? 'Editar tarea' : 'Nueva tarea'}>
+                {draft && (
+                    <form onSubmit={handleSave} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Título</label>
+                            <input
+                                type="text"
+                                value={draft.title}
+                                onChange={e => setDraft({ ...draft, title: e.target.value })}
+                                placeholder="Ej: Preparar la coreografía de fin de curso"
+                                className={inputClass}
+                                autoFocus
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Descripción (opcional)</label>
+                            <textarea
+                                value={draft.description}
+                                onChange={e => setDraft({ ...draft, description: e.target.value })}
+                                rows={3}
+                                className={inputClass}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Fecha</label>
+                                <input
+                                    type="date"
+                                    value={draft.dueDate}
+                                    onChange={e => setDraft({ ...draft, dueDate: e.target.value })}
+                                    className={inputClass}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Hora (opcional)</label>
+                                <input
+                                    type="time"
+                                    value={draft.dueTime}
+                                    onChange={e => setDraft({ ...draft, dueTime: e.target.value })}
+                                    disabled={!draft.dueDate}
+                                    className={`${inputClass} disabled:opacity-40`}
+                                />
+                            </div>
+                        </div>
+                        <p className="text-xs text-gray-500 -mt-2">Sin fecha, la tarea queda en "Sin fecha" hasta que la planifiques.</p>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Prioridad</label>
+                                <select
+                                    value={draft.priority}
+                                    onChange={e => setDraft({ ...draft, priority: e.target.value as PlannerTaskPriority })}
+                                    className={inputClass}
+                                >
+                                    <option value="high">Alta</option>
+                                    <option value="medium">Media</option>
+                                    <option value="low">Baja</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Categoría</label>
+                                <select
+                                    value={draft.category}
+                                    onChange={e => setDraft({ ...draft, category: e.target.value as PlannerTaskCategory })}
+                                    className={inputClass}
+                                >
+                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        {saveError && <p className="text-sm text-red-400">{saveError}</p>}
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button type="button" onClick={() => setDraft(null)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold">Cancelar</button>
+                            <button
+                                type="submit"
+                                disabled={isSaving || !draft.title.trim()}
+                                className="px-5 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-bold"
+                            >
+                                {isSaving ? 'Guardando...' : 'Guardar'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </Modal>
+        </div>
+    );
+};
+
+export default Planner;

@@ -113,6 +113,11 @@ service cloud.firestore {
     match /attendance/{id} { allow read: if true; allow write: if isAdmin(); }
     match /activityLogs/{id} { allow read: if true; allow write: if isAdmin(); }
 
+    // Tareas y planificación del equipo (apartado Calendario del ERP). A diferencia del resto de
+    // colecciones de arriba, NO son de lectura pública: el Portal de Alumno no las necesita, así
+    // que solo un administrador real puede leerlas o escribirlas.
+    match /calendarTasks/{id} { allow read, write: if isAdmin(); }
+
     // ============================================================
     // xds-web-next (web pública de marketing, mismo proyecto de Firebase)
     // ============================================================

@@ -38,6 +38,7 @@ const Attendance = lazy(() => import('./src/components/Attendance'));
 const EventManagement = lazy(() => import('./src/components/EventManagement'));
 const ChangeRequestManagement = lazy(() => import('./src/components/ChangeRequestManagement'));
 const Papelera = lazy(() => import('./src/components/Papelera'));
+const Planner = lazy(() => import('./src/components/Planner'));
 
 const Loader = () => (
     <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin"></div>
@@ -305,6 +306,8 @@ const App: React.FC = () => {
                     batchAddCosts={batchAddCosts}
                     batchAddMerchandiseItems={batchAddMerchandiseItems}
                 />;
+            case View.PLANNER:
+                return <Planner />;
             case View.TRASH:
                 return <Papelera />;
             default:

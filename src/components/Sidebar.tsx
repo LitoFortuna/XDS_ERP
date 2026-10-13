@@ -14,6 +14,7 @@ import { ShoppingBagIcon } from './icons/ShoppingBagIcon';
 import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
 import { StarIcon } from './icons/StarIcon';
 import { TrashIcon } from './icons/TrashIcon';
+import { CalendarDaysIcon } from './icons/CalendarDaysIcon';
 import ActivityNotificationBell from './ActivityNotificationBell';
 
 interface SidebarProps {
@@ -34,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
     { view: View.CLASSES, label: 'Clases', icon: BookIcon },
     { view: View.INSTRUCTORS, label: 'Profesores', icon: IdentificationIcon },
     { view: View.INTERACTIVE_SCHEDULE, label: 'Horario', icon: CalendarIcon },
+    { view: View.PLANNER, label: 'Calendario', icon: CalendarDaysIcon },
     { view: View.NUPTIAL_DANCES, label: 'Bailes Nupciales', icon: HeartIcon },
     { view: View.EVENTS, label: 'Eventos', icon: StarIcon },
     { view: View.CHANGE_REQUESTS, label: 'Solicitudes', icon: DocumentTextIcon },

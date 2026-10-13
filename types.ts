@@ -175,6 +175,24 @@ export interface ClassAbsence {
   createdAt: string; // ISO timestamp
 }
 
+export type PlannerTaskPriority = 'low' | 'medium' | 'high';
+export type PlannerTaskCategory = 'Administrativo' | 'Clases' | 'Eventos' | 'Marketing' | 'Otro';
+
+// Tarea pendiente o recordatorio de planificación del propio equipo (apartado Calendario). Sin
+// `dueDate` es una tarea "sin fecha" -- pendiente pero todavía sin planificar en el calendario.
+export interface PlannerTask {
+  id: string;
+  title: string;
+  description?: string;
+  dueDate?: string; // YYYY-MM-DD
+  dueTime?: string; // HH:MM, opcional
+  priority: PlannerTaskPriority;
+  category: PlannerTaskCategory;
+  completed: boolean;
+  completedAt?: string; // ISO timestamp
+  createdAt: string; // ISO timestamp
+}
+
 export interface AttendanceRecord {
   id: string;
   classId: string;
@@ -197,6 +215,7 @@ export enum View {
   ATTENDANCE = 'ATTENDANCE',
   EVENTS = 'EVENTS',
   CHANGE_REQUESTS = 'CHANGE_REQUESTS',
+  PLANNER = 'PLANNER',
   TRASH = 'TRASH',
 }
 
