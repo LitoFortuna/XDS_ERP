@@ -4,7 +4,9 @@ import { fetchAllStudentPrivateData } from '../services/domain/studentService';
 import { fetchUpcomingAbsences } from '../services/domain/classAbsenceService';
 import { getExpectedFee } from '../utils/paymentStatus';
 import { findStudentsAtRisk } from '../utils/attendanceRisk';
-import { View, ClassAbsence } from '../../types';
+import { View, ClassAbsence, PlannerTask } from '../../types';
+import { usePlannerTasks } from '../hooks/queries/usePlannerTasks';
+import { toIsoLocal, compareTasks, PRIORITY_DOT } from '../utils/plannerUtils';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
@@ -104,7 +106,12 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     } = useAppStore();
     const { addPayment } = useAppActions();
 
-    const realToday = new Date();
+    // Estable entre renders: antes era `new Date()` en cada render, y como varios useMemo/useEffect
+    // de abajo lo tienen en sus dependencias, se invalidaban SIEMPRE -- incluido el efecto que
+    // consulta los avisos de ausencia en Firestore, que al guardar su resultado (array nuevo)
+    // volvía a renderizar y a lanzar la consulta otra vez, en bucle mientras el Dashboard estaba
+    // abierto.
+    const [realToday] = useState(() => new Date());
     const [selectedYear, setSelectedYear] = useState(realToday.getFullYear());
     const currentMonth = realToday.getMonth();
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -154,11 +161,41 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
     // para las próximas sesiones -- puramente informativo para el profesor antes de pasar lista.
     const [upcomingAbsences, setUpcomingAbsences] = useState<ClassAbsence[]>([]);
     useEffect(() => {
-        const todayIso = realToday.toISOString().split('T')[0];
-        fetchUpcomingAbsences(todayIso)
-            .then(setUpcomingAbsences)
+        let cancelled = false;
+        fetchUpcomingAbsences(toIsoLocal(realToday))
+            .then(result => { if (!cancelled) setUpcomingAbsences(result); })
             .catch(() => { /* no bloquea el resto del dashboard si esto falla */ });
+        return () => { cancelled = true; };
     }, [realToday]);
+
+    // Próximas tareas del Calendario: primero las atrasadas (lo más urgente) y después las que
+    // vencen hoy o más adelante, por fecha. Las ya hechas y las "sin fecha" no entran aquí.
+    const { tasks: plannerTasks, error: plannerError, updateTask: updatePlannerTask } = usePlannerTasks();
+    const todayIso = toIsoLocal(realToday);
+    const tomorrowIso = toIsoLocal(new Date(realToday.getFullYear(), realToday.getMonth(), realToday.getDate() + 1));
+    const dashboardTasks = useMemo(() => {
+        const dated = plannerTasks.filter(t => !t.completed && t.dueDate);
+        const byDateThenTask = (a: PlannerTask, b: PlannerTask) =>
+            (a.dueDate as string).localeCompare(b.dueDate as string) || compareTasks(a, b);
+        const overdue = dated.filter(t => (t.dueDate as string) < todayIso).sort(byDateThenTask);
+        const upcoming = dated.filter(t => (t.dueDate as string) >= todayIso).sort(byDateThenTask);
+        const all = [...overdue, ...upcoming];
+        return { shown: all.slice(0, 6), hiddenCount: Math.max(0, all.length - 6), overdueCount: overdue.length };
+    }, [plannerTasks, todayIso]);
+
+    const formatTaskDate = (iso: string) => {
+        if (iso === todayIso) return 'Hoy';
+        if (iso === tomorrowIso) return 'Mañana';
+        return new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+    };
+
+    const handleCompletePlannerTask = async (task: PlannerTask) => {
+        try {
+            await updatePlannerTask({ ...task, completed: true, completedAt: new Date().toISOString() });
+        } catch (err: any) {
+            alert(err?.message || 'No se pudo actualizar la tarea.');
+        }
+    };
 
     const [selectedRentMonth, setSelectedRentMonth] = useState(currentMonth);
     const [selectedCostMonth, setSelectedCostMonth] = useState(currentMonth); // New state for expenses chart
@@ -856,6 +893,54 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                 <StatCard title="Pendiente Cobro" value={formatCurrency(totalPendingAmount, 0)} subtext={`En el año ${selectedYear}`} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} color="rose" />
                 <StatCard title="Profesores" value={instructors.length} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>} color="blue" />
             </div>
+
+            {/* PRÓXIMAS TAREAS DEL CALENDARIO */}
+            {!plannerError && (
+                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <span className="w-1 h-4 bg-purple-500 rounded-full shadow-[0_0_8px_#a855f7]"></span>
+                            Próximas Tareas
+                            {dashboardTasks.overdueCount > 0 && (
+                                <span className="text-[10px] font-black uppercase tracking-wider text-rose-300 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                                    {dashboardTasks.overdueCount} atrasada{dashboardTasks.overdueCount > 1 ? 's' : ''}
+                                </span>
+                            )}
+                        </h3>
+                        <button onClick={() => setView(View.PLANNER)} className="text-xs font-bold text-purple-300 hover:text-purple-200">
+                            Ver calendario →
+                        </button>
+                    </div>
+                    {dashboardTasks.shown.length > 0 ? (
+                        <ul className="divide-y divide-gray-800">
+                            {dashboardTasks.shown.map(task => {
+                                const isOverdue = (task.dueDate as string) < todayIso;
+                                return (
+                                    <li key={task.id} className="flex items-center gap-3 py-2.5">
+                                        <input
+                                            type="checkbox"
+                                            checked={false}
+                                            onChange={() => handleCompletePlannerTask(task)}
+                                            aria-label={`Marcar "${task.title}" como hecha`}
+                                            className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer flex-shrink-0"
+                                        />
+                                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_DOT[task.priority]}`} title={`Prioridad ${task.priority === 'high' ? 'alta' : task.priority === 'medium' ? 'media' : 'baja'}`} />
+                                        <span className="flex-1 min-w-0 text-sm text-gray-200 truncate">{task.title}</span>
+                                        <span className={`text-xs font-semibold flex-shrink-0 ${isOverdue ? 'text-rose-400' : task.dueDate === todayIso ? 'text-purple-300' : 'text-gray-400'}`}>
+                                            {formatTaskDate(task.dueDate as string)}{task.dueTime ? ` · ${task.dueTime}` : ''}
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-gray-500">No hay tareas pendientes con fecha. ¡Todo al día!</p>
+                    )}
+                    {dashboardTasks.hiddenCount > 0 && (
+                        <p className="text-xs text-gray-500 mt-2">y {dashboardTasks.hiddenCount} más en el calendario…</p>
+                    )}
+                </div>
+            )}
 
             {/* GRÁFICO 1: Evolución Clientes */}
             <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">

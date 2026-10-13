@@ -3,37 +3,20 @@ import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority } from '../../typ
 import { useAppStore } from '../store/useAppStore';
 import { usePlannerTasks } from '../hooks/queries/usePlannerTasks';
 import Modal from './Modal';
+import { toIsoLocal, compareTasks, PRIORITY_DOT } from '../utils/plannerUtils';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const CATEGORIES: PlannerTaskCategory[] = ['Administrativo', 'Clases', 'Eventos', 'Marketing', 'Otro'];
 const PRIORITY_LABEL: Record<PlannerTaskPriority, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
-const PRIORITY_ORDER: Record<PlannerTaskPriority, number> = { high: 0, medium: 1, low: 2 };
 const PRIORITY_CHIP: Record<PlannerTaskPriority, string> = {
     high: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
     medium: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
     low: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
 };
-const PRIORITY_DOT: Record<PlannerTaskPriority, string> = { high: 'bg-rose-400', medium: 'bg-amber-400', low: 'bg-sky-400' };
-
-// Fecha local en YYYY-MM-DD. toISOString() convierte a UTC y, en horario español, desplazaría el
-// día a ayer cerca de medianoche -- aquí todo el calendario trabaja con fechas locales puras.
-const toIsoLocal = (d: Date) => {
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${d.getFullYear()}-${mm}-${dd}`;
-};
 
 const formatLongDate = (iso: string) =>
     new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-
-const compareTasks = (a: PlannerTask, b: PlannerTask) => {
-    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    const timeA = a.dueTime || '99:99';
-    const timeB = b.dueTime || '99:99';
-    if (timeA !== timeB) return timeA.localeCompare(timeB);
-    return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-};
 
 interface TaskDraft {
     id?: string;
