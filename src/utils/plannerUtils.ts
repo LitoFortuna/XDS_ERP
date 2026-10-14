@@ -1,4 +1,11 @@
-import { PlannerTask, PlannerTaskPriority } from '../../types';
+import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority } from '../../types';
+
+export const PRIORITY_LABEL: Record<PlannerTaskPriority, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
+export const CATEGORIES: PlannerTaskCategory[] = ['Administrativo', 'Clases', 'Eventos', 'Marketing', 'Otro'];
+
+// Fecha local desplazada `days` días respecto a `from` (YYYY-MM-DD), sin pasar por UTC.
+export const addDaysIso = (from: Date, days: number): string =>
+    toIsoLocal(new Date(from.getFullYear(), from.getMonth(), from.getDate() + days));
 
 // Fecha local en YYYY-MM-DD. toISOString() convierte a UTC y, en horario español, desplazaría el
 // día a ayer cerca de medianoche -- el calendario y el Dashboard trabajan con fechas locales puras.

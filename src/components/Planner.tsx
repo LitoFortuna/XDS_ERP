@@ -1,14 +1,15 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority, DanceEvent, View } from '../../types';
+import { PlannerTask, DanceEvent, View } from '../../types';
 import { useAppStore } from '../store/useAppStore';
 import { usePlannerTasks } from '../hooks/queries/usePlannerTasks';
-import Modal from './Modal';
-import { toIsoLocal, compareTasks, PRIORITY_DOT, PRIORITY_BAR, PRIORITY_BORDER, PRIORITY_TEXT, dayLoadTint } from '../utils/plannerUtils';
+import TaskSheet, { TaskDraft, emptyDraft } from './planner/TaskSheet';
+import {
+    toIsoLocal, addDaysIso, compareTasks, dayLoadTint,
+    PRIORITY_DOT, PRIORITY_BAR, PRIORITY_BORDER, PRIORITY_TEXT, PRIORITY_LABEL,
+} from '../utils/plannerUtils';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const CATEGORIES: PlannerTaskCategory[] = ['Administrativo', 'Clases', 'Eventos', 'Marketing', 'Otro'];
-const PRIORITY_LABEL: Record<PlannerTaskPriority, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
 
 // Solo la primera letra en mayúscula ("Miércoles, 14 de octubre"); la clase CSS `capitalize` habría
 // puesto en mayúscula cada palabra ("14 De Octubre").
@@ -17,26 +18,9 @@ const formatLongDate = (iso: string) => {
     return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
-interface TaskDraft {
-    id?: string;
-    title: string;
-    description: string;
-    dueDate: string;
-    dueTime: string;
-    priority: PlannerTaskPriority;
-    category: PlannerTaskCategory;
-}
+const toggleBase = "block whitespace-nowrap text-xs font-semibold px-3 py-2.5 sm:py-1.5 rounded-full border border-gray-600 text-gray-400 hover:text-gray-200 touch-manipulation peer-checked:bg-purple-500/20 peer-checked:border-purple-400/60 peer-checked:text-purple-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-400 peer-checked:before:content-['✓'] before:mr-1.5";
 
-const emptyDraft = (dueDate: string): TaskDraft => ({
-    title: '',
-    description: '',
-    dueDate,
-    dueTime: '',
-    priority: 'medium',
-    category: 'Administrativo',
-});
-
-const inputClass = 'w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent';
+type MobileView = 'month' | 'agenda';
 
 const Planner: React.FC = () => {
     const { tasks, isLoading, error, addTask, updateTask, deleteTask } = usePlannerTasks();
@@ -44,9 +28,11 @@ const Planner: React.FC = () => {
     const setCurrentView = useAppStore(state => state.setCurrentView);
 
     const todayIso = toIsoLocal(new Date());
+    const tomorrowIso = addDaysIso(new Date(), 1);
     const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
     const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
     const [selectedDate, setSelectedDate] = useState(todayIso);
+    const [mobileView, setMobileView] = useState<MobileView>('month');
     const [showCompleted, setShowCompleted] = useState(true);
     const [showEvents, setShowEvents] = useState(true);
     const [draft, setDraft] = useState<TaskDraft | null>(null);
@@ -94,6 +80,14 @@ const Planner: React.FC = () => {
         [visibleTasks]
     );
     const pendingCount = useMemo(() => tasks.filter(t => !t.completed).length, [tasks]);
+
+    // Días de hoy en adelante con algo planificado (más hoy, aunque esté vacío), para la Agenda.
+    const agendaDays = useMemo(() => {
+        const dates = new Set<string>([todayIso]);
+        visibleTasks.forEach(t => { if (t.dueDate && t.dueDate >= todayIso) dates.add(t.dueDate); });
+        if (showEvents) eventsByDate.forEach((_, date) => { if (date >= todayIso) dates.add(date); });
+        return [...dates].sort();
+    }, [visibleTasks, eventsByDate, showEvents, todayIso]);
 
     // Cuadrícula del mes: semanas de lunes a domingo, con huecos de los meses vecinos.
     const calendarCells = useMemo(() => {
@@ -201,17 +195,21 @@ const Planner: React.FC = () => {
         }
     };
 
-    const handleDelete = async (task: PlannerTask) => {
-        if (!window.confirm(`¿Eliminar la tarea "${task.title}"? Esta acción no se puede deshacer.`)) return;
+    const handleDelete = async (task: PlannerTask): Promise<boolean> => {
+        if (!window.confirm(`¿Eliminar la tarea "${task.title}"? Esta acción no se puede deshacer.`)) return false;
         try {
             await deleteTask(task.id);
+            return true;
         } catch (err: any) {
             alert(err?.message || 'No se pudo eliminar la tarea.');
+            return false;
         }
     };
 
     // La prioridad se lee por la barra de color del borde izquierdo y por la palabra en la línea
-    // de detalle (el color solo no basta); así la fila queda limpia, sin etiquetas con borde.
+    // de detalle (el color solo no basta). En móvil toda la fila se toca para editar y los
+    // iconos se ocultan: así el título gana casi la mitad del ancho; la casilla tiene un área
+    // de toque mayor que su dibujo.
     const renderTaskRow = (task: PlannerTask, showDate = false) => {
         const meta: React.ReactNode[] = [
             <span key="p" className={`font-semibold ${PRIORITY_TEXT[task.priority]}`}>{PRIORITY_LABEL[task.priority]}</span>,
@@ -223,19 +221,21 @@ const Planner: React.FC = () => {
         if (task.dueTime) meta.push(<span key="t">{task.dueTime}</span>);
 
         return (
-            <div key={task.id} className={`relative flex items-start gap-3 pl-4 pr-2 py-3 rounded-lg border border-gray-700/60 bg-gray-900/50 overflow-hidden transition-opacity ${task.completed ? 'opacity-55' : ''}`}>
+            <div key={task.id} className={`relative flex items-start gap-2 sm:gap-3 pl-4 pr-2 py-3 rounded-lg border border-gray-700/60 bg-gray-900/50 overflow-hidden transition-opacity ${task.completed ? 'opacity-55' : ''}`}>
                 <span aria-hidden="true" className={`absolute left-0 inset-y-0 w-1 ${PRIORITY_BAR[task.priority]}`} />
-                <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => handleToggle(task)}
-                    aria-label={`Marcar "${task.title}" como ${task.completed ? 'pendiente' : 'hecha'}`}
-                    className="mt-0.5 sm:mt-1 h-6 w-6 sm:h-4 sm:w-4 flex-shrink-0 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
-                />
-                <div className="flex-1 min-w-0">
+                <label className="-m-2 p-2 sm:m-0 sm:p-0 flex-shrink-0 cursor-pointer touch-manipulation">
+                    <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={() => handleToggle(task)}
+                        aria-label={`Marcar "${task.title}" como ${task.completed ? 'pendiente' : 'hecha'}`}
+                        className="block mt-0 sm:mt-1 h-6 w-6 sm:h-4 sm:w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                    />
+                </label>
+                <div className="flex-1 min-w-0 cursor-pointer touch-manipulation" onClick={() => openEdit(task)}>
                     <p className={`text-sm font-semibold break-words ${task.completed ? 'line-through text-gray-400' : 'text-white'}`}>{task.title}</p>
                     {task.description && <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line break-words">{task.description}</p>}
-                    <p className="flex flex-wrap items-center gap-x-1.5 mt-1 text-[11px] text-gray-500">
+                    <p className="flex flex-wrap items-center gap-x-1.5 mt-1 text-xs sm:text-[11px] text-gray-500">
                         {meta.map((node, i) => (
                             <React.Fragment key={i}>
                                 {i > 0 && <span aria-hidden="true">·</span>}
@@ -244,14 +244,87 @@ const Planner: React.FC = () => {
                         ))}
                     </p>
                 </div>
-                <div className="flex gap-0.5 flex-shrink-0">
-                    <button onClick={() => openEdit(task)} title="Editar" aria-label={`Editar "${task.title}"`} className="p-3 sm:p-1.5 text-gray-500 hover:text-white hover:bg-gray-700/70 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
-                        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.879.513L7 17l.659-3.949a2 2 0 01.513-.879z" /></svg>
+                <div className="hidden sm:flex gap-0.5 flex-shrink-0">
+                    <button onClick={() => openEdit(task)} title="Editar" aria-label={`Editar "${task.title}"`} className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-700/70 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.879.513L7 17l.659-3.949a2 2 0 01.513-.879z" /></svg>
                     </button>
-                    <button onClick={() => handleDelete(task)} title="Eliminar" aria-label={`Eliminar "${task.title}"`} className="p-3 sm:p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-700/70 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
-                        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <button onClick={() => handleDelete(task)} title="Eliminar" aria-label={`Eliminar "${task.title}"`} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-700/70 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
+            </div>
+        );
+    };
+
+    const renderEventCard = (ev: DanceEvent) => {
+        const enrolled = ev.participants?.length || ev.studentIds?.length || 0;
+        return (
+            <button
+                key={`ev-${ev.id}`}
+                onClick={() => setCurrentView(View.EVENTS)}
+                title="Abrir la pantalla de Eventos"
+                className="relative block w-full text-left pl-4 pr-3 py-3 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 transition-colors overflow-hidden touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+            >
+                <span aria-hidden="true" className="absolute left-0 inset-y-0 w-1 bg-purple-400" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-purple-300">Evento · {ev.type}</p>
+                <p className="text-sm font-semibold text-purple-50 break-words mt-0.5">{ev.name}</p>
+                {(ev.time || ev.location) && (
+                    <p className="text-xs text-purple-200/80 mt-1 break-words">{[ev.time, ev.location].filter(Boolean).join(' · ')}</p>
+                )}
+                <p className="text-xs sm:text-[11px] text-purple-300/70 mt-1">
+                    {enrolled} inscrita{enrolled === 1 ? '' : 's'}{ev.capacity ? ` de ${ev.capacity}` : ''} · Ver en Eventos →
+                </p>
+            </button>
+        );
+    };
+
+    // Vista Agenda (solo móvil): lo atrasado, luego cada día desde hoy con sus eventos y tareas,
+    // y al final lo que no tiene fecha. Los títulos de día se quedan pegados arriba al hacer scroll.
+    const renderAgenda = () => {
+        if (isLoading) return <p className="text-sm text-gray-500">Cargando tareas...</p>;
+        const nothingPlanned = overdueTasks.length === 0 && undatedTasks.length === 0
+            && agendaDays.every(date => !(tasksByDate.get(date)?.length) && !(showEvents && eventsByDate.get(date)?.length));
+        return (
+            <div className="space-y-5">
+                {overdueTasks.length > 0 && (
+                    <section aria-label="Tareas atrasadas" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-rose-300 mb-3">Atrasadas ({overdueTasks.length})</h3>
+                        <div className="space-y-2">{overdueTasks.map(t => renderTaskRow(t, true))}</div>
+                    </section>
+                )}
+                {agendaDays.map(date => {
+                    const dayTasks = tasksByDate.get(date) || [];
+                    const dayEvents = showEvents ? (eventsByDate.get(date) || []) : [];
+                    const relative = date === todayIso ? 'Hoy' : date === tomorrowIso ? 'Mañana' : '';
+                    return (
+                        <section key={date}>
+                            <h3 className="sticky top-0 z-10 -mx-3 px-3 py-2 mb-1 bg-gray-900/95 backdrop-blur-sm flex items-baseline gap-2">
+                                {relative && <span className={`text-xs font-black uppercase tracking-widest ${date === todayIso ? 'text-purple-300' : 'text-gray-300'}`}>{relative}</span>}
+                                <span className="text-sm font-semibold text-gray-300">{formatLongDate(date)}</span>
+                            </h3>
+                            <div className="space-y-2">
+                                {dayEvents.map(ev => renderEventCard(ev))}
+                                {dayTasks.map(t => renderTaskRow(t))}
+                                {dayTasks.length === 0 && dayEvents.length === 0 && (
+                                    <p className="text-sm text-gray-500 px-1">Nada planificado.</p>
+                                )}
+                            </div>
+                        </section>
+                    );
+                })}
+                {undatedTasks.length > 0 && (
+                    <section aria-label="Tareas sin fecha">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Sin fecha ({undatedTasks.length})</h3>
+                        <div className="space-y-2">{undatedTasks.map(t => renderTaskRow(t))}</div>
+                    </section>
+                )}
+                {nothingPlanned && (
+                    <div className="text-center py-8 rounded-xl border border-dashed border-gray-700">
+                        <p className="text-sm text-gray-300 font-semibold">Todo al día</p>
+                        <p className="text-sm text-gray-500 mt-1">No hay tareas ni eventos por delante.</p>
+                        <button onClick={() => openNew(todayIso)} className="mt-3 text-sm font-bold text-purple-300 px-4 py-2.5 rounded-lg border border-purple-400/40 touch-manipulation">+ Añadir una tarea</button>
+                    </div>
+                )}
             </div>
         );
     };
@@ -263,8 +336,10 @@ const Planner: React.FC = () => {
         selectedTasks.length > 0 ? `${selectedTasks.length} ${selectedTasks.length === 1 ? 'tarea' : 'tareas'}` : '',
     ].filter(Boolean).join(' · ') || 'Día libre';
 
+    const editingTask = draft?.id ? tasks.find(t => t.id === draft.id) : undefined;
+
     return (
-        <div className="p-3 pb-24 sm:p-8 sm:pb-8">
+        <div className="p-3 pb-28 sm:p-8 sm:pb-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <div>
                     <h2 className="text-2xl sm:text-3xl font-bold text-white">Calendario y Tareas</h2>
@@ -286,17 +361,26 @@ const Planner: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                    <div role="tablist" aria-label="Vista del calendario" className="sm:hidden inline-flex p-0.5 rounded-full bg-gray-800 border border-gray-700">
+                        {(['month', 'agenda'] as MobileView[]).map(v => (
+                            <button
+                                key={v}
+                                role="tab"
+                                aria-selected={mobileView === v}
+                                onClick={() => setMobileView(v)}
+                                className={`px-4 py-2 rounded-full text-xs font-bold touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${mobileView === v ? 'bg-purple-600 text-white' : 'text-gray-400'}`}
+                            >
+                                {v === 'month' ? 'Mes' : 'Agenda'}
+                            </button>
+                        ))}
+                    </div>
                     <label className="cursor-pointer" title="Mostrar u ocultar las tareas ya hechas">
                         <input type="checkbox" checked={showCompleted} onChange={e => setShowCompleted(e.target.checked)} className="sr-only peer" />
-                        <span className="block whitespace-nowrap text-xs font-semibold px-3 py-2 sm:py-1.5 rounded-full border border-gray-600 text-gray-400 hover:text-gray-200 peer-checked:bg-purple-500/20 peer-checked:border-purple-400/60 peer-checked:text-purple-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-400 peer-checked:before:content-['✓'] before:mr-1.5">
-                            Hechas
-                        </span>
+                        <span className={toggleBase}>Hechas</span>
                     </label>
                     <label className="cursor-pointer" title="Mostrar u ocultar los eventos del ERP">
                         <input type="checkbox" checked={showEvents} onChange={e => setShowEvents(e.target.checked)} className="sr-only peer" />
-                        <span className="block whitespace-nowrap text-xs font-semibold px-3 py-2 sm:py-1.5 rounded-full border border-gray-600 text-gray-400 hover:text-gray-200 peer-checked:bg-purple-500/20 peer-checked:border-purple-400/60 peer-checked:text-purple-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-400 peer-checked:before:content-['✓'] before:mr-1.5">
-                            Eventos
-                        </span>
+                        <span className={toggleBase}>Eventos</span>
                     </label>
                     <button
                         onClick={() => openNew(selectedDate)}
@@ -313,19 +397,21 @@ const Planner: React.FC = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div className="xl:col-span-2 bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-2 sm:p-4">
+            {mobileView === 'agenda' && <div className="sm:hidden">{renderAgenda()}</div>}
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
+                <div className={`xl:col-span-2 bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-2 sm:p-4 ${mobileView === 'agenda' ? 'hidden sm:block' : ''}`}>
                     <div className="flex items-center justify-between mb-3 sm:mb-4">
                         <div className="flex items-center gap-1.5 sm:gap-2">
-                            <button onClick={() => goToMonth(-1)} aria-label="Mes anterior" className="p-2.5 sm:p-2 rounded-lg bg-gray-700/70 hover:bg-gray-600 text-white outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+                            <button onClick={() => goToMonth(-1)} aria-label="Mes anterior" className="p-2.5 sm:p-2 rounded-lg bg-gray-700/70 hover:bg-gray-600 text-white touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                             </button>
-                            <button onClick={() => goToMonth(1)} aria-label="Mes siguiente" className="p-2.5 sm:p-2 rounded-lg bg-gray-700/70 hover:bg-gray-600 text-white outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+                            <button onClick={() => goToMonth(1)} aria-label="Mes siguiente" className="p-2.5 sm:p-2 rounded-lg bg-gray-700/70 hover:bg-gray-600 text-white touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                             </button>
                             <h3 className="text-lg sm:text-xl font-bold text-white ml-1 sm:ml-2">{MONTH_NAMES[viewMonth]} <span className="text-gray-500 font-medium">{viewYear}</span></h3>
                         </div>
-                        <button onClick={goToToday} className="px-3 py-2 sm:py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border border-purple-400/40 text-purple-200 hover:bg-purple-500/15 outline-none focus-visible:ring-2 focus-visible:ring-purple-400">Hoy</button>
+                        <button onClick={goToToday} className="px-3 py-2.5 sm:py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border border-purple-400/40 text-purple-200 hover:bg-purple-500/15 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-purple-400">Hoy</button>
                     </div>
 
                     <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1">
@@ -340,7 +426,7 @@ const Planner: React.FC = () => {
                         onTouchEnd={handleGridTouchEnd}
                     >
                         {calendarCells.map((iso, idx) => {
-                            if (!iso) return <div key={`empty-${idx}`} className="min-h-[56px] sm:min-h-[84px]" />;
+                            if (!iso) return <div key={`empty-${idx}`} className="min-h-[50px] sm:min-h-[84px]" />;
                             const dayTasks = tasksByDate.get(iso) || [];
                             const dayEvents = showEvents ? (eventsByDate.get(iso) || []) : [];
                             const cellItems = [
@@ -368,7 +454,7 @@ const Planner: React.FC = () => {
                                     title="Doble clic para añadir una tarea en este día"
                                     aria-label={`${formatLongDate(iso)}${summary ? `: ${summary}` : ''}`}
                                     aria-pressed={isSelected}
-                                    className={`min-h-[56px] sm:min-h-[84px] min-w-0 items-center sm:items-stretch text-left p-1 sm:p-1.5 rounded-lg transition-colors flex flex-col gap-0.5 sm:gap-1 outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${dayLoadTint(load)} ${isSelected ? 'ring-2 ring-purple-400' : 'hover:bg-gray-700/50'}`}
+                                    className={`min-h-[50px] sm:min-h-[84px] min-w-0 items-center sm:items-stretch text-left p-1 sm:p-1.5 rounded-lg transition flex flex-col gap-0.5 sm:gap-1 touch-manipulation select-none [-webkit-tap-highlight-color:transparent] active:scale-95 motion-reduce:active:scale-100 outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${dayLoadTint(load)} ${isSelected ? 'ring-2 ring-purple-400' : 'hover:bg-gray-700/50'}`}
                                 >
                                     <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-purple-600 text-white shadow-md shadow-purple-900/60' : hasOverdue ? 'text-rose-400' : isWeekend ? 'text-gray-500' : 'text-gray-300'}`}>
                                         {Number(iso.slice(8, 10))}
@@ -411,46 +497,26 @@ const Planner: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-4">
+                <div className={`space-y-4 sm:space-y-6 ${mobileView === 'agenda' ? 'hidden sm:block' : ''}`}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-3 sm:p-4">
                         <div className="flex items-start justify-between gap-3 mb-4">
                             <div className="min-w-0">
                                 {selectedDate === todayIso && <p className="text-[10px] font-black uppercase tracking-widest text-purple-300">Hoy</p>}
                                 <h3 className="text-base font-bold text-white">{formatLongDate(selectedDate)}</h3>
-                                <p className="text-xs text-gray-500 mt-0.5">{selectedDaySummary}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">{selectedDaySummary}<span className="sm:hidden"> · toca para editar</span></p>
                             </div>
-                            <button onClick={() => openNew(selectedDate)} className="flex-shrink-0 text-xs font-bold text-purple-200 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 rounded-full px-3 py-2 sm:py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-purple-400">+ Añadir</button>
+                            <button onClick={() => openNew(selectedDate)} className="flex-shrink-0 text-xs font-bold text-purple-200 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 rounded-full px-3 py-2.5 sm:py-1.5 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-purple-400">+ Añadir</button>
                         </div>
                         {isLoading ? (
                             <p className="text-sm text-gray-500">Cargando tareas...</p>
                         ) : (
                             <div className="space-y-2">
-                                {selectedEvents.map(ev => {
-                                    const enrolled = ev.participants?.length || ev.studentIds?.length || 0;
-                                    return (
-                                        <button
-                                            key={`ev-${ev.id}`}
-                                            onClick={() => setCurrentView(View.EVENTS)}
-                                            title="Abrir la pantalla de Eventos"
-                                            className="relative block w-full text-left pl-4 pr-3 py-3 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 transition-colors overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
-                                        >
-                                            <span aria-hidden="true" className="absolute left-0 inset-y-0 w-1 bg-purple-400" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-purple-300">Evento · {ev.type}</p>
-                                            <p className="text-sm font-semibold text-purple-50 break-words mt-0.5">{ev.name}</p>
-                                            {(ev.time || ev.location) && (
-                                                <p className="text-xs text-purple-200/80 mt-1 break-words">{[ev.time, ev.location].filter(Boolean).join(' · ')}</p>
-                                            )}
-                                            <p className="text-[11px] text-purple-300/70 mt-1">
-                                                {enrolled} inscrita{enrolled === 1 ? '' : 's'}{ev.capacity ? ` de ${ev.capacity}` : ''} · Ver en Eventos →
-                                            </p>
-                                        </button>
-                                    );
-                                })}
+                                {selectedEvents.map(ev => renderEventCard(ev))}
                                 {selectedTasks.map(t => renderTaskRow(t))}
                                 {selectedTasks.length === 0 && selectedEvents.length === 0 && (
                                     <div className="text-center py-6 rounded-lg border border-dashed border-gray-700">
                                         <p className="text-sm text-gray-400">Nada planificado para este día.</p>
-                                        <button onClick={() => openNew(selectedDate)} className="mt-2 text-xs font-bold text-purple-300 hover:text-purple-200 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-400 rounded">+ Añadir una tarea</button>
+                                        <button onClick={() => openNew(selectedDate)} className="mt-2 text-xs font-bold text-purple-300 hover:text-purple-200 px-3 py-2.5 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-purple-400 rounded">+ Añadir una tarea</button>
                                     </div>
                                 )}
                             </div>
@@ -458,13 +524,13 @@ const Planner: React.FC = () => {
                     </div>
 
                     {overdueTasks.length > 0 && (
-                        <div className="bg-rose-950/20 rounded-xl border border-rose-500/30 shadow-lg p-4">
+                        <div className="bg-rose-950/20 rounded-xl border border-rose-500/30 shadow-lg p-3 sm:p-4">
                             <h3 className="text-sm font-bold text-rose-300 uppercase tracking-wider mb-3">Atrasadas ({overdueTasks.length})</h3>
                             <div className="space-y-2">{overdueTasks.map(t => renderTaskRow(t, true))}</div>
                         </div>
                     )}
 
-                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-4">
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-3 sm:p-4">
                         <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">Sin fecha ({undatedTasks.length})</h3>
                         {undatedTasks.length > 0 ? (
                             <div className="space-y-2">{undatedTasks.map(t => renderTaskRow(t))}</div>
@@ -476,97 +542,22 @@ const Planner: React.FC = () => {
             </div>
 
             <button
-                onClick={() => openNew(selectedDate)}
+                onClick={() => openNew(mobileView === 'agenda' ? todayIso : selectedDate)}
                 aria-label="Nueva tarea"
-                className="sm:hidden fixed bottom-5 right-4 z-20 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xl shadow-purple-900/50 flex items-center justify-center active:scale-95 transition-transform"
+                className="sm:hidden fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-4 z-20 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xl shadow-purple-900/50 flex items-center justify-center touch-manipulation active:scale-95 motion-reduce:active:scale-100 transition-transform"
             >
                 <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
             </button>
 
-            <Modal isOpen={draft !== null} onClose={() => setDraft(null)} title={draft?.id ? 'Editar tarea' : 'Nueva tarea'}>
-                {draft && (
-                    <form onSubmit={handleSave} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Título</label>
-                            <input
-                                type="text"
-                                value={draft.title}
-                                onChange={e => setDraft({ ...draft, title: e.target.value })}
-                                placeholder="Ej: Preparar la coreografía de fin de curso"
-                                className={inputClass}
-                                autoFocus
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Descripción (opcional)</label>
-                            <textarea
-                                value={draft.description}
-                                onChange={e => setDraft({ ...draft, description: e.target.value })}
-                                rows={3}
-                                className={inputClass}
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Fecha</label>
-                                <input
-                                    type="date"
-                                    value={draft.dueDate}
-                                    onChange={e => setDraft({ ...draft, dueDate: e.target.value })}
-                                    className={inputClass}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Hora (opcional)</label>
-                                <input
-                                    type="time"
-                                    value={draft.dueTime}
-                                    onChange={e => setDraft({ ...draft, dueTime: e.target.value })}
-                                    disabled={!draft.dueDate}
-                                    className={`${inputClass} disabled:opacity-40`}
-                                />
-                            </div>
-                        </div>
-                        <p className="text-xs text-gray-500 -mt-2">Sin fecha, la tarea queda en "Sin fecha" hasta que la planifiques.</p>
-                        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Prioridad</label>
-                                <select
-                                    value={draft.priority}
-                                    onChange={e => setDraft({ ...draft, priority: e.target.value as PlannerTaskPriority })}
-                                    className={inputClass}
-                                >
-                                    <option value="high">Alta</option>
-                                    <option value="medium">Media</option>
-                                    <option value="low">Baja</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Categoría</label>
-                                <select
-                                    value={draft.category}
-                                    onChange={e => setDraft({ ...draft, category: e.target.value as PlannerTaskCategory })}
-                                    className={inputClass}
-                                >
-                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        {saveError && <p className="text-sm text-red-400">{saveError}</p>}
-                        <div className="flex justify-end gap-3 pt-2">
-                            <button type="button" onClick={() => setDraft(null)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold">Cancelar</button>
-                            <button
-                                type="submit"
-                                disabled={isSaving || !draft.title.trim()}
-                                className="px-5 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-bold"
-                            >
-                                {isSaving ? 'Guardando...' : 'Guardar'}
-                            </button>
-                        </div>
-                    </form>
-                )}
-            </Modal>
+            <TaskSheet
+                draft={draft}
+                isSaving={isSaving}
+                error={saveError}
+                onChange={setDraft}
+                onSubmit={handleSave}
+                onClose={() => setDraft(null)}
+                onDelete={editingTask ? async () => { if (await handleDelete(editingTask)) setDraft(null); } : undefined}
+            />
         </div>
     );
 };
