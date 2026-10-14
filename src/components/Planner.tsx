@@ -3,17 +3,12 @@ import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority, DanceEvent, View
 import { useAppStore } from '../store/useAppStore';
 import { usePlannerTasks } from '../hooks/queries/usePlannerTasks';
 import Modal from './Modal';
-import { toIsoLocal, compareTasks, PRIORITY_DOT } from '../utils/plannerUtils';
+import { toIsoLocal, compareTasks, PRIORITY_DOT, PRIORITY_BAR, PRIORITY_BORDER, PRIORITY_TEXT, dayLoadTint } from '../utils/plannerUtils';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const CATEGORIES: PlannerTaskCategory[] = ['Administrativo', 'Clases', 'Eventos', 'Marketing', 'Otro'];
 const PRIORITY_LABEL: Record<PlannerTaskPriority, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
-const PRIORITY_CHIP: Record<PlannerTaskPriority, string> = {
-    high: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
-    medium: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    low: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
-};
 
 // Solo la primera letra en mayúscula ("Miércoles, 14 de octubre"); la clase CSS `capitalize` habría
 // puesto en mayúscula cada palabra ("14 De Octubre").
@@ -215,74 +210,97 @@ const Planner: React.FC = () => {
         }
     };
 
-    const renderTaskRow = (task: PlannerTask, showDate = false) => (
-        <div key={task.id} className={`flex items-start gap-3 p-3 rounded-lg border bg-gray-800/60 ${task.completed ? 'border-gray-700/50 opacity-60' : 'border-gray-700'}`}>
-            <input
-                type="checkbox"
-                checked={task.completed}
-                onChange={() => handleToggle(task)}
-                aria-label={`Marcar "${task.title}" como ${task.completed ? 'pendiente' : 'hecha'}`}
-                className="mt-0.5 sm:mt-1 h-6 w-6 sm:h-4 sm:w-4 flex-shrink-0 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
-            />
-            <div className="flex-1 min-w-0">
-                <p className={`text-sm font-semibold text-white break-words ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</p>
-                {task.description && <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line break-words">{task.description}</p>}
-                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${PRIORITY_CHIP[task.priority]}`}>{PRIORITY_LABEL[task.priority]}</span>
-                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-700/60 px-1.5 py-0.5 rounded">{task.category}</span>
-                    {showDate && task.dueDate && (
-                        <span className="text-[10px] font-semibold text-gray-400">{new Date(task.dueDate + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
-                    )}
-                    {task.dueTime && <span className="text-[10px] font-semibold text-gray-400">{task.dueTime}</span>}
+    // La prioridad se lee por la barra de color del borde izquierdo y por la palabra en la línea
+    // de detalle (el color solo no basta); así la fila queda limpia, sin etiquetas con borde.
+    const renderTaskRow = (task: PlannerTask, showDate = false) => {
+        const meta: React.ReactNode[] = [
+            <span key="p" className={`font-semibold ${PRIORITY_TEXT[task.priority]}`}>{PRIORITY_LABEL[task.priority]}</span>,
+            <span key="c">{task.category}</span>,
+        ];
+        if (showDate && task.dueDate) {
+            meta.push(<span key="d">{new Date(task.dueDate + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>);
+        }
+        if (task.dueTime) meta.push(<span key="t">{task.dueTime}</span>);
+
+        return (
+            <div key={task.id} className={`relative flex items-start gap-3 pl-4 pr-2 py-3 rounded-lg border border-gray-700/60 bg-gray-900/50 overflow-hidden transition-opacity ${task.completed ? 'opacity-55' : ''}`}>
+                <span aria-hidden="true" className={`absolute left-0 inset-y-0 w-1 ${PRIORITY_BAR[task.priority]}`} />
+                <input
+                    type="checkbox"
+                    checked={task.completed}
+                    onChange={() => handleToggle(task)}
+                    aria-label={`Marcar "${task.title}" como ${task.completed ? 'pendiente' : 'hecha'}`}
+                    className="mt-0.5 sm:mt-1 h-6 w-6 sm:h-4 sm:w-4 flex-shrink-0 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold break-words ${task.completed ? 'line-through text-gray-400' : 'text-white'}`}>{task.title}</p>
+                    {task.description && <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line break-words">{task.description}</p>}
+                    <p className="flex flex-wrap items-center gap-x-1.5 mt-1 text-[11px] text-gray-500">
+                        {meta.map((node, i) => (
+                            <React.Fragment key={i}>
+                                {i > 0 && <span aria-hidden="true">·</span>}
+                                {node}
+                            </React.Fragment>
+                        ))}
+                    </p>
+                </div>
+                <div className="flex gap-0.5 flex-shrink-0">
+                    <button onClick={() => openEdit(task)} title="Editar" aria-label={`Editar "${task.title}"`} className="p-3 sm:p-1.5 text-gray-500 hover:text-white hover:bg-gray-700/70 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+                        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.879.513L7 17l.659-3.949a2 2 0 01.513-.879z" /></svg>
+                    </button>
+                    <button onClick={() => handleDelete(task)} title="Eliminar" aria-label={`Eliminar "${task.title}"`} className="p-3 sm:p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-700/70 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+                        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
                 </div>
             </div>
-            <div className="flex gap-1 flex-shrink-0">
-                <button onClick={() => openEdit(task)} title="Editar" aria-label={`Editar "${task.title}"`} className="p-3 sm:p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded">
-                    <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.879.513L7 17l.659-3.949a2 2 0 01.513-.879z" /></svg>
-                </button>
-                <button onClick={() => handleDelete(task)} title="Eliminar" aria-label={`Eliminar "${task.title}"`} className="p-3 sm:p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded">
-                    <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-            </div>
-        </div>
-    );
+        );
+    };
 
     const selectedTasks = tasksByDate.get(selectedDate) || [];
     const selectedEvents = showEvents ? (eventsByDate.get(selectedDate) || []) : [];
+    const selectedDaySummary = [
+        selectedEvents.length > 0 ? `${selectedEvents.length} ${selectedEvents.length === 1 ? 'evento' : 'eventos'}` : '',
+        selectedTasks.length > 0 ? `${selectedTasks.length} ${selectedTasks.length === 1 ? 'tarea' : 'tareas'}` : '',
+    ].filter(Boolean).join(' · ') || 'Día libre';
 
     return (
         <div className="p-3 pb-24 sm:p-8 sm:pb-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <div>
                     <h2 className="text-2xl sm:text-3xl font-bold text-white">Calendario y Tareas</h2>
-                    <p className="text-sm text-gray-400 mt-1">
-                        {pendingCount} {pendingCount === 1 ? 'tarea pendiente' : 'tareas pendientes'}
-                        {overdueTasks.length > 0 && <span className="text-rose-400 font-semibold"> · {overdueTasks.length} atrasada{overdueTasks.length > 1 ? 's' : ''}</span>}
-                        <span className="text-purple-300"> · {monthEventCount} {monthEventCount === 1 ? 'evento' : 'eventos'} en {MONTH_NAMES[viewMonth].toLowerCase()}</span>
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-300 bg-gray-700/40 border border-gray-600/50 px-2.5 py-1 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                            {pendingCount} {pendingCount === 1 ? 'pendiente' : 'pendientes'}
+                        </span>
+                        {overdueTasks.length > 0 && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-300 bg-rose-500/10 border border-rose-500/30 px-2.5 py-1 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                                {overdueTasks.length} {overdueTasks.length === 1 ? 'atrasada' : 'atrasadas'}
+                            </span>
+                        )}
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/30 px-2.5 py-1 rounded-full">
+                            <span className="w-1.5 h-1.5 rotate-45 bg-purple-400" />
+                            {monthEventCount} {monthEventCount === 1 ? 'evento' : 'eventos'}<span className="hidden sm:inline">&nbsp;en {MONTH_NAMES[viewMonth].toLowerCase()}</span>
+                        </span>
+                    </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <label className="flex items-center whitespace-nowrap text-xs text-gray-400 cursor-pointer hover:text-gray-200 py-1.5 sm:py-0">
-                        <input
-                            type="checkbox"
-                            checked={showCompleted}
-                            onChange={e => setShowCompleted(e.target.checked)}
-                            className="mr-2 h-5 w-5 sm:h-4 sm:w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
-                        />
-                        Mostrar hechas
+                <div className="flex flex-wrap items-center gap-2">
+                    <label className="cursor-pointer" title="Mostrar u ocultar las tareas ya hechas">
+                        <input type="checkbox" checked={showCompleted} onChange={e => setShowCompleted(e.target.checked)} className="sr-only peer" />
+                        <span className="block whitespace-nowrap text-xs font-semibold px-3 py-2 sm:py-1.5 rounded-full border border-gray-600 text-gray-400 hover:text-gray-200 peer-checked:bg-purple-500/20 peer-checked:border-purple-400/60 peer-checked:text-purple-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-400 peer-checked:before:content-['✓'] before:mr-1.5">
+                            Hechas
+                        </span>
                     </label>
-                    <label className="flex items-center whitespace-nowrap text-xs text-gray-400 cursor-pointer hover:text-gray-200 py-1.5 sm:py-0">
-                        <input
-                            type="checkbox"
-                            checked={showEvents}
-                            onChange={e => setShowEvents(e.target.checked)}
-                            className="mr-2 h-5 w-5 sm:h-4 sm:w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
-                        />
-                        Mostrar eventos
+                    <label className="cursor-pointer" title="Mostrar u ocultar los eventos del ERP">
+                        <input type="checkbox" checked={showEvents} onChange={e => setShowEvents(e.target.checked)} className="sr-only peer" />
+                        <span className="block whitespace-nowrap text-xs font-semibold px-3 py-2 sm:py-1.5 rounded-full border border-gray-600 text-gray-400 hover:text-gray-200 peer-checked:bg-purple-500/20 peer-checked:border-purple-400/60 peer-checked:text-purple-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-400 peer-checked:before:content-['✓'] before:mr-1.5">
+                            Eventos
+                        </span>
                     </label>
                     <button
                         onClick={() => openNew(selectedDate)}
-                        className="hidden sm:block bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2 px-5 rounded-lg shadow-lg text-sm"
+                        className="hidden sm:block bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2 px-5 rounded-lg shadow-lg text-sm outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
                     >
                         + Nueva tarea
                     </button>
@@ -299,20 +317,20 @@ const Planner: React.FC = () => {
                 <div className="xl:col-span-2 bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-2 sm:p-4">
                     <div className="flex items-center justify-between mb-3 sm:mb-4">
                         <div className="flex items-center gap-1.5 sm:gap-2">
-                            <button onClick={() => goToMonth(-1)} aria-label="Mes anterior" className="p-2.5 sm:p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white">
+                            <button onClick={() => goToMonth(-1)} aria-label="Mes anterior" className="p-2.5 sm:p-2 rounded-lg bg-gray-700/70 hover:bg-gray-600 text-white outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                             </button>
-                            <button onClick={() => goToMonth(1)} aria-label="Mes siguiente" className="p-2.5 sm:p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white">
+                            <button onClick={() => goToMonth(1)} aria-label="Mes siguiente" className="p-2.5 sm:p-2 rounded-lg bg-gray-700/70 hover:bg-gray-600 text-white outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                             </button>
-                            <h3 className="text-lg sm:text-xl font-bold text-white ml-1 sm:ml-2">{MONTH_NAMES[viewMonth]} {viewYear}</h3>
+                            <h3 className="text-lg sm:text-xl font-bold text-white ml-1 sm:ml-2">{MONTH_NAMES[viewMonth]} <span className="text-gray-500 font-medium">{viewYear}</span></h3>
                         </div>
-                        <button onClick={goToToday} className="px-3 py-2 sm:py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200">Hoy</button>
+                        <button onClick={goToToday} className="px-3 py-2 sm:py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border border-purple-400/40 text-purple-200 hover:bg-purple-500/15 outline-none focus-visible:ring-2 focus-visible:ring-purple-400">Hoy</button>
                     </div>
 
                     <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1">
-                        {WEEKDAY_LABELS.map(label => (
-                            <div key={label} className="text-center text-[10px] font-black uppercase tracking-widest text-gray-500 py-1">{label}</div>
+                        {WEEKDAY_LABELS.map((label, i) => (
+                            <div key={label} className={`text-center text-[10px] font-black uppercase tracking-widest py-1 ${i >= 5 ? 'text-gray-600' : 'text-gray-500'}`}>{label}</div>
                         ))}
                     </div>
 
@@ -322,7 +340,7 @@ const Planner: React.FC = () => {
                         onTouchEnd={handleGridTouchEnd}
                     >
                         {calendarCells.map((iso, idx) => {
-                            if (!iso) return <div key={`empty-${idx}`} className="min-h-[56px] sm:min-h-[84px] rounded-lg bg-gray-900/30" />;
+                            if (!iso) return <div key={`empty-${idx}`} className="min-h-[56px] sm:min-h-[84px]" />;
                             const dayTasks = tasksByDate.get(iso) || [];
                             const dayEvents = showEvents ? (eventsByDate.get(iso) || []) : [];
                             const cellItems = [
@@ -336,6 +354,8 @@ const Planner: React.FC = () => {
                             const isToday = iso === todayIso;
                             const isSelected = iso === selectedDate;
                             const hasOverdue = iso < todayIso && dayTasks.some(t => !t.completed);
+                            const isWeekend = idx % 7 >= 5;
+                            const load = dayEvents.length + dayTasks.filter(t => !t.completed).length;
                             const summary = [
                                 dayEvents.length > 0 ? `${dayEvents.length} ${dayEvents.length === 1 ? 'evento' : 'eventos'}` : '',
                                 dayTasks.length > 0 ? `${dayTasks.length} ${dayTasks.length === 1 ? 'tarea' : 'tareas'}` : '',
@@ -348,9 +368,9 @@ const Planner: React.FC = () => {
                                     title="Doble clic para añadir una tarea en este día"
                                     aria-label={`${formatLongDate(iso)}${summary ? `: ${summary}` : ''}`}
                                     aria-pressed={isSelected}
-                                    className={`min-h-[56px] sm:min-h-[84px] min-w-0 items-center sm:items-stretch text-left p-1 sm:p-1.5 rounded-lg border transition-colors flex flex-col gap-0.5 sm:gap-1 ${isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-700 bg-gray-900/40 hover:bg-gray-700/40'}`}
+                                    className={`min-h-[56px] sm:min-h-[84px] min-w-0 items-center sm:items-stretch text-left p-1 sm:p-1.5 rounded-lg transition-colors flex flex-col gap-0.5 sm:gap-1 outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${dayLoadTint(load)} ${isSelected ? 'ring-2 ring-purple-400' : 'hover:bg-gray-700/50'}`}
                                 >
-                                    <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-purple-600 text-white' : hasOverdue ? 'text-rose-400' : 'text-gray-300'}`}>
+                                    <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-purple-600 text-white shadow-md shadow-purple-900/60' : hasOverdue ? 'text-rose-400' : isWeekend ? 'text-gray-500' : 'text-gray-300'}`}>
                                         {Number(iso.slice(8, 10))}
                                     </span>
                                     {/* Móvil: la casilla es demasiado estrecha para leer títulos, así que solo puntos
@@ -368,13 +388,12 @@ const Planner: React.FC = () => {
                                     )}
                                     <div className="hidden sm:flex flex-col gap-0.5 min-w-0">
                                         {shownItems.map(item => item.kind === 'event' ? (
-                                            <span key={`ev-${item.ev.id}`} className="text-[10px] leading-tight truncate font-semibold text-purple-200 bg-purple-500/20 rounded px-1 py-0.5">
+                                            <span key={`ev-${item.ev.id}`} className="text-[10px] leading-tight truncate font-semibold text-purple-100 bg-purple-500/30 rounded px-1.5 py-0.5">
                                                 ★ {item.ev.time ? `${item.ev.time} ` : ''}{item.ev.name}
                                             </span>
                                         ) : (
-                                            <span key={item.t.id} className={`flex items-center gap-1 text-[10px] leading-tight truncate ${item.t.completed ? 'line-through text-gray-500' : 'text-gray-200'}`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[item.t.priority]}`} />
-                                                <span className="truncate">{item.t.title}</span>
+                                            <span key={item.t.id} className={`block text-[10px] leading-tight truncate border-l-2 pl-1.5 py-0.5 rounded-r bg-black/20 ${PRIORITY_BORDER[item.t.priority]} ${item.t.completed ? 'line-through text-gray-500 opacity-70' : 'text-gray-100'}`}>
+                                                {item.t.title}
                                             </span>
                                         ))}
                                         {extraItems > 0 && <span className="text-[10px] text-gray-500 font-semibold">+{extraItems} más</span>}
@@ -383,19 +402,24 @@ const Planner: React.FC = () => {
                             );
                         })}
                     </div>
-                    <p className="hidden sm:block text-[11px] text-gray-500 mt-3">Clic en un día para ver sus tareas y eventos · doble clic para añadir una tarea en ese día · ★ = evento (se gestionan en Eventos).</p>
+                    <p className="hidden sm:block text-[11px] text-gray-500 mt-3">Clic en un día para ver su detalle · doble clic para añadir una tarea · cuanto más morado el fondo, más cargado está el día · ★ evento (se gestionan en Eventos).</p>
                     <div className="sm:hidden flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-gray-500 mt-3">
                         <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 mx-0.5 rotate-45 bg-purple-400" />Evento</span>
                         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-400" />Tarea (color = prioridad)</span>
+                        <span>Más morado = día más cargado</span>
                         <span>Desliza para cambiar de mes</span>
                     </div>
                 </div>
 
                 <div className="space-y-6">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-base font-bold text-white">{formatLongDate(selectedDate)}</h3>
-                            <button onClick={() => openNew(selectedDate)} className="text-xs font-bold text-purple-300 hover:text-purple-200 px-2 py-2 -mr-2 sm:p-0 sm:mr-0">+ Añadir</button>
+                        <div className="flex items-start justify-between gap-3 mb-4">
+                            <div className="min-w-0">
+                                {selectedDate === todayIso && <p className="text-[10px] font-black uppercase tracking-widest text-purple-300">Hoy</p>}
+                                <h3 className="text-base font-bold text-white">{formatLongDate(selectedDate)}</h3>
+                                <p className="text-xs text-gray-500 mt-0.5">{selectedDaySummary}</p>
+                            </div>
+                            <button onClick={() => openNew(selectedDate)} className="flex-shrink-0 text-xs font-bold text-purple-200 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 rounded-full px-3 py-2 sm:py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-purple-400">+ Añadir</button>
                         </div>
                         {isLoading ? (
                             <p className="text-sm text-gray-500">Cargando tareas...</p>
@@ -408,16 +432,15 @@ const Planner: React.FC = () => {
                                             key={`ev-${ev.id}`}
                                             onClick={() => setCurrentView(View.EVENTS)}
                                             title="Abrir la pantalla de Eventos"
-                                            className="w-full text-left p-3 rounded-lg border border-purple-500/30 bg-purple-900/20 hover:bg-purple-900/30 transition-colors"
+                                            className="relative block w-full text-left pl-4 pr-3 py-3 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 transition-colors overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                                         >
-                                            <div className="flex items-start justify-between gap-2">
-                                                <span className="text-sm font-semibold text-purple-100 break-words">★ {ev.name}</span>
-                                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-purple-500/20 text-purple-300 border-purple-500/30 flex-shrink-0">{ev.type}</span>
-                                            </div>
+                                            <span aria-hidden="true" className="absolute left-0 inset-y-0 w-1 bg-purple-400" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-purple-300">Evento · {ev.type}</p>
+                                            <p className="text-sm font-semibold text-purple-50 break-words mt-0.5">{ev.name}</p>
                                             {(ev.time || ev.location) && (
-                                                <p className="text-xs text-purple-300/80 mt-1 break-words">{[ev.time, ev.location].filter(Boolean).join(' · ')}</p>
+                                                <p className="text-xs text-purple-200/80 mt-1 break-words">{[ev.time, ev.location].filter(Boolean).join(' · ')}</p>
                                             )}
-                                            <p className="text-[11px] text-purple-300/60 mt-1">
+                                            <p className="text-[11px] text-purple-300/70 mt-1">
                                                 {enrolled} inscrita{enrolled === 1 ? '' : 's'}{ev.capacity ? ` de ${ev.capacity}` : ''} · Ver en Eventos →
                                             </p>
                                         </button>
@@ -425,7 +448,10 @@ const Planner: React.FC = () => {
                                 })}
                                 {selectedTasks.map(t => renderTaskRow(t))}
                                 {selectedTasks.length === 0 && selectedEvents.length === 0 && (
-                                    <p className="text-sm text-gray-500">Nada planificado para este día.</p>
+                                    <div className="text-center py-6 rounded-lg border border-dashed border-gray-700">
+                                        <p className="text-sm text-gray-400">Nada planificado para este día.</p>
+                                        <button onClick={() => openNew(selectedDate)} className="mt-2 text-xs font-bold text-purple-300 hover:text-purple-200 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-400 rounded">+ Añadir una tarea</button>
+                                    </div>
                                 )}
                             </div>
                         )}
