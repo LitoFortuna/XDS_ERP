@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority, DanceEvent, View } from '../../types';
 import { useAppStore } from '../store/useAppStore';
 import { usePlannerTasks } from '../hooks/queries/usePlannerTasks';
@@ -15,8 +15,12 @@ const PRIORITY_CHIP: Record<PlannerTaskPriority, string> = {
     low: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
 };
 
-const formatLongDate = (iso: string) =>
-    new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+// Solo la primera letra en mayúscula ("Miércoles, 14 de octubre"); la clase CSS `capitalize` habría
+// puesto en mayúscula cada palabra ("14 De Octubre").
+const formatLongDate = (iso: string) => {
+    const text = new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    return text.charAt(0).toUpperCase() + text.slice(1);
+};
 
 interface TaskDraft {
     id?: string;
@@ -53,6 +57,7 @@ const Planner: React.FC = () => {
     const [draft, setDraft] = useState<TaskDraft | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
+    const touchStart = useRef<{ x: number; y: number } | null>(null);
 
     const visibleTasks = useMemo(() => (showCompleted ? tasks : tasks.filter(t => !t.completed)), [tasks, showCompleted]);
 
@@ -110,6 +115,22 @@ const Planner: React.FC = () => {
         const d = new Date(viewYear, viewMonth + delta, 1);
         setViewYear(d.getFullYear());
         setViewMonth(d.getMonth());
+    };
+
+    // Deslizar horizontalmente sobre la cuadrícula cambia de mes. Solo cuenta si el gesto es
+    // claramente horizontal, para no robarle el gesto al scroll vertical de la página.
+    const handleGridTouchStart = (e: React.TouchEvent) => {
+        const t = e.touches[0];
+        touchStart.current = { x: t.clientX, y: t.clientY };
+    };
+    const handleGridTouchEnd = (e: React.TouchEvent) => {
+        const start = touchStart.current;
+        touchStart.current = null;
+        if (!start) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - start.x;
+        const dy = t.clientY - start.y;
+        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) goToMonth(dx < 0 ? 1 : -1);
     };
 
     const goToToday = () => {
@@ -201,7 +222,7 @@ const Planner: React.FC = () => {
                 checked={task.completed}
                 onChange={() => handleToggle(task)}
                 aria-label={`Marcar "${task.title}" como ${task.completed ? 'pendiente' : 'hecha'}`}
-                className="mt-1 h-4 w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                className="mt-0.5 sm:mt-1 h-6 w-6 sm:h-4 sm:w-4 flex-shrink-0 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer"
             />
             <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold text-white break-words ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</p>
@@ -216,11 +237,11 @@ const Planner: React.FC = () => {
                 </div>
             </div>
             <div className="flex gap-1 flex-shrink-0">
-                <button onClick={() => openEdit(task)} title="Editar" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.879.513L7 17l.659-3.949a2 2 0 01.513-.879z" /></svg>
+                <button onClick={() => openEdit(task)} title="Editar" aria-label={`Editar "${task.title}"`} className="p-3 sm:p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded">
+                    <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.879.513L7 17l.659-3.949a2 2 0 01.513-.879z" /></svg>
                 </button>
-                <button onClick={() => handleDelete(task)} title="Eliminar" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                <button onClick={() => handleDelete(task)} title="Eliminar" aria-label={`Eliminar "${task.title}"`} className="p-3 sm:p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded">
+                    <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
             </div>
         </div>
@@ -230,38 +251,38 @@ const Planner: React.FC = () => {
     const selectedEvents = showEvents ? (eventsByDate.get(selectedDate) || []) : [];
 
     return (
-        <div className="p-4 sm:p-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="p-3 pb-24 sm:p-8 sm:pb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <div>
-                    <h2 className="text-3xl font-bold text-white">Calendario y Tareas</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white">Calendario y Tareas</h2>
                     <p className="text-sm text-gray-400 mt-1">
                         {pendingCount} {pendingCount === 1 ? 'tarea pendiente' : 'tareas pendientes'}
                         {overdueTasks.length > 0 && <span className="text-rose-400 font-semibold"> · {overdueTasks.length} atrasada{overdueTasks.length > 1 ? 's' : ''}</span>}
                         <span className="text-purple-300"> · {monthEventCount} {monthEventCount === 1 ? 'evento' : 'eventos'} en {MONTH_NAMES[viewMonth].toLowerCase()}</span>
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <label className="flex items-center text-xs text-gray-400 cursor-pointer hover:text-gray-200">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <label className="flex items-center whitespace-nowrap text-xs text-gray-400 cursor-pointer hover:text-gray-200 py-1.5 sm:py-0">
                         <input
                             type="checkbox"
                             checked={showCompleted}
                             onChange={e => setShowCompleted(e.target.checked)}
-                            className="mr-2 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                            className="mr-2 h-5 w-5 sm:h-4 sm:w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
                         />
                         Mostrar hechas
                     </label>
-                    <label className="flex items-center text-xs text-gray-400 cursor-pointer hover:text-gray-200">
+                    <label className="flex items-center whitespace-nowrap text-xs text-gray-400 cursor-pointer hover:text-gray-200 py-1.5 sm:py-0">
                         <input
                             type="checkbox"
                             checked={showEvents}
                             onChange={e => setShowEvents(e.target.checked)}
-                            className="mr-2 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                            className="mr-2 h-5 w-5 sm:h-4 sm:w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
                         />
                         Mostrar eventos
                     </label>
                     <button
                         onClick={() => openNew(selectedDate)}
-                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2 px-5 rounded-lg shadow-lg text-sm"
+                        className="hidden sm:block bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2 px-5 rounded-lg shadow-lg text-sm"
                     >
                         + Nueva tarea
                     </button>
@@ -275,29 +296,33 @@ const Planner: React.FC = () => {
             )}
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div className="xl:col-span-2 bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => goToMonth(-1)} aria-label="Mes anterior" className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white">
+                <div className="xl:col-span-2 bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-2 sm:p-4">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                            <button onClick={() => goToMonth(-1)} aria-label="Mes anterior" className="p-2.5 sm:p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                             </button>
-                            <button onClick={() => goToMonth(1)} aria-label="Mes siguiente" className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white">
+                            <button onClick={() => goToMonth(1)} aria-label="Mes siguiente" className="p-2.5 sm:p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                             </button>
-                            <h3 className="text-xl font-bold text-white ml-2">{MONTH_NAMES[viewMonth]} {viewYear}</h3>
+                            <h3 className="text-lg sm:text-xl font-bold text-white ml-1 sm:ml-2">{MONTH_NAMES[viewMonth]} {viewYear}</h3>
                         </div>
-                        <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200">Hoy</button>
+                        <button onClick={goToToday} className="px-3 py-2 sm:py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200">Hoy</button>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1 mb-1">
+                    <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1">
                         {WEEKDAY_LABELS.map(label => (
                             <div key={label} className="text-center text-[10px] font-black uppercase tracking-widest text-gray-500 py-1">{label}</div>
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1">
+                    <div
+                        className="grid grid-cols-7 gap-0.5 sm:gap-1"
+                        onTouchStart={handleGridTouchStart}
+                        onTouchEnd={handleGridTouchEnd}
+                    >
                         {calendarCells.map((iso, idx) => {
-                            if (!iso) return <div key={`empty-${idx}`} className="min-h-[84px] rounded-lg bg-gray-900/30" />;
+                            if (!iso) return <div key={`empty-${idx}`} className="min-h-[56px] sm:min-h-[84px] rounded-lg bg-gray-900/30" />;
                             const dayTasks = tasksByDate.get(iso) || [];
                             const dayEvents = showEvents ? (eventsByDate.get(iso) || []) : [];
                             const cellItems = [
@@ -306,21 +331,42 @@ const Planner: React.FC = () => {
                             ];
                             const shownItems = cellItems.slice(0, 3);
                             const extraItems = cellItems.length - shownItems.length;
+                            const dotItems = cellItems.slice(0, 4);
+                            const extraDots = cellItems.length - dotItems.length;
                             const isToday = iso === todayIso;
                             const isSelected = iso === selectedDate;
                             const hasOverdue = iso < todayIso && dayTasks.some(t => !t.completed);
+                            const summary = [
+                                dayEvents.length > 0 ? `${dayEvents.length} ${dayEvents.length === 1 ? 'evento' : 'eventos'}` : '',
+                                dayTasks.length > 0 ? `${dayTasks.length} ${dayTasks.length === 1 ? 'tarea' : 'tareas'}` : '',
+                            ].filter(Boolean).join(', ');
                             return (
                                 <button
                                     key={iso}
                                     onClick={() => setSelectedDate(iso)}
                                     onDoubleClick={() => openNew(iso)}
                                     title="Doble clic para añadir una tarea en este día"
-                                    className={`min-h-[84px] text-left p-1.5 rounded-lg border transition-colors flex flex-col gap-1 ${isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-700 bg-gray-900/40 hover:bg-gray-700/40'}`}
+                                    aria-label={`${formatLongDate(iso)}${summary ? `: ${summary}` : ''}`}
+                                    aria-pressed={isSelected}
+                                    className={`min-h-[56px] sm:min-h-[84px] min-w-0 items-center sm:items-stretch text-left p-1 sm:p-1.5 rounded-lg border transition-colors flex flex-col gap-0.5 sm:gap-1 ${isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-700 bg-gray-900/40 hover:bg-gray-700/40'}`}
                                 >
                                     <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-purple-600 text-white' : hasOverdue ? 'text-rose-400' : 'text-gray-300'}`}>
                                         {Number(iso.slice(8, 10))}
                                     </span>
-                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                    {/* Móvil: la casilla es demasiado estrecha para leer títulos, así que solo puntos
+                                        (rombo morado = evento, círculo de color = tarea según su prioridad). El
+                                        detalle del día aparece justo debajo al tocarlo. */}
+                                    {cellItems.length > 0 && (
+                                        <div className="sm:hidden flex flex-wrap justify-center items-center gap-0.5 max-w-full">
+                                            {dotItems.map(item => item.kind === 'event' ? (
+                                                <span key={`ev-${item.ev.id}`} className="w-1.5 h-1.5 mx-0.5 rotate-45 bg-purple-400" />
+                                            ) : (
+                                                <span key={item.t.id} className={`w-2 h-2 rounded-full ${PRIORITY_DOT[item.t.priority]} ${item.t.completed ? 'opacity-30' : ''}`} />
+                                            ))}
+                                            {extraDots > 0 && <span className="text-[9px] leading-none font-bold text-gray-400">+{extraDots}</span>}
+                                        </div>
+                                    )}
+                                    <div className="hidden sm:flex flex-col gap-0.5 min-w-0">
                                         {shownItems.map(item => item.kind === 'event' ? (
                                             <span key={`ev-${item.ev.id}`} className="text-[10px] leading-tight truncate font-semibold text-purple-200 bg-purple-500/20 rounded px-1 py-0.5">
                                                 ★ {item.ev.time ? `${item.ev.time} ` : ''}{item.ev.name}
@@ -337,14 +383,19 @@ const Planner: React.FC = () => {
                             );
                         })}
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-3">Clic en un día para ver sus tareas y eventos · doble clic para añadir una tarea en ese día · ★ = evento (se gestionan en Eventos).</p>
+                    <p className="hidden sm:block text-[11px] text-gray-500 mt-3">Clic en un día para ver sus tareas y eventos · doble clic para añadir una tarea en ese día · ★ = evento (se gestionan en Eventos).</p>
+                    <div className="sm:hidden flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-gray-500 mt-3">
+                        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 mx-0.5 rotate-45 bg-purple-400" />Evento</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-400" />Tarea (color = prioridad)</span>
+                        <span>Desliza para cambiar de mes</span>
+                    </div>
                 </div>
 
                 <div className="space-y-6">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-4">
                         <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-base font-bold text-white capitalize">{formatLongDate(selectedDate)}</h3>
-                            <button onClick={() => openNew(selectedDate)} className="text-xs font-bold text-purple-300 hover:text-purple-200">+ Añadir</button>
+                            <h3 className="text-base font-bold text-white">{formatLongDate(selectedDate)}</h3>
+                            <button onClick={() => openNew(selectedDate)} className="text-xs font-bold text-purple-300 hover:text-purple-200 px-2 py-2 -mr-2 sm:p-0 sm:mr-0">+ Añadir</button>
                         </div>
                         {isLoading ? (
                             <p className="text-sm text-gray-500">Cargando tareas...</p>
@@ -398,6 +449,14 @@ const Planner: React.FC = () => {
                 </div>
             </div>
 
+            <button
+                onClick={() => openNew(selectedDate)}
+                aria-label="Nueva tarea"
+                className="sm:hidden fixed bottom-5 right-4 z-20 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xl shadow-purple-900/50 flex items-center justify-center active:scale-95 transition-transform"
+            >
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
+            </button>
+
             <Modal isOpen={draft !== null} onClose={() => setDraft(null)} title={draft?.id ? 'Editar tarea' : 'Nueva tarea'}>
                 {draft && (
                     <form onSubmit={handleSave} className="space-y-4">
@@ -444,7 +503,7 @@ const Planner: React.FC = () => {
                             </div>
                         </div>
                         <p className="text-xs text-gray-500 -mt-2">Sin fecha, la tarea queda en "Sin fecha" hasta que la planifiques.</p>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-1">Prioridad</label>
                                 <select

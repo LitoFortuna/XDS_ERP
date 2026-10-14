@@ -922,7 +922,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                                             checked={false}
                                             onChange={() => handleCompletePlannerTask(task)}
                                             aria-label={`Marcar "${task.title}" como hecha`}
-                                            className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer flex-shrink-0"
+                                            className="h-6 w-6 sm:h-4 sm:w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 cursor-pointer flex-shrink-0"
                                         />
                                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_DOT[task.priority]}`} title={`Prioridad ${task.priority === 'high' ? 'alta' : task.priority === 'medium' ? 'media' : 'baja'}`} />
                                         <span className="flex-1 min-w-0 text-sm text-gray-200 truncate">{task.title}</span>
