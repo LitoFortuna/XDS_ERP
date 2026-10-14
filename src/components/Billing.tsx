@@ -12,6 +12,8 @@ import CostForm from './billing/CostForm';
 import BankReconciliation from './billing/BankReconciliation';
 import { getPaymentStatusForMonth as getPaymentStatusForMonthPure, MonthStatus, parseDateLocal } from '../utils/paymentStatus';
 import { formatCurrency } from '../utils/formatters';
+import PageHeader from './ui/PageHeader';
+import { useConfirm } from './ui/Feedback';
 
 // --- COMPONENTE PRINCIPAL DE FACTURACIÓN ---
 interface BillingProps {
@@ -21,6 +23,7 @@ interface BillingProps {
 const EMPTY_PAYMENTS: Payment[] = [];
 
 const Billing: React.FC<BillingProps> = React.memo(() => {
+    const confirm = useConfirm();
     const {
         payments,
         costs,
@@ -225,8 +228,8 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
         }
     };
 
-    const handleCostDelete = (id: string) => {
-        if (window.confirm('¿Seguro que quieres eliminar este coste?')) {
+    const handleCostDelete = async (id: string) => {
+        if (await confirm({ title: 'Eliminar coste', message: '¿Seguro que quieres eliminar este coste?', confirmLabel: 'Eliminar', destructive: true })) {
             deleteCost(id);
         }
     };
@@ -296,37 +299,39 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
 
     return (
         <div className="p-4 sm:p-8">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl font-bold">Facturación</h2>
+            <PageHeader
+                title="Facturación"
+                actions={
+                    /* SELECTOR DE AÑO: en móvil los años se reparten el ancho (antes la fila se salía de la pantalla). */
+                    <div role="group" aria-label="Ejercicio" className="flex items-center gap-1 sm:gap-2 bg-gray-800 p-1.5 rounded-xl border border-gray-700">
+                        <span className="hidden sm:inline text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2 mr-1">Ejercicio:</span>
+                        {availableYears.map(year => (
+                            <button
+                                key={year}
+                                onClick={() => setSelectedYear(year)}
+                                aria-pressed={selectedYear === year}
+                                className={`flex-1 sm:flex-none px-3 py-2.5 sm:py-1 rounded-lg text-xs font-black transition-all ${selectedYear === year ? 'bg-purple-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'}`}
+                            >
+                                {year}
+                            </button>
+                        ))}
+                    </div>
+                }
+            />
 
-                {/* SELECTOR DE AÑO */}
-                <div className="flex items-center gap-2 bg-gray-800 p-1.5 rounded-xl border border-gray-700">
-                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2 mr-1">Ejercicio:</span>
-                    {availableYears.map(year => (
-                        <button
-                            key={year}
-                            onClick={() => setSelectedYear(year)}
-                            className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${selectedYear === year ? 'bg-purple-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'}`}
-                        >
-                            {year}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="flex space-x-4 border-b border-gray-700 mb-6">
-                <button className={`pb-2 px-4 ${activeTab === 'income' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`} onClick={() => setActiveTab('income')}>Ingresos (Cuotas)</button>
-                <button className={`pb-2 px-4 ${activeTab === 'costs' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`} onClick={() => setActiveTab('costs')}>Gastos (Costes)</button>
+            <div role="tablist" aria-label="Ingresos o gastos" className="flex space-x-2 sm:space-x-4 border-b border-gray-700 mb-6">
+                <button role="tab" aria-selected={activeTab === 'income'} className={`pb-2 px-3 sm:px-4 pt-2 ${activeTab === 'income' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`} onClick={() => setActiveTab('income')}>Ingresos (Cuotas)</button>
+                <button role="tab" aria-selected={activeTab === 'costs'} className={`pb-2 px-3 sm:px-4 pt-2 ${activeTab === 'costs' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400'}`} onClick={() => setActiveTab('costs')}>Gastos (Costes)</button>
             </div>
 
             {activeTab === 'income' && (
                 <div>
-                    <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="w-64">
-                                <input type="text" placeholder="Buscar alumno..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
+                    <div className="flex flex-col lg:flex-row lg:flex-wrap lg:justify-between lg:items-center gap-3 mb-4">
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+                            <div className="w-full sm:w-64">
+                                <input type="search" aria-label="Buscar alumna" placeholder="Buscar alumno..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-white" />
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     onClick={() => toggleStatusFilter('inactive')}
                                     className={`px-3 py-2 rounded text-xs font-bold border transition-colors ${studentStatusFilter.inactive ? 'bg-gray-500 text-white border-gray-400' : 'bg-gray-700 text-gray-300 border-gray-600 hover:border-gray-500'}`}
@@ -358,37 +363,39 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                                 )}
                             </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <div className="text-right">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                            <div className="sm:text-right">
                                 <p className="text-sm text-gray-400">Ingresos {selectedYear}</p>
                                 <p className="text-xl font-bold text-green-400">{formatCurrency(totalIncome)}</p>
-                                <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                                <p className="text-[11px] text-gray-400 font-medium mt-0.5">
                                     Cuotas: {formatCurrency(tuitionIncome, 0)} • Eventos: {formatCurrency(totalEventIncome, 0)}
                                 </p>
                             </div>
-                            <button
-                                onClick={handleExportPayments}
-                                className="bg-purple-600/20 text-purple-300 px-4 py-2 rounded hover:bg-purple-600/30 flex items-center gap-2 border border-purple-500/30 transition-all shadow-sm"
-                                title="Exportar ingresos a Excel (CSV)"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0L16.5 12M12 16.5V3" />
-                                </svg>
-                                <span>Exportar</span>
-                            </button>
-                            <button onClick={() => setIsReconciliationModalOpen(true)} className="bg-blue-600/20 text-blue-300 px-4 py-2 rounded hover:bg-blue-600/30 border border-blue-500/30 font-bold transition-all shadow-sm">
-                                Conciliar Domiciliaciones
-                            </button>
-                            <button onClick={() => setIsIncomeModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 shadow-lg shadow-green-900/20 font-bold transition-transform active:scale-95">
-                                + Nuevo Cobro
-                            </button>
+                            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-4">
+                                <button onClick={() => setIsIncomeModalOpen(true)} className="order-first col-span-2 sm:order-last sm:col-auto bg-green-600 text-white px-4 py-2.5 sm:py-2 rounded hover:bg-green-700 shadow-lg shadow-green-900/20 font-bold transition-transform active:scale-95">
+                                    + Nuevo Cobro
+                                </button>
+                                <button onClick={() => setIsReconciliationModalOpen(true)} className="bg-blue-600/20 text-blue-300 px-3 sm:px-4 py-2.5 sm:py-2 rounded hover:bg-blue-600/30 border border-blue-500/30 font-bold text-sm sm:text-base transition-all shadow-sm">
+                                    <span className="sm:hidden">Conciliar banco</span><span className="hidden sm:inline">Conciliar Domiciliaciones</span>
+                                </button>
+                                <button
+                                    onClick={handleExportPayments}
+                                    className="bg-purple-600/20 text-purple-300 px-3 sm:px-4 py-2.5 sm:py-2 rounded hover:bg-purple-600/30 flex items-center justify-center gap-2 border border-purple-500/30 transition-all shadow-sm"
+                                    title="Exportar ingresos a Excel (CSV)"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0L16.5 12M12 16.5V3" />
+                                    </svg>
+                                    <span>Exportar</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div className="bg-gray-800 rounded-lg shadow overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
                                 <tr>
-                                    <th className="px-4 py-3 bg-gray-700 sticky left-0 z-10">Alumno</th>
+                                    <th className="px-3 sm:px-4 py-3 bg-gray-700 sticky left-0 z-10 min-w-[8.5rem] sm:min-w-[11rem]">Alumno</th>
                                     {months.map((m, i) => (
                                         <th
                                             key={i}
@@ -404,8 +411,8 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                             <tbody>
                                 {filteredStudents.map(student => (
                                     <tr key={student.id} className="border-b border-gray-700 hover:bg-gray-700/50">
-                                        <td className="px-4 py-3 font-medium text-white bg-gray-800 sticky left-0">
-                                            <button onClick={() => handleEditStudent(student)} className="hover:text-purple-400 text-left">{student.name}</button>
+                                        <td className="px-3 sm:px-4 py-3 font-medium text-white bg-gray-800 sticky left-0 min-w-[8.5rem] max-w-[8.5rem] sm:min-w-[11rem] sm:max-w-[11rem] shadow-[8px_0_8px_-8px_rgba(0,0,0,0.6)]">
+                                            <button onClick={() => handleEditStudent(student)} title={student.name} className="block w-full truncate hover:text-purple-400 text-left">{student.name}</button>
                                         </td>
                                         {months.map((_, i) => {
                                             const status = getPaymentStatusForMonth(student, i);
@@ -426,15 +433,15 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
             {activeTab === 'costs' && (
                 <div>
                     <div className="flex flex-wrap gap-4 mb-4 bg-gray-800 p-4 rounded-lg">
-                        <input type="text" placeholder="Buscar concepto/beneficiario..." value={costSearchQuery} onChange={e => setCostSearchQuery(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white flex-grow" />
-                        <select value={costCategoryFilter} onChange={e => setCostCategoryFilter(e.target.value as CostCategory)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
+                        <input type="search" aria-label="Buscar gasto por concepto o beneficiario" placeholder="Buscar concepto/beneficiario..." value={costSearchQuery} onChange={e => setCostSearchQuery(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-white flex-grow w-full sm:w-auto" />
+                        <select aria-label="Categoría de gasto" value={costCategoryFilter} onChange={e => setCostCategoryFilter(e.target.value as CostCategory)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-white w-full sm:w-auto">
                             <option value="">Todas las categorías</option>
                             {['Profesores', 'Alquiler', 'Suministros', 'Licencias', 'Impuestos', 'Marketing', 'Mantenimiento', 'Otros'].map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <input type="date" value={costStartDate} onChange={e => setCostStartDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
-                        <input type="date" value={costEndDate} onChange={e => setCostEndDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white" />
+                        <input type="date" aria-label="Gastos desde" value={costStartDate} onChange={e => setCostStartDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-white flex-1 min-w-[9.5rem] sm:flex-none" />
+                        <input type="date" aria-label="Gastos hasta" value={costEndDate} onChange={e => setCostEndDate(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-white flex-1 min-w-[9.5rem] sm:flex-none" />
                     </div>
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
                         <div className="text-right">
                             <p className="text-sm text-gray-400">Gastos {selectedYear}</p>
                             <p className="text-xl font-bold text-red-400">{formatCurrency(totalCosts)}</p>

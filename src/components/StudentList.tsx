@@ -5,6 +5,7 @@ import Modal from './Modal';
 import { getStudentPrivateData, setStudentPrivateData, fetchAllStudentPrivateData } from '../services/domain/studentService';
 import DuplicateStudentFinder from './DuplicateStudentFinder';
 import { downloadCSV } from '../utils/csvExportUtils';
+import PageHeader from './ui/PageHeader';
 
 interface StudentListProps {
   students: Student[];
@@ -384,8 +385,8 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
     downloadCSV('alumnos.csv', csvContent);
   };
 
-  const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode; }> = ({ sortKey, children }) => (
-    <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600 transition-colors" onClick={() => requestSort(sortKey)}>
+  const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode; className?: string; }> = ({ sortKey, children, className = '' }) => (
+    <th scope="col" className={`px-3 2xl:px-6 py-3 cursor-pointer hover:bg-gray-600 transition-colors ${className}`} onClick={() => requestSort(sortKey)}>
       <div className="flex items-center gap-1">
         {children} {getSortIndicator(sortKey)}
       </div>
@@ -399,104 +400,149 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Alumnos</h2>
-        <div className="flex items-center gap-4">
-          <button onClick={() => setIsDuplicateFinderOpen(true)} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Buscar Duplicados
-          </button>
-          <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            Exportar a CSV
-          </button>
-          <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors shadow-md">Añadir Alumno</button>
-        </div>
-      </div>
+      <PageHeader
+        title="Alumnos"
+        subtitle={`${sortedAndFilteredStudents.length} ${sortedAndFilteredStudents.length === 1 ? 'alumna' : 'alumnas'}${statusFilter === 'active' ? ' activas' : statusFilter === 'inactive' ? ' de baja' : ''}`}
+        actions={
+          <>
+            <button onClick={() => handleOpenModal()} className="order-first col-span-2 md:order-last md:col-auto bg-purple-600 text-white px-4 py-2.5 md:py-2 rounded-md hover:bg-purple-700 transition-colors shadow-md font-semibold">Añadir Alumno</button>
+            <button onClick={() => setIsDuplicateFinderOpen(true)} className="bg-gray-600 text-white px-3 md:px-4 py-2.5 md:py-2 rounded-md hover:bg-gray-500 flex items-center justify-center text-sm md:text-base transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <span className="md:hidden">Duplicados</span><span className="hidden md:inline">Buscar Duplicados</span>
+            </button>
+            <button onClick={handleExportCSV} className="bg-gray-600 text-white px-3 md:px-4 py-2.5 md:py-2 rounded-md hover:bg-gray-500 flex items-center justify-center text-sm md:text-base transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              Exportar CSV
+            </button>
+          </>
+        }
+      />
 
-      <div className="mb-6 flex flex-col md:flex-row gap-4 bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700/50">
+      <div className="mb-5 sm:mb-6 flex flex-col md:flex-row gap-3 md:gap-4 bg-gray-800 p-3 sm:p-4 rounded-lg shadow-sm border border-gray-700/50">
         <div className="flex-1">
-          <label className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
+          <label htmlFor="student-search" className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
           <input
-            type="text"
+            id="student-search"
+            type="search"
             placeholder="Buscar por nombre..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+            className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2.5 md:py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
           />
         </div>
-        <div className="w-full md:w-48">
-          <label className="block text-xs font-medium text-gray-400 mb-1">Estado</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
-            className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="all">Todos</option>
-            <option value="active">Activos</option>
-            <option value="inactive">Inactivos</option>
-          </select>
-        </div>
-        <div className="w-full md:w-64">
-          <label className="block text-xs font-medium text-gray-400 mb-1">Clase</label>
-          <select
-            value={classFilter}
-            onChange={(e) => setClassFilter(e.target.value)}
-            className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="">Todas las clases</option>
-            {sortedClassesForFilter.map(c => (
-              <option key={c.id} value={c.id}>{c.name} ({c.days.join(', ')} {c.startTime})</option>
-            ))}
-          </select>
+        <div className="grid grid-cols-2 gap-3 md:flex md:gap-4">
+          <div className="md:w-48">
+            <label htmlFor="student-status" className="block text-xs font-medium text-gray-400 mb-1">Estado</label>
+            <select
+              id="student-status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+              className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2.5 md:py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="all">Todos</option>
+              <option value="active">Activos</option>
+              <option value="inactive">Inactivos</option>
+            </select>
+          </div>
+          <div className="md:w-64">
+            <label htmlFor="student-class" className="block text-xs font-medium text-gray-400 mb-1">Clase</label>
+            <select
+              id="student-class"
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2.5 md:py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="">Todas</option>
+              {sortedClassesForFilter.map(c => (
+                <option key={c.id} value={c.id}>{c.name} ({c.days.join(', ')} {c.startTime})</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto border border-gray-700">
+      {/* Móvil: tarjetas (la tabla de 10 columnas dejaba fuera de pantalla casi toda la información y las acciones). */}
+      <div className="md:hidden space-y-3">
+        {sortedAndFilteredStudents.map(student => {
+          const age = calculateAge(student.birthDate);
+          const classNames = getEnrolledClassNames(student.enrolledClassIds);
+          return (
+            <div key={student.id} className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white truncate">{student.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {age !== null ? `${age} años · ` : ''}Alta {new Date(student.enrollmentDate).toLocaleDateString('es-ES')}
+                  </p>
+                </div>
+                <span className={`flex-shrink-0 px-2 py-1 rounded-full text-[10px] uppercase font-black tracking-wide ${student.active ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                  {student.active ? 'Activo' : 'Baja'}
+                </span>
+              </div>
+              <p className="text-sm text-gray-300 mt-2 line-clamp-2">{classNames}</p>
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 mt-3 text-sm">
+                <span className="text-purple-300 font-bold">€{student.monthlyFee.toFixed(0)}<span className="text-xs font-medium text-gray-400"> /mes · {student.paymentMethod}</span></span>
+                {student.phone && (
+                  <a href={`tel:${student.phone}`} className="font-mono text-sm text-sky-300 py-2 pl-3 -my-2" aria-label={`Llamar a ${student.name}`}>{student.phone}</a>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <button onClick={() => handleOpenModal(student)} className="min-h-[44px] rounded-lg bg-purple-500/15 border border-purple-400/30 text-purple-200 text-sm font-semibold">Editar</button>
+                <button onClick={() => handleDeleteRequest(student)} className="min-h-[44px] rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold">Borrar</button>
+              </div>
+            </div>
+          );
+        })}
+        {sortedAndFilteredStudents.length === 0 && (
+          <p className="text-center text-sm text-gray-400 py-8 border border-dashed border-gray-700 rounded-xl">Ninguna alumna coincide con los filtros.</p>
+        )}
+      </div>
+
+      <div className="hidden md:block bg-gray-800 rounded-lg shadow-sm overflow-x-auto border border-gray-700">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs text-gray-300 uppercase bg-gray-700/50">
             <tr>
               <SortableHeader sortKey="name">Nombre</SortableHeader>
               <SortableHeader sortKey="age">Edad</SortableHeader>
-              <SortableHeader sortKey="enrollmentDate">Fecha de Alta</SortableHeader>
-              <th scope="col" className="px-6 py-3">Teléfono</th>
+              <SortableHeader sortKey="enrollmentDate" className="hidden 2xl:table-cell">Fecha de Alta</SortableHeader>
+              <th scope="col" className="px-3 2xl:px-6 py-3">Teléfono</th>
               <SortableHeader sortKey="enrolledClasses">Clases Inscritas</SortableHeader>
               <SortableHeader sortKey="monthlyFee">Cuota</SortableHeader>
-              <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600 transition-colors">Precio/Clase</th>
+              <th scope="col" className="hidden 2xl:table-cell px-3 2xl:px-6 py-3">Precio/Clase</th>
               <SortableHeader sortKey="paymentMethod">Pago</SortableHeader>
               <SortableHeader sortKey="active">Estado</SortableHeader>
-              <th scope="col" className="px-6 py-3">Acciones</th>
+              <th scope="col" className="px-3 2xl:px-6 py-3 sticky right-0 bg-gray-700 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)]">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {sortedAndFilteredStudents.map(student => {
               const age = calculateAge(student.birthDate);
               return (
-                <tr key={student.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
-                  <td className="px-6 py-4">
+                <tr key={student.id} className="group bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50 transition-colors">
+                  <td className="px-3 2xl:px-6 py-3 2xl:py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
+                  <td className="px-3 2xl:px-6 py-3 2xl:py-4">
                     {age !== null ? (
                       <span className="bg-gray-700 text-gray-200 px-2 py-0.5 rounded text-xs font-bold">{age}</span>
                     ) : '-'}
                   </td>
-                  <td className="px-6 py-4">{new Date(student.enrollmentDate).toLocaleDateString('es-ES')}</td>
-                  <td className="px-6 py-4 font-mono text-xs">{student.phone || '-'}</td>
-                  <td className="px-6 py-4 max-w-xs truncate" title={getEnrolledClassNames(student.enrolledClassIds)}>{getEnrolledClassNames(student.enrolledClassIds)}</td>
-                  <td className="px-6 py-4 text-purple-300 font-bold whitespace-nowrap">€{student.monthlyFee.toFixed(0)}</td>
-                  <td className="px-6 py-4 text-purple-300 font-bold whitespace-nowrap">
+                  <td className="hidden 2xl:table-cell px-3 2xl:px-6 py-3 2xl:py-4">{new Date(student.enrollmentDate).toLocaleDateString('es-ES')}</td>
+                  <td className="px-3 2xl:px-6 py-3 2xl:py-4 font-mono text-xs">{student.phone || '-'}</td>
+                  <td className="px-3 2xl:px-6 py-3 2xl:py-4 max-w-[14rem] truncate" title={getEnrolledClassNames(student.enrolledClassIds)}>{getEnrolledClassNames(student.enrolledClassIds)}</td>
+                  <td className="px-3 2xl:px-6 py-3 2xl:py-4 text-purple-300 font-bold whitespace-nowrap">€{student.monthlyFee.toFixed(0)}</td>
+                  <td className="hidden 2xl:table-cell px-3 2xl:px-6 py-3 2xl:py-4 text-purple-300 font-bold whitespace-nowrap">
                     {student.enrolledClassIds.length > 0
                       ? `€${(student.monthlyFee / student.enrolledClassIds.length).toFixed(2)}`
                       : '-'}
                   </td>
-                  <td className="px-6 py-4 text-xs">{student.paymentMethod}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 2xl:px-6 py-3 2xl:py-4 text-xs">{student.paymentMethod}</td>
+                  <td className="px-3 2xl:px-6 py-3 2xl:py-4">
                     <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-black tracking-tighter ${student.active ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                       {student.active ? 'Activo' : 'Baja'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button onClick={() => handleOpenModal(student)} className="font-bold text-xs uppercase tracking-widest text-purple-400 hover:text-purple-300">Editar</button>
-                    <button onClick={() => handleDeleteRequest(student)} className="ml-4 font-bold text-xs uppercase tracking-widest text-red-500 hover:text-red-400">Borrar</button>
+                  <td className="px-4 py-2 whitespace-nowrap sticky right-0 bg-gray-800 group-hover:bg-gray-700 transition-colors shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)]">
+                    <button onClick={() => handleOpenModal(student)} aria-label={`Editar a ${student.name}`} className="px-2 py-1.5 rounded font-bold text-xs uppercase tracking-widest text-purple-400 hover:text-purple-200 hover:bg-purple-500/10">Editar</button>
+                    <button onClick={() => handleDeleteRequest(student)} aria-label={`Borrar a ${student.name}`} className="ml-1 px-2 py-1.5 rounded font-bold text-xs uppercase tracking-widest text-red-500 hover:text-red-300 hover:bg-red-500/10">Borrar</button>
                   </td>
                 </tr>
               )

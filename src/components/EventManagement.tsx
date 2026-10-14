@@ -3,6 +3,9 @@ import React, { useState, useMemo } from 'react';
 import { DanceEvent, Student, EventType, EventParticipant } from '../../types';
 import Modal from './Modal';
 import { getEventTicketCount, getEventRevenue } from '../utils/eventRevenue';
+import { toIsoLocal } from '../utils/plannerUtils';
+import PageHeader from './ui/PageHeader';
+import { useConfirm } from './ui/Feedback';
 
 interface EventManagementProps {
     events: DanceEvent[];
@@ -259,17 +262,25 @@ const EventForm: React.FC<{
 };
 
 const EventManagement: React.FC<EventManagementProps> = ({ events, students, addEvent, updateEvent, deleteEvent }) => {
+    const confirm = useConfirm();
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<DanceEvent | undefined>(undefined);
     const [filterType, setFilterType] = useState<EventType | 'Todos'>('Todos');
 
     const [viewingParticipantsEvent, setViewingParticipantsEvent] = useState<DanceEvent | null>(null);
 
+    // Fecha de hoy en local (no UTC) para decidir qué eventos ya han pasado.
+    const todayIso = toIsoLocal(new Date());
+
+    // Primero los próximos (el más cercano arriba) y después los ya celebrados (el más reciente
+    // primero). Antes todo iba de la fecha más lejana a la más antigua, así que el evento que de
+    // verdad toca preparar quedaba enterrado en mitad de la lista.
     const filteredEvents = useMemo(() => {
-        return events
-            .filter(e => filterType === 'Todos' || e.type === filterType)
-            .sort((a, b) => b.date.localeCompare(a.date));
-    }, [events, filterType]);
+        const matching = events.filter(e => filterType === 'Todos' || e.type === filterType);
+        const upcoming = matching.filter(e => e.date >= todayIso).sort((a, b) => a.date.localeCompare(b.date));
+        const past = matching.filter(e => e.date < todayIso).sort((a, b) => b.date.localeCompare(a.date));
+        return [...upcoming, ...past];
+    }, [events, filterType, todayIso]);
 
     const handleOpenFormModal = (event?: DanceEvent) => {
         setEditingEvent(event);
@@ -290,8 +301,8 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
         handleCloseFormModal();
     };
 
-    const handleDelete = (id: string, name: string) => {
-        if (window.confirm(`¿Seguro que quieres eliminar el evento "${name}"?`)) {
+    const handleDelete = async (id: string, name: string) => {
+        if (await confirm({ title: 'Eliminar evento', message: `¿Seguro que quieres eliminar el evento "${name}"?`, confirmLabel: 'Eliminar', destructive: true })) {
             deleteEvent(id);
         }
     };
@@ -341,18 +352,18 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
 
     return (
         <div className="p-4 sm:p-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold text-white">Gestión de Eventos</h2>
-                    <p className="text-gray-400 mt-1">Organiza competiciones, exhibiciones y talleres.</p>
-                </div>
-                <button onClick={() => handleOpenFormModal()} className="w-full sm:w-auto bg-purple-600 text-white px-8 py-3 rounded-xl hover:bg-purple-700 shadow-xl shadow-purple-900/20 transition-all font-bold flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                    Nuevo Evento
-                </button>
-            </div>
+            <PageHeader
+                title="Gestión de Eventos"
+                subtitle="Organiza competiciones, exhibiciones y talleres. Los próximos van primero."
+                actions={
+                    <button onClick={() => handleOpenFormModal()} className="bg-purple-600 text-white px-8 py-3 rounded-xl hover:bg-purple-700 shadow-xl shadow-purple-900/20 transition-all font-bold flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                        Nuevo Evento
+                    </button>
+                }
+            />
 
-            <div className="mb-8 flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
+            <div role="group" aria-label="Filtrar por tipo de evento" className="mb-6 sm:mb-8 flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
                 {['Todos', 'Competición', 'Exhibición', 'Taller', 'Otro'].map(type => (
                     <button
                         key={type}
@@ -369,9 +380,10 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                     filteredEvents.map(event => {
                         const totalTickets = getEventTicketCount(event);
                         const totalRevenue = getEventRevenue(event);
+                        const isPast = event.date < todayIso;
                         return (
-                            <div key={event.id} className="bg-gray-800 rounded-2xl overflow-hidden shadow-xl border border-gray-700/50 hover:border-purple-500/50 transition-all group flex flex-col h-full">
-                                <div className="relative h-48 bg-gray-900">
+                            <div key={event.id} className={`bg-gray-800 rounded-2xl overflow-hidden shadow-xl border border-gray-700/50 hover:border-purple-500/50 transition-all group flex flex-col h-full ${isPast ? 'opacity-75 hover:opacity-100' : ''}`}>
+                                <div className={`relative bg-gray-900 ${event.imageUrl ? 'h-48' : 'h-24'}`}>
                                     {event.imageUrl ? (
                                         <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                     ) : (
@@ -379,10 +391,15 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                         </div>
                                     )}
-                                    <div className="absolute top-4 left-4">
+                                    <div className="absolute top-4 left-4 flex items-center gap-2">
                                         <span className={`px-2.5 py-1 rounded-lg border text-[10px] uppercase font-black tracking-widest shadow-lg ${getTypeColor(event.type)}`}>
                                             {event.type}
                                         </span>
+                                        {isPast && (
+                                            <span className="px-2.5 py-1 rounded-lg border border-gray-500/40 bg-gray-900/80 text-gray-300 text-[10px] uppercase font-black tracking-widest">
+                                                Celebrado
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -449,9 +466,9 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                                         </button>
                                     </div>
 
-                                    <div className="flex gap-4">
-                                        <button onClick={() => handleOpenFormModal(event)} className="text-sm font-bold text-purple-400 hover:text-purple-300">Editar</button>
-                                        <button onClick={() => handleDelete(event.id, event.name)} className="text-sm font-bold text-red-500 hover:text-red-400">Borrar</button>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => handleOpenFormModal(event)} aria-label={`Editar ${event.name}`} className="px-3 py-2 rounded-lg text-sm font-bold text-purple-400 hover:text-purple-200 hover:bg-purple-500/10">Editar</button>
+                                        <button onClick={() => handleDelete(event.id, event.name)} aria-label={`Borrar ${event.name}`} className="px-3 py-2 rounded-lg text-sm font-bold text-red-500 hover:text-red-300 hover:bg-red-500/10">Borrar</button>
                                     </div>
                                 </div>
                             </div>

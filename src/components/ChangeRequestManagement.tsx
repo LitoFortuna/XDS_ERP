@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { ChangeRequest, Student } from '../../types';
 import { getAllChangeRequests, approveChangeRequest, rejectChangeRequest, getChangedFields } from '../../services/changeRequestService';
 import { useAppStore } from '../store/useAppStore';
+import PageHeader from './ui/PageHeader';
+import { useConfirm } from './ui/Feedback';
 
 interface ChangeRequestManagementProps {
     students: Student[];
 }
 
 const ChangeRequestManagement: React.FC<ChangeRequestManagementProps> = ({ students }) => {
+    const confirm = useConfirm();
     const { userProfile } = useAppStore();
     const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
     const [filterStatus, setFilterStatus] = useState<'Todas' | 'Pendiente' | 'Aprobada' | 'Rechazada'>('Todas');
@@ -38,7 +41,7 @@ const ChangeRequestManagement: React.FC<ChangeRequestManagementProps> = ({ stude
     );
 
     const handleApprove = async (request: ChangeRequest) => {
-        if (!confirm(`¿Aprobar cambios para ${request.studentName}?`)) return;
+        if (!await confirm({ title: 'Aprobar solicitud', message: `¿Aprobar cambios para ${request.studentName}? Se aplicarán a su ficha.`, confirmLabel: 'Aprobar' })) return;
 
         setIsProcessing(true);
         try {
@@ -61,7 +64,7 @@ const ChangeRequestManagement: React.FC<ChangeRequestManagementProps> = ({ stude
             alert('Por favor, añade una nota explicando el rechazo');
             return;
         }
-        if (!confirm(`¿Rechazar cambios para ${request.studentName}?`)) return;
+        if (!await confirm({ title: 'Rechazar solicitud', message: `¿Rechazar cambios para ${request.studentName}?`, confirmLabel: 'Rechazar', destructive: true })) return;
 
         setIsProcessing(true);
         try {
@@ -90,15 +93,13 @@ const ChangeRequestManagement: React.FC<ChangeRequestManagementProps> = ({ stude
 
     return (
         <div className="p-4 sm:p-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold text-white">Solicitudes de Cambio de Datos</h2>
-                    <p className="text-gray-400 mt-1">Gestiona las solicitudes de modificación de datos personales</p>
-                </div>
-            </div>
+            <PageHeader
+                title="Solicitudes de Cambio de Datos"
+                subtitle="Gestiona las solicitudes de modificación de datos personales"
+            />
 
             {/* Filters */}
-            <div className="mb-8 flex gap-2 overflow-x-auto pb-4">
+            <div role="group" aria-label="Filtrar por estado" className="mb-6 sm:mb-8 flex gap-2 overflow-x-auto pb-4">
                 {(['Todas', 'Pendiente', 'Aprobada', 'Rechazada'] as const).map(status => (
                     <button
                         key={status}
@@ -123,10 +124,10 @@ const ChangeRequestManagement: React.FC<ChangeRequestManagementProps> = ({ stude
                     {filteredRequests.map(request => {
                         const changes = getChangedFields(request.currentData, request.requestedData);
                         return (
-                            <div key={request.id} className="bg-gray-800 rounded-xl border border-gray-700 p-6 hover:border-purple-500/50 transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-white">{request.studentName}</h3>
+                            <div key={request.id} className="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6 hover:border-purple-500/50 transition-all">
+                                <div className="flex justify-between items-start gap-3 mb-4">
+                                    <div className="min-w-0">
+                                        <h3 className="text-lg sm:text-xl font-bold text-white break-words">{request.studentName}</h3>
                                         <p className="text-sm text-gray-400">
                                             {new Date(request.requestDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                         </p>
@@ -140,12 +141,12 @@ const ChangeRequestManagement: React.FC<ChangeRequestManagementProps> = ({ stude
                                     <h4 className="text-sm font-bold text-purple-300 mb-2">Cambios Solicitados ({changes.length})</h4>
                                     <div className="space-y-2">
                                         {changes.map((change, idx) => (
-                                            <div key={idx} className="flex items-center justify-between text-sm">
+                                            <div key={idx} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm">
                                                 <span className="text-gray-400 font-medium">{change.field}:</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-red-400 line-through">{change.current}</span>
-                                                    <span className="text-gray-500">→</span>
-                                                    <span className="text-green-400 font-bold">{change.requested}</span>
+                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
+                                                    <span className="text-red-400 line-through break-all">{change.current}</span>
+                                                    <span className="text-gray-500" aria-label="cambia a">→</span>
+                                                    <span className="text-green-400 font-bold break-all">{change.requested}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -155,7 +156,7 @@ const ChangeRequestManagement: React.FC<ChangeRequestManagementProps> = ({ stude
                                 {request.status === 'Pendiente' ? (
                                     <button
                                         onClick={() => setViewingRequest(request)}
-                                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-all"
+                                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 sm:py-2 px-4 rounded-lg transition-all"
                                     >
                                         Revisar Solicitud
                                     </button>

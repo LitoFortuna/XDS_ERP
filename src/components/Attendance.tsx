@@ -2,6 +2,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { DanceClass, Student, AttendanceRecord, DayOfWeek } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
+import PageHeader from './ui/PageHeader';
+import { toIsoLocal } from '../utils/plannerUtils';
 
 interface AttendanceProps {
     students: Student[];
@@ -11,7 +13,8 @@ interface AttendanceProps {
 }
 
 const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRecords, onSaveAttendance }) => {
-    const today = new Date().toISOString().split('T')[0];
+    // Fecha local (no UTC): con toISOString() entre las 00:00 y las 02:00 en España salía el día anterior.
+    const today = toIsoLocal(new Date());
     const [selectedDate, setSelectedDate] = useState(today);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [presentStudentIds, setPresentStudentIds] = useState<Set<string>>(new Set());
@@ -303,45 +306,46 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
     }, [students, attendanceRecords]);
 
     return (
-        <div className="p-4 sm:p-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <h2 className="text-3xl font-bold text-white">Control de Asistencia</h2>
-
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setShowStats(!showStats)}
-                        className={`px-4 py-2 rounded-md flex items-center transition-colors shadow-sm text-sm border ${showStats ? 'bg-purple-600 border-purple-500 text-white' : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
-                        title="Ver estadísticas de asistencia"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                        {showStats ? 'Ocultar Gráficos' : 'Ver Estadísticas'}
-                    </button>
-                    {selectedClassId && (
+        <div className={`p-4 sm:p-8 ${selectedClassId ? 'pb-28 sm:pb-8' : ''}`}>
+            <PageHeader
+                title="Control de Asistencia"
+                actions={
+                    <>
                         <button
-                            onClick={handleExportSpecificClass}
-                            className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-md flex items-center transition-colors shadow-sm text-sm"
-                            title="Exportar matriz de la clase seleccionada"
+                            onClick={() => setShowStats(!showStats)}
+                            className={`col-span-2 md:col-auto px-4 py-2.5 md:py-2 rounded-md flex items-center justify-center transition-colors shadow-sm text-sm border ${showStats ? 'bg-purple-600 border-purple-500 text-white' : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                            title="Ver estadísticas de asistencia"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                             </svg>
-                            Exportar Clase
+                            {showStats ? 'Ocultar Gráficos' : 'Ver Estadísticas'}
                         </button>
-                    )}
-                    <button
-                        onClick={handleExportGlobal}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center transition-colors shadow-sm text-sm"
-                        title="Exportar listado completo de todas las clases y fechas"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Exportar Global
-                    </button>
-                </div>
-            </div>
+                        {selectedClassId && (
+                            <button
+                                onClick={handleExportSpecificClass}
+                                className="bg-gray-600 hover:bg-gray-500 text-white px-3 md:px-4 py-2.5 md:py-2 rounded-md flex items-center justify-center transition-colors shadow-sm text-sm"
+                                title="Exportar matriz de la clase seleccionada"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Exportar Clase
+                            </button>
+                        )}
+                        <button
+                            onClick={handleExportGlobal}
+                            className={`${selectedClassId ? '' : 'col-span-2 md:col-auto'} bg-green-600 hover:bg-green-700 text-white px-3 md:px-4 py-2.5 md:py-2 rounded-md flex items-center justify-center transition-colors shadow-sm text-sm`}
+                            title="Exportar listado completo de todas las clases y fechas"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Exportar Global
+                        </button>
+                    </>
+                }
+            />
 
             {/* STATS SECTION */}
             {showStats && (
@@ -435,35 +439,59 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
             )}
 
             {/* CONTROLS */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-700 mb-5 sm:mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Fecha</label>
+                        <label htmlFor="attendance-date" className="block text-sm font-medium text-gray-300 mb-2">Fecha</label>
                         <input
+                            id="attendance-date"
                             type="date"
                             value={selectedDate}
                             onChange={(e) => setSelectedDate(e.target.value)}
                             className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         />
-                        <p className="text-xs text-gray-500 mt-2 font-medium uppercase tracking-wider">Hoy es {selectedDayName}</p>
+                        <p className="text-xs text-gray-400 mt-2 font-medium uppercase tracking-wider">{selectedDate === today ? 'Hoy es' : 'Es'} {selectedDayName}</p>
                     </div>
                     <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="block text-sm font-medium text-gray-300">Clase</label>
-                            <label className="flex items-center text-xs text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
+                        <div className="flex justify-between items-center mb-2 gap-3">
+                            <span id="attendance-class-label" className="block text-sm font-medium text-gray-300">Clase</span>
+                            <label className="flex items-center text-xs text-gray-400 cursor-pointer hover:text-gray-200 transition-colors py-1.5 sm:py-0">
                                 <input
                                     type="checkbox"
                                     checked={showAllClasses}
                                     onChange={(e) => setShowAllClasses(e.target.checked)}
-                                    className="mr-2 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                                    className="mr-2 h-5 w-5 sm:h-4 sm:w-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
                                 />
                                 Mostrar todas las de la semana
                             </label>
                         </div>
+                        {/* Móvil: botones táctiles con las clases del día (un toque en vez de abrir un desplegable). */}
+                        <div className="sm:hidden">
+                            {sortedClassesList.length > 0 ? (
+                                <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="attendance-class-label">
+                                    {sortedClassesList.map(c => (
+                                        <button
+                                            key={c.id}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={selectedClassId === c.id}
+                                            onClick={() => setSelectedClassId(c.id)}
+                                            className={`min-h-[52px] px-3 py-2 rounded-lg border text-left touch-manipulation transition-colors ${selectedClassId === c.id ? 'bg-purple-500/25 border-purple-400 text-white' : 'bg-gray-700/50 border-gray-600 text-gray-200'}`}
+                                        >
+                                            <span className="block text-xs text-gray-300">{showAllClasses ? `${c.days.join('/')} · ` : ''}{c.startTime}</span>
+                                            <span className="block text-sm font-semibold">{c.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-orange-400">No hay clases este día. Activa "Mostrar todas las de la semana" si la clase es de otro día.</p>
+                            )}
+                        </div>
                         <select
+                            aria-labelledby="attendance-class-label"
                             value={selectedClassId}
                             onChange={(e) => setSelectedClassId(e.target.value)}
-                            className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                            className="hidden sm:block w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         >
                             <option value="">-- {sortedClassesList.length > 0 ? 'Seleccionar Clase' : 'No hay clases este día'} --</option>
                             {sortedClassesList.map(c => (
@@ -473,7 +501,7 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                             ))}
                         </select>
                         {!showAllClasses && sortedClassesList.length === 0 && (
-                            <p className="text-xs text-orange-400 mt-2 italic">Pulsa "Mostrar todas" si la clase no es de hoy.</p>
+                            <p className="hidden sm:block text-xs text-orange-400 mt-2 italic">Pulsa "Mostrar todas" si la clase no es de hoy.</p>
                         )}
                     </div>
                 </div>
@@ -482,8 +510,8 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
             {selectedClassId ? (
                 <div className="space-y-6">
                     {/* STATS BAR */}
-                    <div className="flex flex-col sm:flex-row justify-between items-center bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                        <div className="flex items-center space-x-4 mb-4 sm:mb-0">
+                    <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-0 bg-gray-800/50 p-3 sm:p-4 rounded-lg border border-gray-700">
+                        <div className="flex items-center justify-around sm:justify-start sm:space-x-4">
                             <div className="text-center">
                                 <span className="block text-xs text-gray-400 uppercase">Inscritos</span>
                                 <span className="text-xl font-bold text-white">{totalEnrolled}</span>
@@ -500,11 +528,11 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                             </div>
                         </div>
 
-                        <div className="flex space-x-3">
-                            <button onClick={handleMarkAll} className="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors">
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:space-x-3 sm:gap-0">
+                            <button onClick={handleMarkAll} className="min-h-[44px] sm:min-h-0 px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors">
                                 Marcar Todos
                             </button>
-                            <button onClick={handleClearAll} className="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors">
+                            <button onClick={handleClearAll} className="min-h-[44px] sm:min-h-0 px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors">
                                 Desmarcar Todos
                             </button>
                         </div>
@@ -513,35 +541,39 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                     {/* STUDENTS LIST */}
                     <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
                         {enrolledStudents.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 p-3 sm:p-6">
                                 {enrolledStudents.map(student => {
                                     const isPresent = presentStudentIds.has(student.id);
                                     return (
-                                        <div
+                                        <button
+                                            type="button"
                                             key={student.id}
                                             onClick={() => handleToggleStudent(student.id)}
+                                            aria-pressed={isPresent}
                                             className={`
-                                                cursor-pointer rounded-lg p-4 flex items-center justify-between border-2 transition-all duration-200
+                                                w-full text-left min-h-[56px] cursor-pointer rounded-lg px-3 sm:px-4 py-2.5 flex items-center justify-between border-2 transition-all duration-200 touch-manipulation select-none outline-none focus-visible:ring-2 focus-visible:ring-purple-400
                                                 ${isPresent
                                                     ? 'bg-green-900/20 border-green-500/50 hover:bg-green-900/30'
                                                     : 'bg-gray-700/30 border-transparent hover:bg-gray-700/50 hover:border-gray-500'
                                                 }
                                             `}
                                         >
-                                            <div className="flex items-center space-x-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${isPresent ? 'bg-green-500 text-white' : 'bg-gray-600 text-gray-300'}`}>
+                                            <div className="flex items-center space-x-3 min-w-0">
+                                                <div className={`w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${isPresent ? 'bg-green-500 text-white' : 'bg-gray-600 text-gray-300'}`}>
                                                     {student.name.charAt(0)}
                                                 </div>
-                                                <span className={`font-medium ${isPresent ? 'text-white' : 'text-gray-400'}`}>
+                                                <span className={`font-medium truncate ${isPresent ? 'text-white' : 'text-gray-300'}`}>
                                                     {student.name}
                                                 </span>
                                             </div>
-                                            {isPresent && (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                            {isPresent ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 flex-shrink-0 text-green-400" viewBox="0 0 20 20" fill="currentColor" aria-label="Presente">
                                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                                 </svg>
+                                            ) : (
+                                                <span className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-gray-600" aria-hidden="true" />
                                             )}
-                                        </div>
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -553,17 +585,18 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                     </div>
 
                     {/* NOTES & SAVE */}
-                    <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Notas de la sesión (Opcional)</label>
+                    <div className="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-700">
+                        <label htmlFor="attendance-notes" className="block text-sm font-medium text-gray-300 mb-2">Notas de la sesión (Opcional)</label>
                         <textarea
+                            id="attendance-notes"
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             placeholder="Ej: Coreografía avanzada, faltó calentar bien, etc."
                             rows={3}
-                            className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
+                            className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent sm:mb-4"
                         ></textarea>
 
-                        <div className="flex items-center justify-end space-x-4">
+                        <div className="hidden sm:flex items-center justify-end space-x-4">
                             {showSuccess && (
                                 <span className="text-green-400 font-medium animate-pulse">
                                     ¡Asistencia guardada correctamente!
@@ -579,11 +612,29 @@ const Attendance: React.FC<AttendanceProps> = ({ students, classes, attendanceRe
                     </div>
                 </div>
             ) : (
-                <div className="bg-gray-800/50 border border-gray-700 border-dashed rounded-xl p-12 text-center">
+                <div className="bg-gray-800/50 border border-gray-700 border-dashed rounded-xl p-8 sm:p-12 text-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                     <p className="text-xl text-gray-400 font-medium">Selecciona una clase para comenzar a pasar lista.</p>
+                </div>
+            )}
+
+            {/* Móvil: barra fija con el recuento y el botón de guardar siempre a mano (antes quedaba al final de la página). */}
+            {selectedClassId && (
+                <div className="sm:hidden fixed inset-x-0 bottom-0 z-[15] bg-gray-900/95 backdrop-blur border-t border-gray-700 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center gap-3">
+                    <div className="min-w-0">
+                        <p className="text-sm font-bold text-white leading-tight">{totalPresent} de {totalEnrolled} presentes</p>
+                        {showSuccess
+                            ? <p className="text-xs text-green-400 font-medium">¡Asistencia guardada!</p>
+                            : <p className="text-xs text-gray-400 truncate">{classes.find(c => c.id === selectedClassId)?.name}</p>}
+                    </div>
+                    <button
+                        onClick={handleSave}
+                        className="ml-auto min-h-[48px] px-6 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold shadow-lg touch-manipulation active:scale-95 transition-transform"
+                    >
+                        Guardar
+                    </button>
                 </div>
             )}
         </div>

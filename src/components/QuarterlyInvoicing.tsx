@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Payment, Student, DanceClass, MerchandiseSale } from '../../types';
 import { formatCurrency } from '../utils/formatters';
+import PageHeader from './ui/PageHeader';
 
 interface QuarterlyInvoicingProps {
     payments: Payment[];
@@ -120,8 +121,8 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
 
     return (
         <div className="p-4 sm:p-8">
-            <h2 className="text-3xl font-bold mb-6">Facturación Trimestral</h2>
-            <div className="flex flex-col sm:flex-row gap-4 items-center mb-8 bg-gray-800 p-4 rounded-lg">
+            <PageHeader title="Facturación Trimestral" subtitle="Cobros no efectivos agrupados en las dos facturas del trimestre" />
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center mb-6 sm:mb-8 bg-gray-800 p-4 rounded-lg">
                 <div className="flex items-center gap-2">
                     <label htmlFor="year-select" className="text-gray-300 font-medium">Año:</label>
                     <select id="year-select" value={selectedYear} onChange={handleYearChange} className="bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500">
@@ -132,7 +133,7 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
                     <span className="text-gray-300 font-medium">Trimestre:</span>
                     <div className="flex rounded-md bg-gray-700 border border-gray-600">
                         {[1, 2, 3, 4].map(q => (
-                            <button key={q} onClick={() => handleQuarterChange(q)} className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${selectedQuarter === q ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
+                            <button key={q} onClick={() => handleQuarterChange(q)} aria-pressed={selectedQuarter === q} className={`px-4 py-2.5 sm:py-2 text-sm font-semibold rounded-md transition-colors ${selectedQuarter === q ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
                                 T{q}
                             </button>
                         ))}

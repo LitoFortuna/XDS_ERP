@@ -4,6 +4,7 @@ import { DanceEvent, DanceClass, Student } from '../../../../types';
 import { functions } from '../../../config/firebase';
 import { downloadIcsEvent, getNextOccurrence } from '../../../utils/icsExport';
 import { createClassAbsence, fetchAbsencesByStudent } from '../../../services/domain/classAbsenceService';
+import { useConfirm } from '../../ui/Feedback';
 
 interface EventsPageProps {
     student: Student;
@@ -13,6 +14,7 @@ interface EventsPageProps {
 }
 
 const EventsPage: React.FC<EventsPageProps> = ({ student, allEvents, allClasses, onEventJoined }) => {
+    const confirm = useConfirm();
     const studentEvents = useMemo(() => allEvents.filter(event =>
         (event.studentIds && event.studentIds.includes(student.id)) ||
         (event.participants && event.participants.some(p => p.studentId === student.id))
@@ -61,7 +63,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ student, allEvents, allClasses,
         if (notifiedAbsences.has(key)) return;
 
         const formattedDate = nextDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-        if (!window.confirm(`¿Avisar de que no podrás asistir a "${danceClass.name}" el ${formattedDate}?`)) return;
+        if (!await confirm({ title: 'Avisar de ausencia', message: `¿Avisar de que no podrás asistir a "${danceClass.name}" el ${formattedDate}?`, confirmLabel: 'Avisar' })) return;
 
         setIsNotifying(key);
         try {
@@ -339,14 +341,14 @@ const EventsPage: React.FC<EventsPageProps> = ({ student, allEvents, allClasses,
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => handleAddClassToCalendar(danceClass, day)}
-                                                        className="flex-1 text-xs bg-gray-700/60 hover:bg-gray-700 text-gray-300 py-1.5 rounded-md transition-colors"
+                                                        className="flex-1 text-xs bg-gray-700/60 hover:bg-gray-700 text-gray-300 py-2.5 sm:py-1.5 rounded-md transition-colors"
                                                     >
                                                         📅 Añadir a calendario
                                                     </button>
                                                     <button
                                                         onClick={() => handleNotifyAbsence(danceClass, day)}
                                                         disabled={alreadyNotified || isNotifying === key}
-                                                        className="flex-1 text-xs bg-orange-900/30 hover:bg-orange-900/50 text-orange-300 py-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="flex-1 text-xs bg-orange-900/30 hover:bg-orange-900/50 text-orange-300 py-2.5 sm:py-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         {alreadyNotified ? '✓ Ausencia avisada' : '🙋 No podré venir'}
                                                     </button>

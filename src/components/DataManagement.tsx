@@ -7,6 +7,7 @@ import { parseDateLocal } from '../utils/paymentStatus';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import PageHeader from './ui/PageHeader';
 
 interface DataManagementProps {
     students: Student[];
@@ -98,25 +99,26 @@ const ImporterSection: React.FC<{
     };
 
     return (
-        <div className="bg-gray-800 p-6 rounded-lg shadow-sm">
+        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm">
             <h3 className="text-xl font-semibold mb-4 text-white">{title}</h3>
             <p className="text-sm text-gray-400 mb-4">
                 Descarga la plantilla, rellena los datos y súbela para importar masivamente.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-                <button onClick={handleDownloadTemplate} className="w-full sm:w-auto bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <button onClick={handleDownloadTemplate} className="w-full sm:w-auto bg-gray-600 text-white px-4 py-2.5 sm:py-2 rounded-md hover:bg-gray-500">
                     Descargar Plantilla
                 </button>
                 <div className="flex-grow">
                     <input
                         id={'file-input-' + title}
+                        aria-label={`Archivo CSV para importar: ${title}`}
                         type="file"
                         accept=".csv"
                         onChange={handleFileChange}
                         className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700"
                     />
                 </div>
-                <button onClick={handleImport} disabled={!file || isLoading} className="w-full sm:w-auto bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                <button onClick={handleImport} disabled={!file || isLoading} className="w-full sm:w-auto bg-purple-600 text-white px-4 py-2.5 sm:py-2 rounded-md hover:bg-purple-700 disabled:bg-gray-500 disabled:cursor-not-allowed">
                     {isLoading ? 'Importando...' : 'Importar'}
                 </button>
             </div>
@@ -614,56 +616,66 @@ const DataManagement: React.FC<DataManagementProps> = ({
     };
 
     return (
-        <div className="p-4 sm:p-8 space-y-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h2 className="text-3xl font-bold">Gestión de Datos</h2>
-                <div className="flex flex-col sm:flex-row gap-3">
+        <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
+            <PageHeader
+                title="Gestión de Datos"
+                subtitle="Copias de seguridad, informe mensual e importación masiva"
+                className="!mb-0"
+                actions={
                     <button
                         onClick={async () => {
                             const studentPrivateDataMap = await fetchAllStudentPrivateData(students.map(s => s.id));
                             generateFullBackupZip({ students, instructors, classes, payments, costs, merchandiseItems, studentPrivateDataMap });
                         }}
-                        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all active:scale-95"
+                        className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all active:scale-95"
                         title="Descarga todos los datos en un archivo ZIP con archivos CSV compatibles con el importador"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 flex-shrink-0">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                         </svg>
                         Exportar Backup Completo (ZIP)
                     </button>
-                    <div className="flex items-center gap-2 bg-gray-800 p-2 rounded-xl">
-                        <select
-                            value={selectedReportMonth}
-                            onChange={(e) => setSelectedReportMonth(parseInt(e.target.value))}
-                            className="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm font-bold"
-                        >
-                            {monthNames.map((month, idx) => (
-                                <option key={idx} value={idx}>{month}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={selectedReportYear}
-                            onChange={(e) => setSelectedReportYear(parseInt(e.target.value))}
-                            className="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm font-bold"
-                        >
-                            {[2023, 2024, 2025, 2026, 2027].map(year => (
-                                <option key={year} value={year}>{year}</option>
-                            ))}
-                        </select>
-                        <button
-                            onClick={generateMonthlyFinancialReport}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-green-900/30 transition-all active:scale-95"
-                            title="Genera un reporte financiero en PDF para el mes seleccionado"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                            </svg>
-                            Generar Reporte PDF
-                        </button>
-                    </div>
+                }
+            />
+
+            <section aria-labelledby="monthly-report-title" className="bg-gray-800 p-4 sm:p-5 rounded-xl border border-gray-700/60">
+                <h3 id="monthly-report-title" className="text-lg font-semibold text-white mb-1">Informe financiero mensual</h3>
+                <p className="text-sm text-gray-400 mb-4">Genera un PDF con los ingresos, gastos y resultado del mes que elijas.</p>
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3">
+                    <select
+                        aria-label="Mes del informe"
+                        value={selectedReportMonth}
+                        onChange={(e) => setSelectedReportMonth(parseInt(e.target.value))}
+                        className="bg-gray-700 text-white px-3 py-2.5 rounded-lg text-sm font-bold"
+                    >
+                        {monthNames.map((month, idx) => (
+                            <option key={idx} value={idx}>{month}</option>
+                        ))}
+                    </select>
+                    <select
+                        aria-label="Año del informe"
+                        value={selectedReportYear}
+                        onChange={(e) => setSelectedReportYear(parseInt(e.target.value))}
+                        className="bg-gray-700 text-white px-3 py-2.5 rounded-lg text-sm font-bold"
+                    >
+                        {[2023, 2024, 2025, 2026, 2027].map(year => (
+                            <option key={year} value={year}>{year}</option>
+                        ))}
+                    </select>
+                    <button
+                        onClick={generateMonthlyFinancialReport}
+                        className="col-span-2 sm:col-auto flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-900/30 transition-all active:scale-95"
+                        title="Genera un reporte financiero en PDF para el mes seleccionado"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 flex-shrink-0">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                        Generar Reporte PDF
+                    </button>
                 </div>
-            </div>
-            <div className="space-y-6">
+            </section>
+
+            <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4 sm:gap-6">
                 <ImporterSection title="Alumnos" templateHeaders={studentHeaders} onImport={handleStudentImport} />
                 <ImporterSection title="Profesores" templateHeaders={instructorHeaders} onImport={handleInstructorImport} />
                 <ImporterSection title="Clases" templateHeaders={classHeaders} onImport={handleClassImport} />

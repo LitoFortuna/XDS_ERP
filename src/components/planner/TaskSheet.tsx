@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PlannerTaskCategory, PlannerTaskPriority } from '../../../types';
 import { CATEGORIES, PRIORITY_LABEL, PRIORITY_DOT, addDaysIso } from '../../utils/plannerUtils';
+import { useEscapeToClose } from '../Modal';
 
 export interface TaskDraft {
     id?: string;
@@ -56,11 +57,7 @@ const OpenSheet: React.FC<Omit<TaskSheetProps, 'draft'> & { draft: TaskDraft }> 
         return () => cancelAnimationFrame(id);
     }, []);
 
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onClose]);
+    useEscapeToClose(onClose);
 
     const today = new Date();
     const quickDates = [

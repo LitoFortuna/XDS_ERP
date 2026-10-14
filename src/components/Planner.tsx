@@ -3,6 +3,7 @@ import { PlannerTask, DanceEvent, View } from '../../types';
 import { useAppStore } from '../store/useAppStore';
 import { usePlannerTasks } from '../hooks/queries/usePlannerTasks';
 import TaskSheet, { TaskDraft, emptyDraft } from './planner/TaskSheet';
+import { useConfirm } from './ui/Feedback';
 import {
     toIsoLocal, addDaysIso, compareTasks, dayLoadTint,
     PRIORITY_DOT, PRIORITY_BAR, PRIORITY_BORDER, PRIORITY_TEXT, PRIORITY_LABEL,
@@ -23,6 +24,7 @@ const toggleBase = "block whitespace-nowrap text-xs font-semibold px-3 py-2.5 sm
 type MobileView = 'month' | 'agenda';
 
 const Planner: React.FC = () => {
+    const confirm = useConfirm();
     const { tasks, isLoading, error, addTask, updateTask, deleteTask } = usePlannerTasks();
     const events = useAppStore(state => state.events);
     const setCurrentView = useAppStore(state => state.setCurrentView);
@@ -196,7 +198,7 @@ const Planner: React.FC = () => {
     };
 
     const handleDelete = async (task: PlannerTask): Promise<boolean> => {
-        if (!window.confirm(`¿Eliminar la tarea "${task.title}"? Esta acción no se puede deshacer.`)) return false;
+        if (!await confirm({ title: 'Eliminar tarea', message: `¿Eliminar la tarea "${task.title}"? Esta acción no se puede deshacer.`, confirmLabel: 'Eliminar', destructive: true })) return false;
         try {
             await deleteTask(task.id);
             return true;
@@ -544,7 +546,7 @@ const Planner: React.FC = () => {
             <button
                 onClick={() => openNew(mobileView === 'agenda' ? todayIso : selectedDate)}
                 aria-label="Nueva tarea"
-                className="sm:hidden fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-4 z-20 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xl shadow-purple-900/50 flex items-center justify-center touch-manipulation active:scale-95 motion-reduce:active:scale-100 transition-transform"
+                className="sm:hidden fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-4 z-[15] w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xl shadow-purple-900/50 flex items-center justify-center touch-manipulation active:scale-95 motion-reduce:active:scale-100 transition-transform"
             >
                 <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
             </button>

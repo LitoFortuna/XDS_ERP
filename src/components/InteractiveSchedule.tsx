@@ -1,10 +1,33 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { DanceClass, Instructor, Student, DayOfWeek } from '../../types';
 import Modal from './Modal';
 import { ClassForm } from './ClassSchedule';
+import PageHeader from './ui/PageHeader';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+
+const DAY_SHORT: Record<string, string> = { Lunes: 'Lun', Martes: 'Mar', Miércoles: 'Mié', Jueves: 'Jue', Viernes: 'Vie', Sábado: 'Sáb' };
+const CATEGORY_BAR: Record<string, string> = {
+    'Fitness': 'border-emerald-400',
+    'Baile Moderno': 'border-purple-400',
+    'Competición': 'border-rose-400',
+    'Especializada': 'border-blue-400',
+};
+
+// ¿Pantalla de móvil? (misma frontera que el `md` de Tailwind). Se usa para elegir la vista:
+// la cuadrícula semanal de 1000 px obliga a deslizar de lado y solo deja ver dos días a la vez.
+const useIsMobile = () => {
+    const query = '(max-width: 767px)';
+    const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+    useEffect(() => {
+        const mql = window.matchMedia(query);
+        const onChange = () => setIsMobile(mql.matches);
+        mql.addEventListener('change', onChange);
+        return () => mql.removeEventListener('change', onChange);
+    }, []);
+    return isMobile;
+};
 
 interface InteractiveScheduleProps {
   classes: DanceClass[];
@@ -17,6 +40,13 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingClass, setEditingClass] = useState<DanceClass | undefined>(undefined);
     const scheduleRef = useRef<HTMLDivElement>(null);
+    const isMobile = useIsMobile();
+    // En móvil se puede elegir entre la lista por día (por defecto) y la cuadrícula completa; el
+    // PDF solo existe en la cuadrícula porque es lo que se captura.
+    const [mobileView, setMobileView] = useState<'list' | 'grid'>('list');
+    const showGrid = !isMobile || mobileView === 'grid';
+    const todayName = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][new Date().getDay()];
+    const [selectedDay, setSelectedDay] = useState<DayOfWeek>((todayName === 'Domingo' ? 'Lunes' : todayName) as DayOfWeek);
 
     const handleOpenModal = (danceClass: DanceClass) => {
         setEditingClass(danceClass);
@@ -118,26 +148,108 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
 
     return (
         <div className="p-2 sm:p-6 flex flex-col min-h-full">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 px-2">
-                <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">Horario Semanal</h2>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                    <div className="hidden xl:flex gap-3 text-[9px] font-black uppercase tracking-tighter">
-                        <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-emerald-500 mr-1.5"></span>Fitness</span>
-                        <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-purple-500 mr-1.5"></span>Moderno</span>
-                        <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-rose-500 mr-1.5"></span>Compe</span>
-                        <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-blue-500 mr-1.5"></span>Especial</span>
+            <PageHeader
+                className="px-2 !mb-4"
+                title="Horario Semanal"
+                actions={
+                    <>
+                        <div className="hidden xl:flex gap-3 text-[9px] font-black uppercase tracking-tighter">
+                            <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-emerald-500 mr-1.5"></span>Fitness</span>
+                            <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-purple-500 mr-1.5"></span>Moderno</span>
+                            <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-rose-500 mr-1.5"></span>Compe</span>
+                            <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-blue-500 mr-1.5"></span>Especial</span>
+                        </div>
+
+                        {isMobile && (
+                            <div role="tablist" aria-label="Vista del horario" className="inline-flex p-0.5 rounded-full bg-gray-800 border border-gray-700 justify-self-start">
+                                {(['list', 'grid'] as const).map(v => (
+                                    <button
+                                        key={v}
+                                        role="tab"
+                                        aria-selected={mobileView === v}
+                                        onClick={() => setMobileView(v)}
+                                        className={`px-4 py-2 rounded-full text-xs font-bold ${mobileView === v ? 'bg-purple-600 text-white' : 'text-gray-400'}`}
+                                    >
+                                        {v === 'list' ? 'Por día' : 'Semana'}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {showGrid && (
+                            <button onClick={exportToPDF} className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2.5 md:py-2 rounded-lg flex items-center justify-center transition-all border border-gray-700 font-bold text-xs uppercase tracking-widest">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                PDF
+                            </button>
+                        )}
+                    </>
+                }
+            />
+
+            {/* Móvil (vista "Por día"): selector de día y lista de clases ordenadas por hora. */}
+            {isMobile && mobileView === 'list' && (
+                <div className="px-2">
+                    <div role="tablist" aria-label="Día de la semana" className="grid grid-cols-6 gap-1 mb-4">
+                        {daysOfWeek.map(day => {
+                            const count = classes.filter(c => c.days.includes(day)).length;
+                            const isSelected = selectedDay === day;
+                            return (
+                                <button
+                                    key={day}
+                                    role="tab"
+                                    aria-selected={isSelected}
+                                    onClick={() => setSelectedDay(day)}
+                                    className={`min-h-[52px] rounded-lg border flex flex-col items-center justify-center ${isSelected ? 'bg-purple-600 border-purple-400 text-white' : 'bg-gray-800 border-gray-700 text-gray-300'}`}
+                                >
+                                    <span className="text-sm font-bold">{DAY_SHORT[day]}</span>
+                                    <span className={`text-[11px] ${isSelected ? 'text-purple-100' : 'text-gray-500'}`}>{count} {count === 1 ? 'clase' : 'clases'}</span>
+                                </button>
+                            );
+                        })}
                     </div>
-
-                    <button onClick={exportToPDF} className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center transition-all border border-gray-700 font-bold text-xs uppercase tracking-widest">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                        PDF
-                    </button>
+                    <div className="space-y-2">
+                        {classes
+                            .filter(c => c.days.includes(selectedDay))
+                            .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime))
+                            .map(c => {
+                                const enrolledCount = students.filter(s => s.enrolledClassIds.includes(c.id)).length;
+                                const instructorName = instructors.find(i => i.id === c.instructorId)?.name;
+                                const isFull = c.capacity > 0 && enrolledCount >= c.capacity;
+                                return (
+                                    <button
+                                        key={c.id}
+                                        onClick={() => handleOpenModal(c)}
+                                        className={`w-full text-left bg-gray-800 ring-1 ring-inset ring-gray-700 border-l-4 ${CATEGORY_BAR[c.category] || 'border-gray-400'} rounded-xl p-3 flex items-center gap-3 min-h-[68px]`}
+                                    >
+                                        <div className="w-14 flex-shrink-0 text-center">
+                                            <p className="text-base font-bold text-white leading-none">{c.startTime}</p>
+                                            <p className="text-[11px] text-gray-400 mt-1">{c.endTime}</p>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-semibold text-white truncate">{c.name}</p>
+                                            <p className="text-xs text-gray-400 truncate">{instructorName ? `${instructorName} · ` : ''}{c.category}</p>
+                                        </div>
+                                        <span className={`flex-shrink-0 text-sm font-semibold ${isFull ? 'text-amber-300' : 'text-gray-200'}`}>
+                                            {enrolledCount}/{c.capacity}
+                                            {isFull && <span className="block text-[10px] font-bold uppercase">Completa</span>}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        {classes.filter(c => c.days.includes(selectedDay)).length === 0 && (
+                            <p className="text-center text-sm text-gray-400 py-10 border border-dashed border-gray-700 rounded-xl">No hay clases los {selectedDay.toLowerCase()}.</p>
+                        )}
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-5 text-[11px] font-semibold text-gray-400">
+                        <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-emerald-500 mr-1.5"></span>Fitness</span>
+                        <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-purple-500 mr-1.5"></span>Baile moderno</span>
+                        <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-rose-500 mr-1.5"></span>Competición</span>
+                        <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-blue-500 mr-1.5"></span>Especializada</span>
+                    </div>
                 </div>
-            </div>
+            )}
 
+            {showGrid && (
             <div ref={scheduleRef} className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl overflow-visible">
                 <div className="overflow-x-auto custom-scrollbar">
                     <div style={{ 
@@ -225,7 +337,8 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                     </div>
                 </div>
             </div>
-            
+            )}
+
              <Modal isOpen={isModalOpen} onClose={handleCloseModal} title="Editar Clase">
                 {editingClass && (
                 <ClassForm

@@ -253,7 +253,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     </div>
                     <button
                         onClick={onLogout}
-                        className="text-gray-400 hover:text-white transition-colors text-sm"
+                        className="text-gray-400 hover:text-white transition-colors text-sm px-3 py-2.5 -mr-3 rounded-lg"
                     >
                         Cerrar Sesión
                     </button>

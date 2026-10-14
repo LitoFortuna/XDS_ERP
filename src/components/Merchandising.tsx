@@ -2,6 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { MerchandiseItem, MerchandiseSale, Student, PaymentMethod } from '../../types';
 import Modal from './Modal';
+import PageHeader from './ui/PageHeader';
+import { useConfirm } from './ui/Feedback';
 
 interface MerchandisingProps {
     items: MerchandiseItem[];
@@ -177,6 +179,7 @@ const SaleForm: React.FC<{
 
 // --- COMPONENTE PRINCIPAL ---
 const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, addItem, updateItem, deleteItem, addSale, deleteSale }) => {
+    const confirm = useConfirm();
     const [activeTab, setActiveTab] = useState<'inventory' | 'sales'>('inventory');
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
@@ -313,8 +316,8 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
         }
         handleCloseItemModal();
     };
-    const handleDeleteItem = (item: MerchandiseItem) => {
-        if (window.confirm(`¿Seguro que quieres eliminar "${item.name}"? Esta acción no se puede deshacer.`)) {
+    const handleDeleteItem = async (item: MerchandiseItem) => {
+        if (await confirm({ title: 'Eliminar artículo', message: `¿Seguro que quieres eliminar "${item.name}"? Esta acción no se puede deshacer.`, confirmLabel: 'Eliminar', destructive: true })) {
             deleteItem(item.id);
         }
     };
@@ -335,45 +338,48 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
         addSale(saleData);
         handleCloseSaleModal();
     };
-    const handleDeleteSale = (sale: MerchandiseSale) => {
-        if (window.confirm(`¿Seguro que quieres eliminar esta venta y reponer el stock?`)) {
+    const handleDeleteSale = async (sale: MerchandiseSale) => {
+        if (await confirm({ title: 'Eliminar venta', message: '¿Seguro que quieres eliminar esta venta y reponer el stock?', confirmLabel: 'Eliminar', destructive: true })) {
             deleteSale(sale);
         }
     };
 
     return (
         <div className="p-4 sm:p-8">
-            <h2 className="text-3xl font-bold mb-6">Merchandising</h2>
+            <PageHeader
+                title="Merchandising"
+                subtitle={activeTab === 'inventory' ? 'Inventario de artículos y su stock' : 'Registro de ventas'}
+                actions={activeTab === 'inventory' ? (
+                    <button onClick={() => handleOpenItemModal()} className="bg-purple-600 text-white px-4 py-2.5 md:py-2 rounded-md hover:bg-purple-700 shadow-md font-semibold">Añadir Artículo</button>
+                ) : undefined}
+            />
 
             <div className="border-b border-gray-700 mb-6">
-                <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                    <button onClick={() => setActiveTab('inventory')} className={`${activeTab === 'inventory' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Inventario</button>
-                    <button onClick={() => setActiveTab('sales')} className={`${activeTab === 'sales' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Registro de Ventas</button>
+                <nav className="-mb-px flex space-x-6" role="tablist" aria-label="Inventario o ventas">
+                    <button role="tab" aria-selected={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} className={`${activeTab === 'inventory' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Inventario</button>
+                    <button role="tab" aria-selected={activeTab === 'sales'} onClick={() => setActiveTab('sales')} className={`${activeTab === 'sales' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Registro de Ventas</button>
                 </nav>
             </div>
 
             {activeTab === 'inventory' && (
                 <div>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                        <h3 className="text-2xl font-bold">Inventario de Artículos</h3>
-                        <button onClick={() => handleOpenItemModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 w-full sm:w-auto">Añadir Artículo</button>
-                    </div>
-
                     {/* FILTROS */}
-                    <div className="bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700/50 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-gray-800 p-3 sm:p-4 rounded-lg shadow-sm border border-gray-700/50 mb-5 sm:mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
+                            <label htmlFor="merch-search" className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
                             <input
-                                type="text"
+                                id="merch-search"
+                                type="search"
                                 placeholder="Buscar por nombre..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2.5 sm:py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Categoría</label>
+                            <label htmlFor="merch-category" className="block text-xs font-medium text-gray-400 mb-1">Categoría</label>
                             <select
+                                id="merch-category"
                                 value={categoryFilter}
                                 onChange={(e) => setCategoryFilter(e.target.value)}
                                 className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
@@ -386,7 +392,35 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
                         </div>
                     </div>
 
-                    <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
+                    {/* Móvil: tarjetas en lugar de la tabla. */}
+                    <div className="md:hidden space-y-3">
+                        {sortedAndFilteredItems.map(item => (
+                            <div key={item.id} className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-white">{item.name}{item.size ? ` (${item.size})` : ''}</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">{item.category}</p>
+                                    </div>
+                                    <span className={`flex-shrink-0 px-2 py-1 rounded-full text-xs font-bold ${item.stock === 0 ? 'bg-red-500/15 text-red-300' : item.stock <= 5 ? 'bg-amber-500/15 text-amber-300' : 'bg-green-500/15 text-green-300'}`}>
+                                        {item.stock === 0 ? 'Sin stock' : `${item.stock} en stock`}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-gray-400 mt-2">
+                                    Venta <span className="text-white font-semibold">€{item.salePrice.toFixed(2)}</span> · compra €{item.purchasePrice.toFixed(2)}
+                                </p>
+                                <div className="grid grid-cols-3 gap-2 mt-3">
+                                    <button onClick={() => handleOpenSaleModal(item)} className="min-h-[44px] rounded-lg bg-green-500/10 border border-green-500/30 text-green-300 text-sm font-semibold">Vender</button>
+                                    <button onClick={() => handleOpenItemModal(item)} className="min-h-[44px] rounded-lg bg-purple-500/15 border border-purple-400/30 text-purple-200 text-sm font-semibold">Editar</button>
+                                    <button onClick={() => handleDeleteItem(item)} className="min-h-[44px] rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold">Eliminar</button>
+                                </div>
+                            </div>
+                        ))}
+                        {sortedAndFilteredItems.length === 0 && (
+                            <p className="text-center text-sm text-gray-400 py-8 border border-dashed border-gray-700 rounded-xl">No se encontraron artículos con los filtros seleccionados.</p>
+                        )}
+                    </div>
+
+                    <div className="hidden md:block bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700">
                                 <tr>
@@ -407,11 +441,12 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
                                         <td className="px-6 py-4">€{item.salePrice.toFixed(2)}</td>
                                         <td className="px-6 py-4">
                                             <span className={`font-bold ${item.stock <= 5 ? 'text-red-400' : 'text-green-400'}`}>{item.stock}</span>
+                                            {item.stock === 0 && <span className="ml-2 text-xs text-red-300">Sin stock</span>}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <button onClick={() => handleOpenSaleModal(item)} className="font-medium text-green-400 hover:text-green-300 hover:underline">Vender</button>
-                                            <button onClick={() => handleOpenItemModal(item)} className="ml-4 font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
-                                            <button onClick={() => handleDeleteItem(item)} className="ml-4 font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
+                                        <td className="px-3 py-2 whitespace-nowrap">
+                                            <button onClick={() => handleOpenSaleModal(item)} className="px-2 py-1.5 rounded font-medium text-green-400 hover:text-green-300 hover:bg-green-500/10">Vender</button>
+                                            <button onClick={() => handleOpenItemModal(item)} className="ml-1 px-2 py-1.5 rounded font-medium text-purple-400 hover:text-purple-200 hover:bg-purple-500/10">Editar</button>
+                                            <button onClick={() => handleDeleteItem(item)} className="ml-1 px-2 py-1.5 rounded font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10">Eliminar</button>
                                         </td>
                                     </tr>
                                 ))}
@@ -428,23 +463,44 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
 
             {activeTab === 'sales' && (
                 <div>
-                    <h3 className="text-2xl font-bold mb-6">Registro de Ventas</h3>
-
                     {/* FILTROS VENTAS */}
-                    <div className="bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700/50 mb-6 max-w-md">
+                    <div className="bg-gray-800 p-3 sm:p-4 rounded-lg shadow-sm border border-gray-700/50 mb-5 sm:mb-6 max-w-md">
                         <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
+                            <label htmlFor="merch-sales-search" className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
                             <input
-                                type="text"
+                                id="merch-sales-search"
+                                type="search"
                                 placeholder="Buscar por artículo o comprador..."
                                 value={salesSearchQuery}
                                 onChange={(e) => setSalesSearchQuery(e.target.value)}
-                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                className="w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2.5 sm:py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
                             />
                         </div>
                     </div>
 
-                    <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
+                    {/* Móvil: tarjetas en lugar de la tabla. */}
+                    <div className="md:hidden space-y-3">
+                        {sortedAndFilteredSales.map(sale => (
+                            <div key={sale.id} className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-white">{sale.itemName}{sale.quantity > 1 ? ` × ${sale.quantity}` : ''}</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            {new Date(sale.saleDate).toLocaleDateString('es-ES')} · {sale.studentId ? studentMap.get(sale.studentId) : 'Anónimo'}
+                                        </p>
+                                    </div>
+                                    <p className="flex-shrink-0 font-bold text-green-300">€{sale.totalAmount.toFixed(2)}</p>
+                                </div>
+                                {sale.notes && <p className="text-sm text-gray-400 mt-2">{sale.notes}</p>}
+                                <button onClick={() => handleDeleteSale(sale)} className="mt-3 w-full min-h-[44px] rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold">Eliminar venta</button>
+                            </div>
+                        ))}
+                        {sortedAndFilteredSales.length === 0 && (
+                            <p className="text-center text-sm text-gray-400 py-8 border border-dashed border-gray-700 rounded-xl">No se encontraron ventas con los filtros seleccionados.</p>
+                        )}
+                    </div>
+
+                    <div className="hidden md:block bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700">
                                 <tr>
@@ -466,8 +522,8 @@ const Merchandising: React.FC<MerchandisingProps> = ({ items, sales, students, a
                                         <td className="px-6 py-4 font-bold text-green-300">€{sale.totalAmount.toFixed(2)}</td>
                                         <td className="px-6 py-4">{sale.studentId ? studentMap.get(sale.studentId) : 'Anónimo'}</td>
                                         <td className="px-6 py-4 max-w-xs truncate" title={sale.notes}>{sale.notes || '-'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <button onClick={() => handleDeleteSale(sale)} className="font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
+                                        <td className="px-3 py-2 whitespace-nowrap">
+                                            <button onClick={() => handleDeleteSale(sale)} className="px-2 py-1.5 rounded font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10">Eliminar</button>
                                         </td>
                                     </tr>
                                 ))}

@@ -353,8 +353,8 @@ const App: React.FC = () => {
                 onClose={() => setBirthdayModalOpen(false)}
                 title="🎉 ¡Cumpleaños de Hoy! 🎂"
             >
-                <div className="text-center p-4">
-                    <p className="mb-6 text-lg text-gray-300">
+                <div className="text-center sm:p-4">
+                    <p className="mb-6 text-base sm:text-lg text-gray-300">
                         Hoy es un día especial para {birthdaysToday.length} {birthdaysToday.length === 1 ? 'alumna' : 'alumnas'}.
                         <br />¡No olvides felicitarlas!
                     </p>
@@ -363,15 +363,15 @@ const App: React.FC = () => {
                             {birthdaysToday.map(s => {
                                 const age = s.birthDate ? new Date().getFullYear() - new Date(s.birthDate).getFullYear() : '?';
                                 return (
-                                    <li key={s.id} className="flex items-center justify-between text-white p-2 rounded hover:bg-white/5 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold">
+                                    <li key={s.id} className="flex items-center justify-between gap-3 text-white p-2 rounded hover:bg-white/5 transition-colors">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-8 h-8 flex-shrink-0 rounded-full bg-gradient-to-tr from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold">
                                                 {s.name.charAt(0)}
                                             </div>
-                                            <span className="font-semibold text-lg">{s.name}</span>
+                                            <span className="font-semibold text-base sm:text-lg text-left break-words">{s.name}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-purple-300 font-mono bg-purple-500/10 px-2 py-1 rounded">{age} años</span>
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <span className="text-purple-300 font-mono bg-purple-500/10 px-2 py-1 rounded whitespace-nowrap">{age} años</span>
                                         </div>
                                     </li>
                                 );

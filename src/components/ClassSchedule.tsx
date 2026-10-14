@@ -2,6 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory, Cost } from '../../types';
 import Modal from './Modal';
+import PageHeader from './ui/PageHeader';
+import { useConfirm } from './ui/Feedback';
 
 interface ClassScheduleProps {
   classes: DanceClass[];
@@ -156,6 +158,7 @@ export const ClassForm: React.FC<{
 
 
 const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, students, costs, addClass, updateClass, deleteClass }) => {
+  const confirm = useConfirm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<DanceClass | undefined>(undefined);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
@@ -353,7 +356,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
     handleCloseModal();
   };
 
-  const handleDelete = (classId: string) => {
+  const handleDelete = async (classId: string) => {
     const danceClass = classes.find(c => c.id === classId);
     if (!danceClass) return;
 
@@ -364,7 +367,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
       confirmationMessage += `\n\nADVERTENCIA: Hay ${enrolledCount} alumno(s) inscrito(s) en esta clase. Se desinscribirán automáticamente.`;
     }
 
-    if (window.confirm(confirmationMessage)) {
+    if (await confirm({ title: 'Eliminar clase', message: confirmationMessage, confirmLabel: 'Eliminar', destructive: true })) {
       deleteClass(classId);
     }
   };
@@ -451,8 +454,8 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
     downloadCSV(csvContent, 'clases.csv');
   };
 
-  const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode; }> = ({ sortKey, children }) => (
-    <th scope="col" className="px-6 py-3 cursor-pointer hover:bg-gray-600" onClick={() => requestSort(sortKey)}>
+  const SortableHeader: React.FC<{ sortKey: SortKey; children: React.ReactNode; className?: string; }> = ({ sortKey, children, className = '' }) => (
+    <th scope="col" className={`px-3 2xl:px-4 py-3 cursor-pointer hover:bg-gray-600 ${className}`} onClick={() => requestSort(sortKey)}>
       {children} {getSortIndicator(sortKey)}
     </th>
   );
@@ -464,59 +467,55 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Horario de Clases</h2>
-        <div className="flex items-center gap-4">
-          {/* Month/Year Selector */}
-          <div className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg border border-gray-700">
-            <label className="text-xs text-gray-400 font-semibold uppercase">Mes:</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-              className="bg-gray-700 text-white rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 border-0"
-            >
-              {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((month, idx) => (
-                <option key={idx} value={idx}>{month}</option>
-              ))}
-            </select>
-            <input
-              type="number"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="bg-gray-700 text-white rounded px-2 py-1 w-20 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 border-0"
-            />
-          </div>
-          <button onClick={() => setShowCostModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center mr-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-            Desglose Costes
-          </button>
-          <button onClick={handleExportCSV} className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-500 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            Exportar a CSV
-          </button>
-          <button onClick={() => handleOpenModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Clase</button>
-        </div>
-      </div>
+      <PageHeader
+        title="Horario de Clases"
+        subtitle="Ocupación y rentabilidad por clase"
+        actions={
+          <>
+            {/* Month/Year Selector */}
+            <div className="col-span-2 flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg border border-gray-700">
+              <label htmlFor="class-month" className="text-xs text-gray-400 font-semibold uppercase">Mes:</label>
+              <select
+                id="class-month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                className="flex-1 min-w-0 bg-gray-700 text-white rounded px-2 py-1.5 md:py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 border-0"
+              >
+                {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((month, idx) => (
+                  <option key={idx} value={idx}>{month}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                aria-label="Año"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="bg-gray-700 text-white rounded px-2 py-1.5 md:py-1 w-20 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 border-0"
+              />
+            </div>
+            <button onClick={() => handleOpenModal()} className="order-first col-span-2 md:order-last md:col-auto bg-purple-600 text-white px-4 py-2.5 md:py-2 rounded-md hover:bg-purple-700 shadow-md font-semibold">Añadir Clase</button>
+            <button onClick={() => setShowCostModal(true)} className="bg-blue-600 text-white px-3 md:px-4 py-2.5 md:py-2 rounded-md hover:bg-blue-700 flex items-center justify-center text-sm md:text-base">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Desglose Costes
+            </button>
+            <button onClick={handleExportCSV} className="bg-gray-600 text-white px-3 md:px-4 py-2.5 md:py-2 rounded-md hover:bg-gray-500 flex items-center justify-center text-sm md:text-base">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              Exportar CSV
+            </button>
+          </>
+        }
+      />
 
       {/* Cost Breakdown Modal */}
-      {showCostModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">Desglose de Costes de Profesores</h2>
-              <button onClick={() => setShowCostModal(false)} className="text-gray-400 hover:text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mb-6 flex items-center space-x-4">
+      <Modal isOpen={showCostModal} onClose={() => setShowCostModal(false)} title="Desglose de Costes de Profesores" size="xl">
+          <div>
+            <div className="mb-6 flex flex-wrap items-end gap-4">
               <div>
-                <label className="block text-gray-400 text-sm font-bold mb-2">Mes</label>
+                <label htmlFor="cost-breakdown-month" className="block text-gray-400 text-sm font-bold mb-2">Mes</label>
                 <select
+                  id="cost-breakdown-month"
                   value={selectedCostDate.getMonth()}
                   onChange={(e) => {
                     const newDate = new Date(selectedCostDate);
@@ -531,8 +530,9 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
                 </select>
               </div>
               <div>
-                <label className="block text-gray-400 text-sm font-bold mb-2">Año</label>
+                <label htmlFor="cost-breakdown-year" className="block text-gray-400 text-sm font-bold mb-2">Año</label>
                 <input
+                  id="cost-breakdown-year"
                   type="number"
                   value={selectedCostDate.getFullYear()}
                   onChange={(e) => {
@@ -549,10 +549,10 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
               <table className="w-full text-sm text-left text-gray-400">
                 <thead className="text-xs text-gray-300 uppercase bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3">Profesor</th>
-                    <th className="px-6 py-3">Total Pagado ({selectedCostDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })})</th>
-                    <th className="px-6 py-3">Nº Clases Actuales</th>
-                    <th className="px-6 py-3">Coste / Clase</th>
+                    <th className="px-3 sm:px-6 py-3">Profesor</th>
+                    <th className="px-3 sm:px-6 py-3">Total Pagado ({selectedCostDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })})</th>
+                    <th className="px-3 sm:px-6 py-3">Nº Clases Actuales</th>
+                    <th className="px-3 sm:px-6 py-3">Coste / Clase</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -576,10 +576,10 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
 
                     return (
                       <tr key={instructor.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700">
-                        <td className="px-6 py-4 font-medium text-white">{instructor.name}</td>
-                        <td className="px-6 py-4 text-green-400">€{totalPayments.toFixed(2)}</td>
-                        <td className="px-6 py-4">{classCount}</td>
-                        <td className="px-6 py-4 font-bold text-white">€{costPerClass.toFixed(2)}</td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-white">{instructor.name}</td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-green-400">€{totalPayments.toFixed(2)}</td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">{classCount}</td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 font-bold text-white">€{costPerClass.toFixed(2)}</td>
                       </tr>
                     );
                   })}
@@ -590,44 +590,86 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
               </p>
             </div>
           </div>
-        </div>
-      )}
-      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
+      </Modal>
+      {/* Móvil: tarjetas (la tabla dejaba fuera de pantalla horarios, profesor y rentabilidad). */}
+      <div className="md:hidden space-y-3">
+        {sortedClasses.map(c => {
+          const revenue = calculateAveragePrice(c.id) * getActiveStudentsForMonth(c.id).length;
+          const cost = calculateInstructorCostPerClass(c.instructorId);
+          const profit = revenue - cost;
+          return (
+            <div key={c.id} className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white">{c.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{c.category}</p>
+                </div>
+                <div className="flex-shrink-0 text-sm"><OccupancyStatus danceClass={c} /></div>
+              </div>
+              <p className="text-sm text-gray-200 mt-2">{c.days.join(' · ')} <span className="text-gray-400">· {c.startTime}</span></p>
+              <p className="text-sm text-gray-400">{getInstructorName(c.instructorId)}</p>
+              <dl className="grid grid-cols-3 gap-2 mt-3 text-center">
+                <div className="bg-gray-900/40 rounded-lg py-2">
+                  <dt className="text-[11px] uppercase tracking-wide text-gray-400">Ingresos</dt>
+                  <dd className="text-sm font-semibold text-green-300">€{revenue.toFixed(0)}</dd>
+                </div>
+                <div className="bg-gray-900/40 rounded-lg py-2">
+                  <dt className="text-[11px] uppercase tracking-wide text-gray-400">Coste</dt>
+                  <dd className="text-sm font-semibold text-red-300">€{cost.toFixed(0)}</dd>
+                </div>
+                <div className="bg-gray-900/40 rounded-lg py-2">
+                  <dt className="text-[11px] uppercase tracking-wide text-gray-400">Rentab.</dt>
+                  <dd className={`text-sm font-bold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>€{profit.toFixed(0)}</dd>
+                </div>
+              </dl>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <button onClick={() => handleOpenModal(c)} className="min-h-[44px] rounded-lg bg-purple-500/15 border border-purple-400/30 text-purple-200 text-sm font-semibold">Editar</button>
+                <button onClick={() => handleDelete(c.id)} className="min-h-[44px] rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold">Eliminar</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden md:block bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs text-gray-300 uppercase bg-gray-700">
             <tr>
               <SortableHeader sortKey="name">Nombre de la clase</SortableHeader>
-              <SortableHeader sortKey="category">Categoría</SortableHeader>
-              <th scope="col" className="px-6 py-3">Día(s)</th>
+              <SortableHeader sortKey="category" className="hidden 2xl:table-cell">Categoría</SortableHeader>
+              <th scope="col" className="px-4 py-3">Día(s)</th>
               <SortableHeader sortKey="startTime">Hora inicio</SortableHeader>
               <SortableHeader sortKey="instructorName">Profesor</SortableHeader>
               <SortableHeader sortKey="occupancy">Ocupación</SortableHeader>
-              <SortableHeader sortKey="avgPrice">Precio medio por alumna</SortableHeader>
+              <SortableHeader sortKey="avgPrice" className="hidden 2xl:table-cell">Precio medio por alumna</SortableHeader>
               <SortableHeader sortKey="revenue">Ingresos Totales</SortableHeader>
               <SortableHeader sortKey="cost">Coste Profesor</SortableHeader>
               <SortableHeader sortKey="profitability">Rentabilidad</SortableHeader>
-              <th scope="col" className="px-6 py-3">Acciones</th>
+              <th scope="col" className="px-3 2xl:px-4 py-3 sticky right-0 bg-gray-700 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)]">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {sortedClasses.map(c => (
-              <tr key={c.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
-                <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{c.name}</td>
-                <td className="px-6 py-4">{c.category}</td>
-                <td className="px-6 py-4">{c.days.join(', ')}</td>
-                <td className="px-6 py-4">{c.startTime}</td>
-                <td className="px-6 py-4">{getInstructorName(c.instructorId)}</td>
-                <td className="px-6 py-4">
+              <tr key={c.id} className="group bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50">
+                <td className="px-3 2xl:px-4 py-3 2xl:py-4 font-medium text-white whitespace-nowrap">
+                  {c.name}
+                  <span className="block text-xs font-normal text-gray-400 2xl:hidden">{c.category}</span>
+                </td>
+                <td className="hidden 2xl:table-cell px-3 2xl:px-4 py-3 2xl:py-4">{c.category}</td>
+                <td className="px-3 2xl:px-4 py-3 2xl:py-4">{c.days.join(', ')}</td>
+                <td className="px-3 2xl:px-4 py-3 2xl:py-4">{c.startTime}</td>
+                <td className="px-3 2xl:px-4 py-3 2xl:py-4">{getInstructorName(c.instructorId)}</td>
+                <td className="px-3 2xl:px-4 py-3 2xl:py-4">
                   <OccupancyStatus danceClass={c} />
                 </td>
-                <td className="px-6 py-4">€{calculateAveragePrice(c.id).toFixed(2)}</td>
-                <td className="px-6 py-4 font-semibold text-green-300">
+                <td className="hidden 2xl:table-cell px-3 2xl:px-4 py-3 2xl:py-4">€{calculateAveragePrice(c.id).toFixed(2)}</td>
+                <td className="px-3 2xl:px-4 py-3 2xl:py-4 font-semibold text-green-300">
                   €{(calculateAveragePrice(c.id) * getActiveStudentsForMonth(c.id).length).toFixed(2)}
                 </td>
-                <td className="px-6 py-4 text-red-300">
+                <td className="px-3 2xl:px-4 py-3 2xl:py-4 text-red-300">
                   €{calculateInstructorCostPerClass(c.instructorId).toFixed(2)}
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-3 2xl:px-4 py-3 2xl:py-4">
                   {(() => {
                     const revenue = calculateAveragePrice(c.id) * getActiveStudentsForMonth(c.id).length;
                     const cost = calculateInstructorCostPerClass(c.instructorId);
@@ -639,9 +681,9 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
                     );
                   })()}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                  <button onClick={() => handleOpenModal(c)} className="font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
-                  <button onClick={() => handleDelete(c.id)} className="font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
+                <td className="px-3 py-2 whitespace-nowrap sticky right-0 bg-gray-800 group-hover:bg-gray-700 transition-colors shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)]">
+                  <button onClick={() => handleOpenModal(c)} aria-label={`Editar ${c.name}`} className="px-2 py-1.5 rounded font-medium text-purple-400 hover:text-purple-200 hover:bg-purple-500/10">Editar</button>
+                  <button onClick={() => handleDelete(c.id)} aria-label={`Eliminar ${c.name}`} className="ml-1 px-2 py-1.5 rounded font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10">Eliminar</button>
                 </td>
               </tr>
             ))}

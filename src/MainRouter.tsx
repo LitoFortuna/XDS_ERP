@@ -6,6 +6,7 @@ import { signOut } from 'firebase/auth';
 import { db, auth } from './config/firebase';
 
 import { InstallPrompt } from './components/InstallPrompt';
+import { FeedbackProvider } from './components/ui/Feedback';
 
 // The full admin ERP and the full student portal are two separate apps that only ever share a
 // visitor with each other in dev/testing — erp.xendance.space and alumni.xendance.space each
@@ -207,4 +208,12 @@ function updateMetaTag(name: string, content: string) {
     meta.setAttribute('content', content);
 }
 
-export default MainRouter;
+// Avisos (toasts) y confirmaciones con el estilo de la app, en lugar de los cuadros nativos del
+// navegador; envuelve tanto el panel de administración como el Portal de alumnas.
+const MainRouterWithFeedback: React.FC = () => (
+    <FeedbackProvider>
+        <MainRouter />
+    </FeedbackProvider>
+);
+
+export default MainRouterWithFeedback;

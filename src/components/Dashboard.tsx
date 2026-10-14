@@ -34,15 +34,15 @@ const StatCard: React.FC<{
     return (
         <div
             onClick={onClick}
-            className={`bg-[#1a2233] p-5 rounded-2xl border border-gray-800/50 flex items-center gap-4 shadow-xl transition-all ${onClick ? 'cursor-pointer hover:bg-[#232d42] hover:scale-[1.02]' : ''}`}
+            className={`bg-[#1a2233] p-3 sm:p-5 rounded-2xl border border-gray-800/50 flex flex-col items-start sm:flex-row sm:items-center gap-2 sm:gap-4 shadow-xl transition-all ${onClick ? 'cursor-pointer hover:bg-[#232d42] hover:scale-[1.02]' : ''}`}
         >
-            <div className={`p-3 rounded-xl bg-gray-800/80 flex items-center justify-center text-${color}-400 shadow-inner`}>
+            <div className={`p-2 sm:p-3 rounded-xl bg-gray-800/80 flex items-center justify-center text-${color}-400 shadow-inner flex-shrink-0`}>
                 {icon}
             </div>
-            <div>
-                <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-0.5">{title}</p>
-                <p className="text-2xl font-black text-white leading-none">{value}</p>
-                {subtext && <p className="text-[10px] text-gray-500 mt-1 font-medium">{subtext}</p>}
+            <div className="min-w-0">
+                <p className="text-[10px] text-gray-400 uppercase font-black tracking-wider sm:tracking-widest mb-0.5">{title}</p>
+                <p className="text-xl sm:text-2xl font-black text-white leading-none">{value}</p>
+                {subtext && <p className="text-[10px] text-gray-400 mt-1 font-medium">{subtext}</p>}
             </div>
         </div>
     );
@@ -806,16 +806,18 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
 
 
     return (
-        <div className="p-6 bg-[#0f172a] min-h-screen text-gray-200 pb-24 space-y-8 font-sans">
-            <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-black text-white tracking-tight">Dashboard General</h2>
+        <div className="p-4 sm:p-6 bg-[#0f172a] min-h-screen text-gray-200 pb-24 space-y-6 sm:space-y-8 font-sans">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Dashboard General</h2>
 
-                <div className="flex bg-gray-800 p-1 rounded-xl border border-gray-700 shadow-inner">
+                {/* En móvil los años se reparten el ancho: antes la fila se salía de la pantalla y no se podía llegar a los últimos. */}
+                <div role="group" aria-label="Año" className="flex bg-gray-800 p-1 rounded-xl border border-gray-700 shadow-inner w-full md:w-auto">
                     {availableYears.map(year => (
                         <button
                             key={year}
                             onClick={() => setSelectedYear(year)}
-                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedYear === year ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+                            aria-pressed={selectedYear === year}
+                            className={`flex-1 md:flex-none px-2 md:px-4 py-2.5 md:py-1.5 rounded-lg text-xs md:text-[10px] font-black uppercase tracking-wider md:tracking-widest transition-all ${selectedYear === year ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}
                         >
                             {year}
                         </button>
@@ -882,7 +884,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             )}
 
             {/* FILA 1: KPIs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <StatCard title="Alumnos Activos" value={activeStudentsCount.toLocaleString('es-ES')} subtext={`Estado al final de ${selectedYear}`} icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} color="blue" />
                 <StatCard title={`Ingresos (${selectedYear})`} value={formatCurrency(totalRevenue, 0)} subtext="Facturación anual" icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} color="emerald" />
                 <StatCard title="Ocupación Global" value={`${globalOccupancy}%`} subtext="Capacidad utilizada" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>} color="purple" />
@@ -896,7 +898,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
 
             {/* PRÓXIMAS TAREAS DEL CALENDARIO */}
             {!plannerError && (
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-sm font-bold text-white flex items-center gap-2">
                             <span className="w-1 h-4 bg-purple-500 rounded-full shadow-[0_0_8px_#a855f7]"></span>
@@ -942,8 +944,10 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                 </div>
             )}
 
+            {/* Gráficas 1-3: en pantallas anchas la evolución de clientes y el reparto de gastos van lado a lado (grid denso); la rentabilidad por clase, que necesita ancho, ocupa la fila entera. */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8 [grid-auto-flow:dense]">
             {/* GRÁFICO 1: Evolución Clientes */}
-            <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+            <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
                 <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                     <span className="w-1 h-4 bg-blue-500 rounded-full shadow-[0_0_8px_#3b82f6]"></span>
                     Evolución de Clientes Activos ({selectedYear})
@@ -966,7 +970,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             </div>
 
             {/* GRÁFICO 2: Rentabilidad Clase */}
-            <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+            <div className="xl:col-span-2 bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
                 <div className="flex justify-between items-start mb-6">
                     <div>
                         <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -976,6 +980,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">Ingresos vs Gastos estimados por grupo</p>
                     </div>
                     <select
+                        aria-label="Mes de la rentabilidad por clase"
                         value={selectedRentMonth}
                         onChange={(e) => setSelectedRentMonth(parseInt(e.target.value))}
                         className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none focus:ring-2 focus:ring-purple-500"
@@ -999,7 +1004,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             </div>
 
             {/* GRÁFICO 3: Gastos por Categoría (NUEVO) */}
-            <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+            <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
                 <div className="flex justify-between items-start mb-6">
                     <div>
                         <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -1009,6 +1014,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">Desglose por categoría de gasto</p>
                     </div>
                     <select
+                        aria-label="Mes de la distribución de gastos"
                         value={selectedCostMonth}
                         onChange={(e) => setSelectedCostMonth(parseInt(e.target.value))}
                         className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none focus:ring-2 focus:ring-rose-500"
@@ -1085,10 +1091,11 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </div>
                 </div>
             </div>
+            </div>
 
             {/* FILA: Evolución de Asistencia */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl flex flex-col justify-between">
+                <div className="lg:col-span-2 bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-2xl flex flex-col justify-between">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                         <div>
                             <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -1099,6 +1106,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         </div>
                         <div className="flex flex-wrap gap-2">
                             <select
+                                aria-label="Filtrar asistencia por día de la semana"
                                 value={selectedDayOfWeek}
                                 onChange={(e) => setSelectedDayOfWeek(e.target.value)}
                                 className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none focus:ring-2 focus:ring-purple-500"
@@ -1114,6 +1122,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                             </select>
 
                             <select
+                                aria-label="Filtrar asistencia por clase"
                                 value={selectedClassId}
                                 onChange={(e) => setSelectedClassId(e.target.value)}
                                 className="bg-gray-800 border border-gray-700 rounded-lg text-[10px] font-bold px-3 py-1.5 text-gray-300 uppercase tracking-widest outline-none focus:ring-2 focus:ring-purple-500 max-w-[150px] truncate"
@@ -1211,7 +1220,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </div>
                 </div>
 
-                <div className="lg:col-span-1 bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-2xl flex flex-col justify-between">
+                <div className="lg:col-span-1 bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-2xl flex flex-col justify-between">
                     <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                         <span className="w-1 h-4 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>
                         Asistencia Media por Categoría ({selectedYear})
@@ -1233,7 +1242,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
 
             {/* FILA: Popularidad + Finanzas */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40">
                     <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                         <span className="w-1 h-4 bg-purple-500 rounded-full shadow-[0_0_8px_#8b5cf6]"></span>
                         Top 10 Clases Más Populares
@@ -1248,7 +1257,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </ResponsiveContainer>
                 </div>
 
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40">
                     <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                         <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
                         Evolución Financiera ({selectedYear})
@@ -1269,7 +1278,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
 
             {/* FILA: Ingreso Medio + Métodos Pago */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40">
                     <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
                         <span className="w-1 h-4 bg-purple-500 rounded-full"></span>
                         Ingreso Medio por Alumno/Clase ({selectedYear})
@@ -1286,7 +1295,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </ResponsiveContainer>
                 </div>
 
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40">
                     <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                         <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
                         Distribución Métodos de Pago ({selectedYear})
@@ -1366,7 +1375,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
 
             {/* FILA: Demografía + Profesores */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40">
                     <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                         <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
                         Demografía: Distribución por Edad
@@ -1385,7 +1394,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </ResponsiveContainer>
                 </div>
 
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40">
                     <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                         <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
                         Top 5 Profesores (por nº alumnos)
@@ -1405,7 +1414,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
 
             {/* FILA: Resumen + Matrículas + Cumples */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 flex flex-col items-center shadow-xl">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 flex flex-col items-center shadow-xl">
                     <h3 className="text-xs font-black text-white mb-6 w-full text-left uppercase tracking-tighter">Resumen Financiero Total ({selectedYear})</h3>
                     <ResponsiveContainer width="100%" height={200}>
                         <PieChart>
@@ -1447,7 +1456,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </div>
                 </div>
 
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 flex flex-col items-center shadow-xl">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 flex flex-col items-center shadow-xl">
                     <h3 className="text-xs font-black text-white mb-6 w-full text-left uppercase tracking-tighter">Estado de Matrículas ({selectedYear})</h3>
                     <ResponsiveContainer width="100%" height={200}>
                         <PieChart>
@@ -1487,7 +1496,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     </div>
                 </div>
 
-                <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-xl">
+                <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-xl">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xs font-black text-white uppercase tracking-tighter">Próximos Cumpleaños</h3>
                         <span className="bg-purple-900/50 text-purple-400 px-2.5 py-1 rounded-lg text-[9px] font-black tracking-widest">7 DÍAS</span>
@@ -1527,7 +1536,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             </div>
 
             {/* TABLA: Alumnos con Pagos Pendientes */}
-            <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/50 shadow-2xl overflow-hidden">
+            <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/50 shadow-2xl overflow-hidden">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
                         <h3 className="text-sm font-black text-white flex items-center gap-3 uppercase tracking-wider">
@@ -1543,7 +1552,8 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                             </svg>
                         </span>
                         <input
-                            type="text"
+                            type="search"
+                            aria-label="Filtrar alumnas con pagos pendientes por nombre"
                             placeholder="Filtrar por nombre..."
                             value={unpaidSearchQuery}
                             onChange={(e) => setUnpaidSearchQuery(e.target.value)}
@@ -1612,12 +1622,13 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             </div>
 
             {/* PROFITABILITY BREAKDOWN WIDGET */}
-            <div className="bg-[#1a2233] p-6 rounded-3xl border border-gray-800/40 shadow-xl">
+            <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-xl">
                 <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <h3 className="text-xs font-black text-white uppercase tracking-tighter">Desglose de Rentabilidad</h3>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto [&>select]:flex-1 sm:[&>select]:flex-none">
                         {/* Period Selector */}
                         <select
+                            aria-label="Periodo"
                             value={profitPeriod}
                             onChange={(e) => setProfitPeriod(e.target.value as 'month' | 'quarter' | 'ytd' | 'year')}
                             className="bg-gray-800/60 border border-gray-700/50 text-gray-200 text-[10px] px-3 py-2 rounded-xl font-bold uppercase tracking-wider focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -1631,6 +1642,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         {/* Month selector (only shown when period is 'month' or 'quarter') */}
                         {(profitPeriod === 'month' || profitPeriod === 'quarter') && (
                             <select
+                                aria-label="Mes"
                                 value={profitSelectedMonth}
                                 onChange={(e) => setProfitSelectedMonth(parseInt(e.target.value))}
                                 className="bg-gray-800/60 border border-gray-700/50 text-gray-200 text-[10px] px-3 py-2 rounded-xl font-bold uppercase tracking-wider focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -1643,6 +1655,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
 
                         {/* Variable Selector */}
                         <select
+                            aria-label="Agrupar por"
                             value={profitVariable}
                             onChange={(e) => setProfitVariable(e.target.value as 'instructor' | 'class' | 'day')}
                             className="bg-gray-800/60 border border-gray-700/50 text-gray-200 text-[10px] px-3 py-2 rounded-xl font-bold uppercase tracking-wider focus:ring-2 focus:ring-purple-500 focus:border-transparent"

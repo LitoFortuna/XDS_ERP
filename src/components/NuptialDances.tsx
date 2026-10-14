@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { NuptialDance, Instructor, Rehearsal } from '../../types';
 import Modal from './Modal';
+import PageHeader from './ui/PageHeader';
+import { useConfirm } from './ui/Feedback';
+import { capitalizeFirst } from '../utils/formatters';
 
 // --- PROPS ---
 interface NuptialDancesProps {
@@ -211,6 +214,7 @@ const RehearsalsModal: React.FC<{
 
 // --- COMPONENTE PRINCIPAL ---
 const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructors, addNuptialDance, updateNuptialDance, deleteNuptialDance }) => {
+  const confirm = useConfirm();
   const [isMainModalOpen, setIsMainModalOpen] = useState(false);
   const [isRehearsalModalOpen, setIsRehearsalModalOpen] = useState(false);
   const [selectedDance, setSelectedDance] = useState<NuptialDance | undefined>(undefined);
@@ -268,8 +272,8 @@ const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructor
     handleCloseRehearsalsModal();
   };
 
-  const handleDelete = (dance: NuptialDance) => {
-    if (window.confirm(`¿Seguro que quieres eliminar el baile de ${dance.coupleName}?`)) {
+  const handleDelete = async (dance: NuptialDance) => {
+    if (await confirm({ title: 'Eliminar baile nupcial', message: `¿Seguro que quieres eliminar el baile de ${dance.coupleName}?`, confirmLabel: 'Eliminar', destructive: true })) {
       deleteNuptialDance(dance.id);
     }
   };
@@ -299,10 +303,12 @@ const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructor
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Gestión de Bailes Nupciales</h2>
-        <button onClick={() => handleOpenMainModal()} className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Añadir Baile Nupcial</button>
-      </div>
+      <PageHeader
+        title="Gestión de Bailes Nupciales"
+        actions={
+          <button onClick={() => handleOpenMainModal()} className="bg-purple-600 text-white px-4 py-2.5 md:py-2 rounded-md hover:bg-purple-700 shadow-md font-semibold">Añadir Baile Nupcial</button>
+        }
+      />
 
       <div className="mb-8">
         <h3 className="text-xl font-bold text-white mb-4">Próximos Ensayos</h3>
@@ -310,16 +316,16 @@ const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructor
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {upcomingRehearsals.map(rehearsal => (
               <div key={rehearsal.id} className="bg-gray-800 p-4 rounded-lg shadow-sm flex items-center">
-                <div className="bg-purple-500/20 text-purple-400 rounded-full p-3 mr-4">
+                <div className="bg-purple-500/20 text-purple-400 rounded-full p-3 mr-4 flex-shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="font-bold text-white">{rehearsal.coupleName}</p>
                   <p className="text-sm text-purple-300 font-semibold">{rehearsal.startTime} - {rehearsal.endTime}</p>
-                  <p className="text-xs text-gray-400 capitalize">
-                    {new Date(rehearsal.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  <p className="text-xs text-gray-400">
+                    {capitalizeFirst(new Date(rehearsal.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">Profesor: {rehearsal.instructorName}</p>
                 </div>
@@ -334,7 +340,42 @@ const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructor
       </div>
 
 
-      <div className="bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
+      {/* Móvil: tarjetas en lugar de la tabla. */}
+      <div className="md:hidden space-y-3">
+        {nuptialDances.map(dance => {
+          const { completedHours, nextRehearsal } = getRehearsalProgress(dance);
+          const progressPercentage = dance.totalHours > 0 ? (completedHours / dance.totalHours) * 100 : 0;
+          return (
+            <div key={dance.id} className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white">{dance.coupleName}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Boda el {new Date(dance.weddingDate + 'T12:00:00').toLocaleDateString('es-ES')} · {getInstructorName(dance.instructorId)}</p>
+                </div>
+                <span className={`flex-shrink-0 px-2 py-1 rounded-full text-xs font-medium ${dance.paidAmount >= dance.totalCost ? 'bg-green-500/20 text-green-300' : 'bg-orange-500/20 text-orange-300'}`}>
+                  €{dance.paidAmount.toFixed(0)} / €{dance.totalCost.toFixed(0)}
+                </span>
+              </div>
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-gray-300 mb-1">
+                  <span className="font-semibold">{completedHours.toFixed(1)} / {dance.totalHours} h de ensayos</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-1.5">
+                  <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Próximo: {nextRehearsal}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-3">
+                <button onClick={() => handleOpenRehearsalsModal(dance)} className="min-h-[44px] rounded-lg bg-green-500/10 border border-green-500/30 text-green-300 text-sm font-semibold">Ensayos</button>
+                <button onClick={() => handleOpenMainModal(dance)} className="min-h-[44px] rounded-lg bg-purple-500/15 border border-purple-400/30 text-purple-200 text-sm font-semibold">Editar</button>
+                <button onClick={() => handleDelete(dance)} className="min-h-[44px] rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold">Eliminar</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden md:block bg-gray-800 rounded-lg shadow-sm overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs text-gray-300 uppercase bg-gray-700">
             <tr>
@@ -369,10 +410,10 @@ const NuptialDances: React.FC<NuptialDancesProps> = ({ nuptialDances, instructor
                       €{dance.paidAmount.toFixed(2)} / €{dance.totalCost.toFixed(2)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button onClick={() => handleOpenRehearsalsModal(dance)} className="font-medium text-green-400 hover:text-green-300 hover:underline">Ensayos</button>
-                    <button onClick={() => handleOpenMainModal(dance)} className="ml-4 font-medium text-purple-400 hover:text-purple-300 hover:underline">Editar</button>
-                    <button onClick={() => handleDelete(dance)} className="ml-4 font-medium text-red-400 hover:text-red-300 hover:underline">Eliminar</button>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <button onClick={() => handleOpenRehearsalsModal(dance)} className="px-2 py-1.5 rounded font-medium text-green-400 hover:text-green-300 hover:bg-green-500/10">Ensayos</button>
+                    <button onClick={() => handleOpenMainModal(dance)} className="ml-1 px-2 py-1.5 rounded font-medium text-purple-400 hover:text-purple-200 hover:bg-purple-500/10">Editar</button>
+                    <button onClick={() => handleDelete(dance)} className="ml-1 px-2 py-1.5 rounded font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10">Eliminar</button>
                   </td>
                 </tr>
               )

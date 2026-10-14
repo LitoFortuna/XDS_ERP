@@ -8,3 +8,7 @@ export const formatCurrency = (v: number, decimals: number = 2): string => {
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     return parts.join(',') + '€';
 };
+
+// Solo la primera letra en mayúscula ("Sábado, 17 de octubre"). La clase CSS `capitalize` ponía en
+// mayúscula cada palabra y daba "Sábado, 17 De Octubre".
+export const capitalizeFirst = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);

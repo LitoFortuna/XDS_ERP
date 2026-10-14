@@ -10,6 +10,7 @@ const FEE_SOURCE_LABELS: Record<ReturnType<typeof getFeeWithSource>['source'], s
     standard: 'Usando cuota estándar',
 };
 import { formatCurrency } from '../../utils/formatters';
+import { useConfirm } from '../ui/Feedback';
 
 interface MonthlyDetailModalProps {
     isOpen: boolean;
@@ -28,6 +29,7 @@ interface MonthlyDetailModalProps {
 const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
     isOpen, onClose, student, monthIndex, year, payments, onUpdateStudent, onAddPayment, onUpdatePayment, onDeletePayment, onNavigateMonth
 }) => {
+    const confirm = useConfirm();
     const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const monthName = months[monthIndex];
     const exceptionKey = `${year}-${monthIndex}`;
@@ -224,7 +226,7 @@ const MonthlyDetailModal: React.FC<MonthlyDetailModalProps> = ({
                                                     <td className="px-4 py-3 text-white font-medium">{formatCurrency(payment.amount)}</td>
                                                     <td className="px-4 py-3 text-right space-x-2">
                                                         <button onClick={() => startEditPayment(payment)} className="text-purple-400 hover:text-purple-300 text-xs">Editar</button>
-                                                        <button onClick={() => { if (window.confirm('¿Borrar pago?')) onDeletePayment(payment.id) }} className="text-red-400 hover:text-red-300 text-xs">Borrar</button>
+                                                        <button onClick={async () => { if (await confirm({ title: 'Borrar pago', message: `¿Borrar el pago "${payment.concept}" de ${formatCurrency(payment.amount)}?`, confirmLabel: 'Borrar', destructive: true })) onDeletePayment(payment.id) }} className="text-red-400 hover:text-red-300 text-xs">Borrar</button>
                                                     </td>
                                                 </>
                                             )}

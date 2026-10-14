@@ -5,6 +5,39 @@
   body {
     @apply bg-gray-900 text-gray-200;
   }
+
+  /* La app es siempre oscura: así los controles nativos (selector de fecha y hora, desplegables,
+     barras de scroll) también se dibujan en oscuro en vez de blanco / con iconos negros. */
+  :root {
+    color-scheme: dark;
+  }
+
+  /* Casillas y radios nativos en el morado de la marca en lugar del azul/blanco del navegador. */
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: #8b5cf6;
+  }
+
+  /* Quita el retraso del doble toque en móvil en todos los controles. */
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='radio'],
+  a,
+  input,
+  select,
+  textarea,
+  label,
+  summary {
+    touch-action: manipulation;
+  }
+
+  /* Anillo de foco visible al navegar con teclado en cualquier control que no defina el suyo
+     (está en la capa base, así que cualquier clase de utilidad lo sustituye). */
+  :where(button, [role='button'], [role='tab'], [role='radio'], a[href], summary):focus-visible {
+    outline: 2px solid #a78bfa;
+    outline-offset: 2px;
+  }
 }
 
 /* Custom styles that might have been lost */
