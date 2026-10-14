@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority } from '../../types';
+import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority, DanceEvent, View } from '../../types';
 import { useAppStore } from '../store/useAppStore';
 import { usePlannerTasks } from '../hooks/queries/usePlannerTasks';
 import Modal from './Modal';
@@ -42,12 +42,14 @@ const inputClass = 'w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 t
 const Planner: React.FC = () => {
     const { tasks, isLoading, error, addTask, updateTask, deleteTask } = usePlannerTasks();
     const events = useAppStore(state => state.events);
+    const setCurrentView = useAppStore(state => state.setCurrentView);
 
     const todayIso = toIsoLocal(new Date());
     const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
     const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
     const [selectedDate, setSelectedDate] = useState(todayIso);
     const [showCompleted, setShowCompleted] = useState(true);
+    const [showEvents, setShowEvents] = useState(true);
     const [draft, setDraft] = useState<TaskDraft | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
@@ -66,15 +68,22 @@ const Planner: React.FC = () => {
     }, [visibleTasks]);
 
     const eventsByDate = useMemo(() => {
-        const map = new Map<string, string[]>();
+        const map = new Map<string, DanceEvent[]>();
         events.forEach(ev => {
             if (!ev.date || ev.deletedAt) return;
             const list = map.get(ev.date);
-            const label = ev.time ? `${ev.time} · ${ev.name}` : ev.name;
-            if (list) list.push(label); else map.set(ev.date, [label]);
+            if (list) list.push(ev); else map.set(ev.date, [ev]);
         });
+        map.forEach(list => list.sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99')));
         return map;
     }, [events]);
+
+    const monthEventCount = useMemo(() => {
+        const prefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-`;
+        let count = 0;
+        eventsByDate.forEach((list, date) => { if (date.startsWith(prefix)) count += list.length; });
+        return count;
+    }, [eventsByDate, viewYear, viewMonth]);
 
     const overdueTasks = useMemo(
         () => tasks.filter(t => !t.completed && t.dueDate && t.dueDate < todayIso).sort((a, b) => a.dueDate!.localeCompare(b.dueDate!)),
@@ -218,7 +227,7 @@ const Planner: React.FC = () => {
     );
 
     const selectedTasks = tasksByDate.get(selectedDate) || [];
-    const selectedEvents = eventsByDate.get(selectedDate) || [];
+    const selectedEvents = showEvents ? (eventsByDate.get(selectedDate) || []) : [];
 
     return (
         <div className="p-4 sm:p-8">
@@ -228,6 +237,7 @@ const Planner: React.FC = () => {
                     <p className="text-sm text-gray-400 mt-1">
                         {pendingCount} {pendingCount === 1 ? 'tarea pendiente' : 'tareas pendientes'}
                         {overdueTasks.length > 0 && <span className="text-rose-400 font-semibold"> · {overdueTasks.length} atrasada{overdueTasks.length > 1 ? 's' : ''}</span>}
+                        <span className="text-purple-300"> · {monthEventCount} {monthEventCount === 1 ? 'evento' : 'eventos'} en {MONTH_NAMES[viewMonth].toLowerCase()}</span>
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -239,6 +249,15 @@ const Planner: React.FC = () => {
                             className="mr-2 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
                         />
                         Mostrar hechas
+                    </label>
+                    <label className="flex items-center text-xs text-gray-400 cursor-pointer hover:text-gray-200">
+                        <input
+                            type="checkbox"
+                            checked={showEvents}
+                            onChange={e => setShowEvents(e.target.checked)}
+                            className="mr-2 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                        />
+                        Mostrar eventos
                     </label>
                     <button
                         onClick={() => openNew(selectedDate)}
@@ -280,7 +299,13 @@ const Planner: React.FC = () => {
                         {calendarCells.map((iso, idx) => {
                             if (!iso) return <div key={`empty-${idx}`} className="min-h-[84px] rounded-lg bg-gray-900/30" />;
                             const dayTasks = tasksByDate.get(iso) || [];
-                            const dayEvents = eventsByDate.get(iso) || [];
+                            const dayEvents = showEvents ? (eventsByDate.get(iso) || []) : [];
+                            const cellItems = [
+                                ...dayEvents.map(ev => ({ kind: 'event' as const, ev })),
+                                ...dayTasks.map(t => ({ kind: 'task' as const, t })),
+                            ];
+                            const shownItems = cellItems.slice(0, 3);
+                            const extraItems = cellItems.length - shownItems.length;
                             const isToday = iso === todayIso;
                             const isSelected = iso === selectedDate;
                             const hasOverdue = iso < todayIso && dayTasks.some(t => !t.completed);
@@ -296,22 +321,23 @@ const Planner: React.FC = () => {
                                         {Number(iso.slice(8, 10))}
                                     </span>
                                     <div className="flex flex-col gap-0.5 min-w-0">
-                                        {dayTasks.slice(0, 2).map(t => (
-                                            <span key={t.id} className={`flex items-center gap-1 text-[10px] leading-tight truncate ${t.completed ? 'line-through text-gray-500' : 'text-gray-200'}`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[t.priority]}`} />
-                                                <span className="truncate">{t.title}</span>
+                                        {shownItems.map(item => item.kind === 'event' ? (
+                                            <span key={`ev-${item.ev.id}`} className="text-[10px] leading-tight truncate font-semibold text-purple-200 bg-purple-500/20 rounded px-1 py-0.5">
+                                                ★ {item.ev.time ? `${item.ev.time} ` : ''}{item.ev.name}
+                                            </span>
+                                        ) : (
+                                            <span key={item.t.id} className={`flex items-center gap-1 text-[10px] leading-tight truncate ${item.t.completed ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[item.t.priority]}`} />
+                                                <span className="truncate">{item.t.title}</span>
                                             </span>
                                         ))}
-                                        {dayTasks.length > 2 && <span className="text-[10px] text-gray-500 font-semibold">+{dayTasks.length - 2} más</span>}
-                                        {dayEvents.length > 0 && (
-                                            <span className="text-[10px] text-purple-300 font-semibold truncate">★ {dayEvents.length === 1 ? dayEvents[0] : `${dayEvents.length} eventos`}</span>
-                                        )}
+                                        {extraItems > 0 && <span className="text-[10px] text-gray-500 font-semibold">+{extraItems} más</span>}
                                     </div>
                                 </button>
                             );
                         })}
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-3">Clic en un día para ver sus tareas · doble clic para añadir una nueva en ese día.</p>
+                    <p className="text-[11px] text-gray-500 mt-3">Clic en un día para ver sus tareas y eventos · doble clic para añadir una tarea en ese día · ★ = evento (se gestionan en Eventos).</p>
                 </div>
 
                 <div className="space-y-6">
@@ -324,11 +350,28 @@ const Planner: React.FC = () => {
                             <p className="text-sm text-gray-500">Cargando tareas...</p>
                         ) : (
                             <div className="space-y-2">
-                                {selectedEvents.map((label, i) => (
-                                    <div key={`ev-${i}`} className="flex items-center gap-2 p-3 rounded-lg border border-purple-500/30 bg-purple-900/20 text-sm text-purple-200">
-                                        <span>★</span><span className="break-words">{label}</span>
-                                    </div>
-                                ))}
+                                {selectedEvents.map(ev => {
+                                    const enrolled = ev.participants?.length || ev.studentIds?.length || 0;
+                                    return (
+                                        <button
+                                            key={`ev-${ev.id}`}
+                                            onClick={() => setCurrentView(View.EVENTS)}
+                                            title="Abrir la pantalla de Eventos"
+                                            className="w-full text-left p-3 rounded-lg border border-purple-500/30 bg-purple-900/20 hover:bg-purple-900/30 transition-colors"
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                <span className="text-sm font-semibold text-purple-100 break-words">★ {ev.name}</span>
+                                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border bg-purple-500/20 text-purple-300 border-purple-500/30 flex-shrink-0">{ev.type}</span>
+                                            </div>
+                                            {(ev.time || ev.location) && (
+                                                <p className="text-xs text-purple-300/80 mt-1 break-words">{[ev.time, ev.location].filter(Boolean).join(' · ')}</p>
+                                            )}
+                                            <p className="text-[11px] text-purple-300/60 mt-1">
+                                                {enrolled} inscrita{enrolled === 1 ? '' : 's'}{ev.capacity ? ` de ${ev.capacity}` : ''} · Ver en Eventos →
+                                            </p>
+                                        </button>
+                                    );
+                                })}
                                 {selectedTasks.map(t => renderTaskRow(t))}
                                 {selectedTasks.length === 0 && selectedEvents.length === 0 && (
                                     <p className="text-sm text-gray-500">Nada planificado para este día.</p>
