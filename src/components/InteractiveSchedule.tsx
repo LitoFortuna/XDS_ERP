@@ -237,7 +237,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                                 );
                             })}
                         {classes.filter(c => c.days.includes(selectedDay)).length === 0 && (
-                            <p className="text-center text-sm text-gray-400 py-10 border border-dashed border-gray-700 rounded-xl">No hay clases los {selectedDay.toLowerCase()}.</p>
+                            <p className="text-center text-sm text-gray-400 py-10 border border-dashed border-gray-700 rounded-xl">No hay clases los {selectedDay.toLowerCase()}{/^(sábado|domingo)$/i.test(selectedDay) ? 's' : ''}.</p>
                         )}
                     </div>
                     <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-5 text-[11px] font-semibold text-gray-400">

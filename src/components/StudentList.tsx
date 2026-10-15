@@ -402,7 +402,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
     <div className="p-4 sm:p-8">
       <PageHeader
         title="Alumnos"
-        subtitle={`${sortedAndFilteredStudents.length} ${sortedAndFilteredStudents.length === 1 ? 'alumna' : 'alumnas'}${statusFilter === 'active' ? ' activas' : statusFilter === 'inactive' ? ' de baja' : ''}`}
+        subtitle={`${sortedAndFilteredStudents.length} ${sortedAndFilteredStudents.length === 1 ? 'alumna' : 'alumnas'}${statusFilter === 'active' ? (sortedAndFilteredStudents.length === 1 ? ' activa' : ' activas') : statusFilter === 'inactive' ? ' de baja' : ''}`}
         actions={
           <>
             <button onClick={() => handleOpenModal()} className="order-first col-span-2 md:order-last md:col-auto bg-purple-600 text-white px-4 py-2.5 md:py-2 rounded-md hover:bg-purple-700 transition-colors shadow-md font-semibold">Añadir Alumno</button>
@@ -418,7 +418,8 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
         }
       />
 
-      <div className="mb-5 sm:mb-6 flex flex-col md:flex-row gap-3 md:gap-4 bg-gray-800 p-3 sm:p-4 rounded-lg shadow-sm border border-gray-700/50">
+      <div className="mb-5 sm:mb-6 space-y-3 bg-gray-800 p-3 sm:p-4 rounded-lg shadow-sm border border-gray-700/50">
+       <div className="flex flex-col md:flex-row gap-3 md:gap-4">
         <div className="flex-1">
           <label htmlFor="student-search" className="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
           <input
@@ -457,6 +458,36 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
                 <option key={c.id} value={c.id}>{c.name} ({c.days.join(', ')} {c.startTime})</option>
               ))}
             </select>
+          </div>
+        </div>
+       </div>
+
+        {/* Por debajo de 2xl la tabla no muestra todas las columnas (y en móvil no hay cabeceras): el orden se elige aquí. */}
+        <div className="2xl:hidden md:max-w-sm">
+          <label htmlFor="student-sort" className="block text-xs font-medium text-gray-400 mb-1">Ordenar por</label>
+          <div className="flex gap-2">
+            <select
+              id="student-sort"
+              value={sortConfig.key as string}
+              onChange={(e) => setSortConfig({ key: e.target.value as SortKey, direction: 'asc' })}
+              className="flex-1 min-w-0 bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2.5 md:py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="name">Nombre</option>
+              <option value="age">Edad</option>
+              <option value="enrollmentDate">Fecha de alta</option>
+              <option value="enrolledClasses">Clases inscritas</option>
+              <option value="monthlyFee">Cuota</option>
+              <option value="paymentMethod">Forma de pago</option>
+              <option value="active">Estado</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setSortConfig(c => ({ ...c, direction: c.direction === 'asc' ? 'desc' : 'asc' }))}
+              aria-label={sortConfig.direction === 'asc' ? 'Orden ascendente, pulsa para invertirlo' : 'Orden descendente, pulsa para invertirlo'}
+              className="min-w-[44px] rounded-md bg-gray-700 border border-gray-600 text-white hover:bg-gray-600"
+            >
+              {sortConfig.direction === 'asc' ? '▲' : '▼'}
+            </button>
           </div>
         </div>
       </div>
@@ -519,7 +550,13 @@ const StudentList: React.FC<StudentListProps> = ({ students, classes, merchandis
               const age = calculateAge(student.birthDate);
               return (
                 <tr key={student.id} className="group bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50 transition-colors">
-                  <td className="px-3 2xl:px-6 py-3 2xl:py-4 font-medium text-white whitespace-nowrap">{student.name}</td>
+                  <td className="px-3 2xl:px-6 py-3 2xl:py-4 font-medium text-white whitespace-nowrap">
+                    {student.name}
+                    <span className="2xl:hidden block text-xs font-normal text-gray-400 mt-0.5">
+                      Alta {new Date(student.enrollmentDate).toLocaleDateString('es-ES')}
+                      {student.enrolledClassIds.length > 0 && ` · €${(student.monthlyFee / student.enrolledClassIds.length).toFixed(2)}/clase`}
+                    </span>
+                  </td>
                   <td className="px-3 2xl:px-6 py-3 2xl:py-4">
                     {age !== null ? (
                       <span className="bg-gray-700 text-gray-200 px-2 py-0.5 rounded text-xs font-bold">{age}</span>

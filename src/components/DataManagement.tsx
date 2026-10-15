@@ -620,7 +620,6 @@ const DataManagement: React.FC<DataManagementProps> = ({
             <PageHeader
                 title="Gestión de Datos"
                 subtitle="Copias de seguridad, informe mensual e importación masiva"
-                className="!mb-0"
                 actions={
                     <button
                         onClick={async () => {

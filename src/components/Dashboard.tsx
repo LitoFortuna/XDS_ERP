@@ -945,7 +945,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             )}
 
             {/* Gráficas 1-3: en pantallas anchas la evolución de clientes y el reparto de gastos van lado a lado (grid denso); la rentabilidad por clase, que necesita ancho, ocupa la fila entera. */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8 [grid-auto-flow:dense]">
+            <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6 sm:gap-8 [grid-auto-flow:dense]">
             {/* GRÁFICO 1: Evolución Clientes */}
             <div className="bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
                 <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
@@ -970,7 +970,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             </div>
 
             {/* GRÁFICO 2: Rentabilidad Clase */}
-            <div className="xl:col-span-2 bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
+            <div className="2xl:col-span-2 bg-[#1a2233] p-4 sm:p-6 rounded-3xl border border-gray-800/40 shadow-2xl">
                 <div className="flex justify-between items-start mb-6">
                     <div>
                         <h3 className="text-sm font-bold text-white flex items-center gap-2">

@@ -32,6 +32,13 @@
     touch-action: manipulation;
   }
 
+  /* Edge dibuja su propio ojo de "mostrar contraseña" en los campos de contraseña; los formularios de
+     acceso ya llevan el suyo, así que se oculta el nativo para no ver dos. */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+
   /* Anillo de foco visible al navegar con teclado en cualquier control que no defina el suyo
      (está en la capa base, así que cualquier clase de utilidad lo sustituye). */
   :where(button, [role='button'], [role='tab'], [role='radio'], a[href], summary):focus-visible {
