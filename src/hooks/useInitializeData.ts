@@ -7,6 +7,9 @@ import { scheduleAttendanceReminder } from '../utils/notificationUtils';
 import { DayOfWeek } from '../../types';
 import { getUserProfile } from '../services/domain/userProfileService';
 import { subscribeToActivityLogs } from '../services/domain/activityLogService';
+import { getBirthdaysByDate, toIsoLocal } from '../utils/plannerUtils';
+
+const BIRTHDAY_SHOWN_KEY = 'xds-birthday-modal-shown';
 
 export const useInitializeData = () => {
     const store = useAppStore();
@@ -43,18 +46,21 @@ export const useInitializeData = () => {
     useEffect(() => {
         if (!store.dataLoading && store.students.length > 0 && !store.hasCheckedBirthdays) {
             const today = new Date();
-            const todayMonth = today.getMonth();
-            const todayDay = today.getDate();
+            const todayIso = toIsoLocal(today);
+            const todayBirthdays = (getBirthdaysByDate(store.students, [today.getFullYear()]).get(todayIso) || [])
+                .map(entry => entry.student);
 
-            const todayBirthdays = store.students.filter(s => {
-                if (!s.active || !s.birthDate) return false;
-                const dob = new Date(s.birthDate);
-                return dob.getDate() === todayDay && dob.getMonth() === todayMonth;
-            });
+            // El aviso sale una sola vez al día en este dispositivo (no en cada apertura o login);
+            // el cumpleaños sigue visible todo el día en el Calendario.
+            let alreadyShown = false;
+            try { alreadyShown = localStorage.getItem(BIRTHDAY_SHOWN_KEY) === todayIso; } catch { /* sin almacenamiento */ }
 
             if (todayBirthdays.length > 0) {
                 store.setBirthdaysToday(todayBirthdays);
-                store.setBirthdayModalOpen(true);
+                if (!alreadyShown) {
+                    store.setBirthdayModalOpen(true);
+                    try { localStorage.setItem(BIRTHDAY_SHOWN_KEY, todayIso); } catch { /* sin almacenamiento */ }
+                }
             }
             store.setHasCheckedBirthdays(true);
         }

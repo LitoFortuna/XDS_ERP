@@ -1,4 +1,4 @@
-import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority } from '../../types';
+import { PlannerTask, PlannerTaskCategory, PlannerTaskPriority, Student } from '../../types';
 
 export const PRIORITY_LABEL: Record<PlannerTaskPriority, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
 export const CATEGORIES: PlannerTaskCategory[] = ['Administrativo', 'Clases', 'Eventos', 'Marketing', 'Otro'];
@@ -60,4 +60,33 @@ export const compareTasks = (a: PlannerTask, b: PlannerTask): number => {
     const timeB = b.dueTime || '99:99';
     if (timeA !== timeB) return timeA.localeCompare(timeB);
     return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+};
+
+export interface BirthdayEntry { student: Student; age: number }
+
+// Cumpleaños de las alumnas activas (no borradas) agrupados por fecha YYYY-MM-DD para los años
+// indicados. Se lee birthDate como texto (no con new Date, que pasa por UTC). Quien nació un 29 de
+// febrero celebra el 28 en los años no bisiestos.
+export const getBirthdaysByDate = (students: Student[], years: number[]): Map<string, BirthdayEntry[]> => {
+    const map = new Map<string, BirthdayEntry[]>();
+    students.forEach(student => {
+        if (!student.active || student.deletedAt || !student.birthDate) return;
+        const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(student.birthDate);
+        if (!match) return;
+        const birthYear = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        if (month < 1 || month > 12 || day < 1 || day > 31) return;
+        new Set(years).forEach(year => {
+            const age = year - birthYear;
+            if (age <= 0) return;
+            const lastDay = new Date(year, month, 0).getDate();
+            const iso = toIsoLocal(new Date(year, month - 1, Math.min(day, lastDay)));
+            const list = map.get(iso);
+            const entry = { student, age };
+            if (list) list.push(entry); else map.set(iso, [entry]);
+        });
+    });
+    map.forEach(list => list.sort((a, b) => a.student.name.localeCompare(b.student.name, 'es')));
+    return map;
 };

@@ -5,7 +5,7 @@ import { usePlannerTasks } from '../hooks/queries/usePlannerTasks';
 import TaskSheet, { TaskDraft, emptyDraft } from './planner/TaskSheet';
 import { useConfirm } from './ui/Feedback';
 import {
-    toIsoLocal, addDaysIso, compareTasks, dayLoadTint,
+    toIsoLocal, addDaysIso, compareTasks, dayLoadTint, getBirthdaysByDate, BirthdayEntry,
     PRIORITY_DOT, PRIORITY_BAR, PRIORITY_BORDER, PRIORITY_TEXT, PRIORITY_LABEL,
 } from '../utils/plannerUtils';
 
@@ -27,6 +27,7 @@ const Planner: React.FC = () => {
     const confirm = useConfirm();
     const { tasks, isLoading, error, addTask, updateTask, deleteTask } = usePlannerTasks();
     const events = useAppStore(state => state.events);
+    const students = useAppStore(state => state.students);
     const setCurrentView = useAppStore(state => state.setCurrentView);
 
     const todayIso = toIsoLocal(new Date());
@@ -37,6 +38,7 @@ const Planner: React.FC = () => {
     const [mobileView, setMobileView] = useState<MobileView>('month');
     const [showCompleted, setShowCompleted] = useState(true);
     const [showEvents, setShowEvents] = useState(true);
+    const [showBirthdays, setShowBirthdays] = useState(true);
     const [draft, setDraft] = useState<TaskDraft | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
@@ -66,6 +68,20 @@ const Planner: React.FC = () => {
         return map;
     }, [events]);
 
+    // Cumpleaños de las alumnas activas: se repiten cada año, así que se generan para el año que se
+    // mira y para este año y el siguiente (la Agenda mira unas semanas por delante).
+    const birthdaysByDate = useMemo(() => {
+        const thisYear = new Date().getFullYear();
+        return getBirthdaysByDate(students, [viewYear, thisYear, thisYear + 1]);
+    }, [students, viewYear]);
+
+    const monthBirthdayCount = useMemo(() => {
+        const prefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-`;
+        let count = 0;
+        birthdaysByDate.forEach((list, date) => { if (date.startsWith(prefix)) count += list.length; });
+        return count;
+    }, [birthdaysByDate, viewYear, viewMonth]);
+
     const monthEventCount = useMemo(() => {
         const prefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-`;
         let count = 0;
@@ -88,8 +104,12 @@ const Planner: React.FC = () => {
         const dates = new Set<string>([todayIso]);
         visibleTasks.forEach(t => { if (t.dueDate && t.dueDate >= todayIso) dates.add(t.dueDate); });
         if (showEvents) eventsByDate.forEach((_, date) => { if (date >= todayIso) dates.add(date); });
+        if (showBirthdays) {
+            const limit = addDaysIso(new Date(), 60);
+            birthdaysByDate.forEach((_, date) => { if (date >= todayIso && date <= limit) dates.add(date); });
+        }
         return [...dates].sort();
-    }, [visibleTasks, eventsByDate, showEvents, todayIso]);
+    }, [visibleTasks, eventsByDate, showEvents, showBirthdays, birthdaysByDate, todayIso]);
 
     // Cuadrícula del mes: semanas de lunes a domingo, con huecos de los meses vecinos.
     const calendarCells = useMemo(() => {
@@ -280,12 +300,24 @@ const Planner: React.FC = () => {
         );
     };
 
+    const renderBirthdayCard = ({ student, age }: BirthdayEntry, iso: string) => (
+        <div
+            key={`bd-${iso}-${student.id}`}
+            className="relative block w-full text-left pl-4 pr-3 py-3 rounded-lg border border-pink-500/30 bg-pink-500/10 overflow-hidden"
+        >
+            <span aria-hidden="true" className="absolute left-0 inset-y-0 w-1 bg-pink-400" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-pink-300">🎂 Cumpleaños</p>
+            <p className="text-sm font-semibold text-pink-50 break-words mt-0.5">{student.name}</p>
+            <p className="text-xs text-pink-200/80 mt-1">{iso > todayIso ? 'Cumplirá' : iso === todayIso ? 'Cumple' : 'Cumplió'} {age} años</p>
+        </div>
+    );
+
     // Vista Agenda (solo móvil): lo atrasado, luego cada día desde hoy con sus eventos y tareas,
     // y al final lo que no tiene fecha. Los títulos de día se quedan pegados arriba al hacer scroll.
     const renderAgenda = () => {
         if (isLoading) return <p className="text-sm text-gray-500">Cargando tareas...</p>;
         const nothingPlanned = overdueTasks.length === 0 && undatedTasks.length === 0
-            && agendaDays.every(date => !(tasksByDate.get(date)?.length) && !(showEvents && eventsByDate.get(date)?.length));
+            && agendaDays.every(date => !(tasksByDate.get(date)?.length) && !(showEvents && eventsByDate.get(date)?.length) && !(showBirthdays && birthdaysByDate.get(date)?.length));
         return (
             <div className="space-y-5">
                 {overdueTasks.length > 0 && (
@@ -297,6 +329,7 @@ const Planner: React.FC = () => {
                 {agendaDays.map(date => {
                     const dayTasks = tasksByDate.get(date) || [];
                     const dayEvents = showEvents ? (eventsByDate.get(date) || []) : [];
+                    const dayBirthdays = showBirthdays ? (birthdaysByDate.get(date) || []) : [];
                     const relative = date === todayIso ? 'Hoy' : date === tomorrowIso ? 'Mañana' : '';
                     return (
                         <section key={date}>
@@ -305,9 +338,10 @@ const Planner: React.FC = () => {
                                 <span className="text-sm font-semibold text-gray-300">{formatLongDate(date)}</span>
                             </h3>
                             <div className="space-y-2">
+                                {dayBirthdays.map(b => renderBirthdayCard(b, date))}
                                 {dayEvents.map(ev => renderEventCard(ev))}
                                 {dayTasks.map(t => renderTaskRow(t))}
-                                {dayTasks.length === 0 && dayEvents.length === 0 && (
+                                {dayTasks.length === 0 && dayEvents.length === 0 && dayBirthdays.length === 0 && (
                                     <p className="text-sm text-gray-500 px-1">Nada planificado.</p>
                                 )}
                             </div>
@@ -333,7 +367,9 @@ const Planner: React.FC = () => {
 
     const selectedTasks = tasksByDate.get(selectedDate) || [];
     const selectedEvents = showEvents ? (eventsByDate.get(selectedDate) || []) : [];
+    const selectedBirthdays = showBirthdays ? (birthdaysByDate.get(selectedDate) || []) : [];
     const selectedDaySummary = [
+        selectedBirthdays.length > 0 ? `${selectedBirthdays.length} cumpleaños` : '',
         selectedEvents.length > 0 ? `${selectedEvents.length} ${selectedEvents.length === 1 ? 'evento' : 'eventos'}` : '',
         selectedTasks.length > 0 ? `${selectedTasks.length} ${selectedTasks.length === 1 ? 'tarea' : 'tareas'}` : '',
     ].filter(Boolean).join(' · ') || 'Día libre';
@@ -360,6 +396,11 @@ const Planner: React.FC = () => {
                             <span className="w-1.5 h-1.5 rotate-45 bg-purple-400" />
                             {monthEventCount} {monthEventCount === 1 ? 'evento' : 'eventos'}<span className="hidden sm:inline">&nbsp;en {MONTH_NAMES[viewMonth].toLowerCase()}</span>
                         </span>
+                        {monthBirthdayCount > 0 && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pink-300 bg-pink-500/10 border border-pink-500/30 px-2.5 py-1 rounded-full">
+                                🎂 {monthBirthdayCount} cumpleaños<span className="hidden sm:inline">&nbsp;en {MONTH_NAMES[viewMonth].toLowerCase()}</span>
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -383,6 +424,10 @@ const Planner: React.FC = () => {
                     <label className="cursor-pointer" title="Mostrar u ocultar los eventos del ERP">
                         <input type="checkbox" checked={showEvents} onChange={e => setShowEvents(e.target.checked)} className="sr-only peer" />
                         <span className={toggleBase}>Eventos</span>
+                    </label>
+                    <label className="cursor-pointer" title="Mostrar u ocultar los cumpleaños de las alumnas">
+                        <input type="checkbox" checked={showBirthdays} onChange={e => setShowBirthdays(e.target.checked)} className="sr-only peer" />
+                        <span className={toggleBase}>Cumpleaños</span>
                     </label>
                     <button
                         onClick={() => openNew(selectedDate)}
@@ -431,7 +476,9 @@ const Planner: React.FC = () => {
                             if (!iso) return <div key={`empty-${idx}`} className="min-h-[50px] sm:min-h-[84px]" />;
                             const dayTasks = tasksByDate.get(iso) || [];
                             const dayEvents = showEvents ? (eventsByDate.get(iso) || []) : [];
+                            const dayBirthdays = showBirthdays ? (birthdaysByDate.get(iso) || []) : [];
                             const cellItems = [
+                                ...dayBirthdays.map(b => ({ kind: 'birthday' as const, b })),
                                 ...dayEvents.map(ev => ({ kind: 'event' as const, ev })),
                                 ...dayTasks.map(t => ({ kind: 'task' as const, t })),
                             ];
@@ -445,6 +492,7 @@ const Planner: React.FC = () => {
                             const isWeekend = idx % 7 >= 5;
                             const load = dayEvents.length + dayTasks.filter(t => !t.completed).length;
                             const summary = [
+                                dayBirthdays.length > 0 ? `${dayBirthdays.length} cumpleaños` : '',
                                 dayEvents.length > 0 ? `${dayEvents.length} ${dayEvents.length === 1 ? 'evento' : 'eventos'}` : '',
                                 dayTasks.length > 0 ? `${dayTasks.length} ${dayTasks.length === 1 ? 'tarea' : 'tareas'}` : '',
                             ].filter(Boolean).join(', ');
@@ -466,7 +514,9 @@ const Planner: React.FC = () => {
                                         detalle del día aparece justo debajo al tocarlo. */}
                                     {cellItems.length > 0 && (
                                         <div className="sm:hidden flex flex-wrap justify-center items-center gap-0.5 max-w-full">
-                                            {dotItems.map(item => item.kind === 'event' ? (
+                                            {dotItems.map(item => item.kind === 'birthday' ? (
+                                                <span key={`bd-${item.b.student.id}`} aria-hidden="true" className="text-[9px] leading-none">🎂</span>
+                                            ) : item.kind === 'event' ? (
                                                 <span key={`ev-${item.ev.id}`} className="w-1.5 h-1.5 mx-0.5 rotate-45 bg-purple-400" />
                                             ) : (
                                                 <span key={item.t.id} className={`w-2 h-2 rounded-full ${PRIORITY_DOT[item.t.priority]} ${item.t.completed ? 'opacity-30' : ''}`} />
@@ -475,7 +525,11 @@ const Planner: React.FC = () => {
                                         </div>
                                     )}
                                     <div className="hidden sm:flex flex-col gap-0.5 min-w-0">
-                                        {shownItems.map(item => item.kind === 'event' ? (
+                                        {shownItems.map(item => item.kind === 'birthday' ? (
+                                            <span key={`bd-${item.b.student.id}`} className="text-[10px] leading-tight truncate font-semibold text-pink-100 bg-pink-500/30 rounded px-1.5 py-0.5">
+                                                🎂 {item.b.student.name}
+                                            </span>
+                                        ) : item.kind === 'event' ? (
                                             <span key={`ev-${item.ev.id}`} className="text-[10px] leading-tight truncate font-semibold text-purple-100 bg-purple-500/30 rounded px-1.5 py-0.5">
                                                 ★ {item.ev.time ? `${item.ev.time} ` : ''}{item.ev.name}
                                             </span>
@@ -490,9 +544,10 @@ const Planner: React.FC = () => {
                             );
                         })}
                     </div>
-                    <p className="hidden sm:block text-[11px] text-gray-500 mt-3">Clic en un día para ver su detalle · doble clic para añadir una tarea · cuanto más morado el fondo, más cargado está el día · ★ evento (se gestionan en Eventos).</p>
+                    <p className="hidden sm:block text-[11px] text-gray-500 mt-3">Clic en un día para ver su detalle · doble clic para añadir una tarea · cuanto más morado el fondo, más cargado está el día · ★ evento (se gestionan en Eventos) · 🎂 cumpleaños de las alumnas activas.</p>
                     <div className="sm:hidden flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-gray-500 mt-3">
                         <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 mx-0.5 rotate-45 bg-purple-400" />Evento</span>
+                        <span className="flex items-center gap-1.5"><span className="text-[10px] leading-none">🎂</span>Cumpleaños</span>
                         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-400" />Tarea (color = prioridad)</span>
                         <span>Más morado = día más cargado</span>
                         <span>Desliza para cambiar de mes</span>
@@ -513,9 +568,10 @@ const Planner: React.FC = () => {
                             <p className="text-sm text-gray-500">Cargando tareas...</p>
                         ) : (
                             <div className="space-y-2">
+                                {selectedBirthdays.map(b => renderBirthdayCard(b, selectedDate))}
                                 {selectedEvents.map(ev => renderEventCard(ev))}
                                 {selectedTasks.map(t => renderTaskRow(t))}
-                                {selectedTasks.length === 0 && selectedEvents.length === 0 && (
+                                {selectedTasks.length === 0 && selectedEvents.length === 0 && selectedBirthdays.length === 0 && (
                                     <div className="text-center py-6 rounded-lg border border-dashed border-gray-700">
                                         <p className="text-sm text-gray-400">Nada planificado para este día.</p>
                                         <button onClick={() => openNew(selectedDate)} className="mt-2 text-xs font-bold text-purple-300 hover:text-purple-200 px-3 py-2.5 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-purple-400 rounded">+ Añadir una tarea</button>
