@@ -28,6 +28,10 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           skipWaiting: true,
           cleanupOutdatedCaches: true,
+          // Listeners 'push' y 'notificationclick' (public/push-handlers.js): el service worker
+          // que genera Workbox no los trae y, sin ellos, las notificaciones push no se muestran
+          // con la app cerrada.
+          importScripts: ['push-handlers.js'],
         },
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
