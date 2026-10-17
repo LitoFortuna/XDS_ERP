@@ -6,6 +6,7 @@ import { getEventTicketCount, getEventRevenue } from '../utils/eventRevenue';
 import { toIsoLocal } from '../utils/plannerUtils';
 import PageHeader from './ui/PageHeader';
 import { useConfirm } from './ui/Feedback';
+import { normalizeImageUrl, isDataUrl } from '../utils/imageUrl';
 
 interface EventManagementProps {
     events: DanceEvent[];
@@ -37,6 +38,10 @@ const EventForm: React.FC<{
 
     const [searchTerm, setSearchTerm] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    // URL pegada a mano (si el cartel viene de un archivo subido, es decir, un data:, el campo queda vacío).
+    const [urlDraft, setUrlDraft] = useState(event?.imageUrl && !isDataUrl(event.imageUrl) ? event.imageUrl : '');
+    const [urlError, setUrlError] = useState('');
+    const [imageFailed, setImageFailed] = useState(false);
 
     const filteredStudents = useMemo(() => {
         return students
@@ -65,9 +70,29 @@ const EventForm: React.FC<{
         const reader = new FileReader();
         reader.onloadend = () => {
             setFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
+            setUrlDraft('');
+            setUrlError('');
+            setImageFailed(false);
             setIsUploading(false);
         };
         reader.readAsDataURL(file);
+    };
+
+    // Aplica la URL escrita como cartel (la normaliza: enlaces de Drive/Dropbox, https...).
+    const applyUrl = () => {
+        if (!urlDraft.trim()) {
+            setUrlError('');
+            return;
+        }
+        const normalized = normalizeImageUrl(urlDraft);
+        if (!normalized) {
+            setUrlError('Esa dirección no es válida. Debe empezar por http:// o https://');
+            return;
+        }
+        setUrlError('');
+        setImageFailed(false);
+        setUrlDraft(normalized);
+        setFormData(prev => ({ ...prev, imageUrl: normalized }));
     };
 
     const toggleParticipant = (studentId: string) => {
@@ -106,10 +131,10 @@ const EventForm: React.FC<{
                         <div className="relative w-32 h-44 bg-gray-900 border-2 border-dashed border-gray-700 rounded-xl overflow-hidden flex items-center justify-center shrink-0 group">
                             {formData.imageUrl ? (
                                 <>
-                                    <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                    <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" onError={() => setImageFailed(true)} onLoad={() => setImageFailed(false)} />
                                     <button
                                         type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
+                                        onClick={() => { setFormData(prev => ({ ...prev, imageUrl: '' })); setUrlDraft(''); setUrlError(''); setImageFailed(false); }}
                                         className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold"
                                     >
                                         Eliminar
@@ -142,6 +167,25 @@ const EventForm: React.FC<{
                                 {formData.imageUrl ? 'Cambiar Imagen' : 'Subir Cartel'}
                             </label>
                             <p className="text-[10px] text-gray-500 mt-2 italic leading-tight">Formatos: JPG, PNG. Recomendado vertical 2:3. Máx 2MB.</p>
+                            <div className="mt-3">
+                                <label htmlFor="event-image-url" className="block text-xs font-medium text-gray-400 mb-1">…o pega la dirección (URL) de una imagen</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        id="event-image-url"
+                                        type="url"
+                                        inputMode="url"
+                                        value={urlDraft}
+                                        onChange={e => { setUrlDraft(e.target.value); setUrlError(''); }}
+                                        onBlur={applyUrl}
+                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); applyUrl(); } }}
+                                        placeholder="https://…/cartel.jpg"
+                                        className="flex-1 min-w-0 bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:ring-purple-500 focus:border-purple-500"
+                                    />
+                                    <button type="button" onClick={applyUrl} className="shrink-0 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 rounded-md border border-gray-700 text-sm font-bold">Usar</button>
+                                </div>
+                                {urlError && <p role="alert" className="text-xs text-red-300 mt-1">{urlError}</p>}
+                                {!urlError && imageFailed && <p role="alert" className="text-xs text-amber-300 mt-1">No se pudo cargar la imagen desde esa dirección. Comprueba que el enlace es público y apunta a una imagen.</p>}
+                            </div>
                         </div>
                     </div>
                 </div>

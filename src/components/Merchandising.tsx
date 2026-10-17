@@ -4,6 +4,7 @@ import { MerchandiseItem, MerchandiseSale, Student, PaymentMethod } from '../../
 import Modal from './Modal';
 import PageHeader from './ui/PageHeader';
 import { useConfirm } from './ui/Feedback';
+import { normalizeImageUrl } from '../utils/imageUrl';
 
 interface MerchandisingProps {
     items: MerchandiseItem[];
@@ -43,9 +44,25 @@ const ItemForm: React.FC<{
         setFormData(prev => ({ ...prev, [name]: isNumber ? Number(value) : value }));
     };
 
+    const [imageError, setImageError] = useState('');
+
+    // La URL de imagen se valida y normaliza (enlaces de Drive/Dropbox, https...); vacía es válido.
+    const applyImageUrl = (): string | null => {
+        const raw = formData.imageUrl.trim();
+        if (!raw) { setImageError(''); return ''; }
+        const normalized = normalizeImageUrl(raw);
+        if (!normalized) { setImageError('Esa dirección no es válida. Debe empezar por http:// o https://'); return null; }
+        setImageError('');
+        setFormData(prev => ({ ...prev, imageUrl: normalized }));
+        return normalized;
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit(item ? { ...item, ...formData } : formData);
+        const imageUrl = applyImageUrl();
+        if (imageUrl === null) return;
+        const data = { ...formData, imageUrl };
+        onSubmit(item ? { ...item, ...data } : data);
     };
 
     return (
@@ -76,8 +93,12 @@ const ItemForm: React.FC<{
                     <input type="number" step="0.01" name="salePrice" value={formData.salePrice} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
                 </div>
                 <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-300">URL de Imagen (opcional)</label>
-                    <input type="text" name="imageUrl" value={formData.imageUrl} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
+                    <label htmlFor="merch-image-url" className="block text-sm font-medium text-gray-300">URL de Imagen (opcional)</label>
+                    <input id="merch-image-url" type="url" inputMode="url" name="imageUrl" value={formData.imageUrl} onChange={e => { handleChange(e); setImageError(''); }} onBlur={applyImageUrl} placeholder="https://…/foto.jpg" className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" />
+                    {imageError && <p role="alert" className="text-xs text-red-300 mt-1">{imageError}</p>}
+                    {!imageError && formData.imageUrl && (
+                        <img src={formData.imageUrl} alt="Vista previa" className="mt-2 h-24 w-24 object-cover rounded-lg border border-gray-600" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                    )}
                 </div>
                 <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-300">Observaciones</label>
