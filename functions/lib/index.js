@@ -6,6 +6,7 @@ const https_1 = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const webpush = require("web-push");
 const crypto_1 = require("crypto");
+const emailTemplates_1 = require("./emailTemplates");
 const classReminders_1 = require("./classReminders");
 const teacherData_1 = require("./teacherData");
 admin.initializeApp();
@@ -517,7 +518,24 @@ exports.manageInstructorAccount = (0, https_1.onCall)({ cors: true }, async (req
             db.collection('userProfiles').doc(user.uid).set({ uid: user.uid, email, role: 'Instructor', name: instructor.name || email.split('@')[0], instructorId }),
             instructorRef.update({ hasAccess: true }),
         ]);
-        return { email, password };
+        // Email de bienvenida con las credenciales. Si falla (Gmail caído, etc.) la cuenta YA está
+        // creada: no se deshace, se avisa a la administración para que se las dé en persona.
+        let emailSent = false;
+        try {
+            const welcome = (0, emailTemplates_1.buildInstructorWelcomeEmail)({ name: String(instructor.name || ''), email, password });
+            await transporter.sendMail({
+                from: '"Xen Dance Space" <info@xendance.space>',
+                to: email,
+                subject: welcome.subject,
+                html: welcome.html,
+                text: welcome.text,
+            });
+            emailSent = true;
+        }
+        catch (error) {
+            console.error('[manageInstructorAccount] No se pudo enviar el email de bienvenida:', error);
+        }
+        return { email, password, emailSent };
     }
     if (!accountSnap.exists)
         throw new https_1.HttpsError('failed-precondition', 'Este profesor todavía no tiene acceso.');

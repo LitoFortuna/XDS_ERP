@@ -79,6 +79,7 @@ export const saveTeacherAttendance = async (input: {
 export interface InstructorAccountResult {
     email?: string;
     password?: string;
+    emailSent?: boolean; // solo en create: si se pudo enviar el email de bienvenida
     ok?: boolean;
 }
 

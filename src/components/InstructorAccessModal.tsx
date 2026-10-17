@@ -18,7 +18,7 @@ const InstructorAccessModal: React.FC<InstructorAccessModalProps> = ({ instructo
     const confirm = useConfirm();
     const toast = useToast();
     const [busy, setBusy] = useState(false);
-    const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
+    const [credentials, setCredentials] = useState<{ email: string; password: string; emailSent?: boolean } | null>(null);
     const [copied, setCopied] = useState(false);
 
     const close = () => {
@@ -37,7 +37,7 @@ const InstructorAccessModal: React.FC<InstructorAccessModalProps> = ({ instructo
                 toast(`Acceso de ${instructor.name} eliminado.`, 'success');
                 close();
             } else if (result.email && result.password) {
-                setCredentials({ email: result.email, password: result.password });
+                setCredentials({ email: result.email, password: result.password, emailSent: action === 'create' ? !!result.emailSent : undefined });
             }
         } catch (error) {
             const message = (error as { message?: string } | null)?.message;
@@ -72,6 +72,16 @@ const InstructorAccessModal: React.FC<InstructorAccessModalProps> = ({ instructo
         <Modal isOpen={!!instructor} onClose={close} title={`Acceso al ERP · ${instructor?.name || ''}`}>
             {credentials ? (
                 <div className="space-y-4">
+                    {credentials.emailSent === true && (
+                        <p role="status" className="text-sm text-green-200 bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3">
+                            ✉️ Hemos enviado un email de bienvenida con estos datos a <span className="font-mono break-all">{credentials.email}</span>.
+                        </p>
+                    )}
+                    {credentials.emailSent === false && (
+                        <p role="alert" className="text-sm text-red-200 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+                            La cuenta está creada, pero <strong>no se pudo enviar el email</strong>. Entrega estos datos al profesor en persona o por otro medio.
+                        </p>
+                    )}
                     <p className="text-sm text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3">
                         Apunta o copia estos datos ahora: <strong>la contraseña no se volverá a mostrar</strong>. Si se pierde, podrás generar otra.
                     </p>
