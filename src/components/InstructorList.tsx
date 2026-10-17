@@ -3,6 +3,7 @@ import { Instructor, DanceClass } from '../../types';
 import Modal from './Modal';
 import PageHeader from './ui/PageHeader';
 import { useConfirm } from './ui/Feedback';
+import InstructorAccessModal from './InstructorAccessModal';
 
 interface InstructorListProps {
   instructors: Instructor[];
@@ -114,6 +115,7 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
   const confirm = useConfirm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState<Instructor | undefined>(undefined);
+  const [accessInstructorId, setAccessInstructorId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
 
   const calculateClassDurationMinutes = (startTime: string, endTime: string): number => {
@@ -293,12 +295,14 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
                   {instructor.active ? 'Activo' : 'Inactivo'}
                 </span>
               </div>
+              {instructor.hasAccess && <p className="text-xs text-sky-300 mt-1">🔑 Con acceso al ERP</p>}
               <p className="text-sm text-gray-300 mt-1 line-clamp-2">{classNames}</p>
               <p className="text-sm text-gray-400 mt-2">
                 <span className="text-white font-semibold">{weeklyHours.toFixed(1)} h</span>/semana · <span className="text-purple-300 font-semibold">€{instructor.ratePerClass.toFixed(2)}</span>/clase
               </p>
-              <div className="grid grid-cols-2 gap-2 mt-3">
+              <div className="grid grid-cols-3 gap-2 mt-3">
                 <button onClick={() => handleOpenModal(instructor)} className="min-h-[44px] rounded-lg bg-purple-500/15 border border-purple-400/30 text-purple-200 text-sm font-semibold">Editar</button>
+                <button onClick={() => setAccessInstructorId(instructor.id)} className="min-h-[44px] rounded-lg bg-sky-500/10 border border-sky-400/30 text-sky-200 text-sm font-semibold">Acceso</button>
                 <button onClick={() => handleDelete(instructor.id)} className="min-h-[44px] rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold">Eliminar</button>
               </div>
             </div>
@@ -327,6 +331,7 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
                 <td className="px-3 2xl:px-6 py-3 2xl:py-4 font-medium text-white whitespace-nowrap">
                     <div>{instructor.name}</div>
                     <div className="text-xs text-gray-400">{instructor.phone}</div>
+                    {instructor.hasAccess && <div className="text-xs text-sky-300">🔑 Con acceso al ERP</div>}
                 </td>
                 <td className="px-3 2xl:px-6 py-3 2xl:py-4 max-w-[14rem] truncate" title={classNames}>{classNames}</td>
                 <td className="px-3 2xl:px-6 py-3 2xl:py-4">{weeklyHours.toFixed(2)}</td>
@@ -339,6 +344,7 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap sticky right-0 bg-gray-800 group-hover:bg-gray-700 transition-colors shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)]">
                   <button onClick={() => handleOpenModal(instructor)} aria-label={`Editar a ${instructor.name}`} className="px-2 py-1.5 rounded font-medium text-purple-400 hover:text-purple-200 hover:bg-purple-500/10">Editar</button>
+                  <button onClick={() => setAccessInstructorId(instructor.id)} aria-label={`Acceso al ERP de ${instructor.name}`} className="ml-1 px-2 py-1.5 rounded font-medium text-sky-400 hover:text-sky-200 hover:bg-sky-500/10">Acceso</button>
                   <button onClick={() => handleDelete(instructor.id)} aria-label={`Eliminar a ${instructor.name}`} className="ml-1 px-2 py-1.5 rounded font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10">Eliminar</button>
                 </td>
               </tr>
@@ -349,6 +355,10 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingInstructor ? 'Editar Profesor' : 'Añadir Nuevo Profesor'}>
         <InstructorForm instructor={editingInstructor} classes={classes} onSubmit={handleSubmit} onCancel={handleCloseModal} />
       </Modal>
+      <InstructorAccessModal
+        instructor={instructors.find(i => i.id === accessInstructorId) || null}
+        onClose={() => setAccessInstructorId(null)}
+      />
     </div>
   );
 };

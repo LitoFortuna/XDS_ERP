@@ -43,6 +43,7 @@ export interface Instructor {
   hireDate: string; // YYYY-MM-DD
   notes?: string;
   deletedAt?: string;
+  hasAccess?: boolean; // Tiene cuenta de acceso al ERP (rol profesor); la gestiona manageInstructorAccount
 }
 
 export type DayOfWeek = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo';
@@ -226,6 +227,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   name?: string;
+  instructorId?: string; // Solo rol Instructor: ficha de profesor a la que está vinculada la cuenta
   pushSubscription?: string; // JSON stringified PushSubscription for cross-device push
 }
 

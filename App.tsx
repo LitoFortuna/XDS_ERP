@@ -11,6 +11,10 @@ import { useAppActions } from './src/hooks/useAppActions';
 import { batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems } from './src/services/firestoreService';
 import NotificationPrompter from './src/components/NotificationPrompter';
 import { setBadge, clearBadge } from './src/utils/notificationUtils';
+import { signOut } from 'firebase/auth';
+import { auth } from './src/config/firebase';
+import { useStaffGate } from './src/hooks/useStaffGate';
+import NoAccessScreen from './src/components/teacher/NoAccessScreen';
 
 // React Query Hooks
 import { useStudents } from './src/hooks/queries/useStudents';
@@ -39,12 +43,13 @@ const EventManagement = lazy(() => import('./src/components/EventManagement'));
 const ChangeRequestManagement = lazy(() => import('./src/components/ChangeRequestManagement'));
 const Papelera = lazy(() => import('./src/components/Papelera'));
 const Planner = lazy(() => import('./src/components/Planner'));
+const TeacherApp = lazy(() => import('./src/components/teacher/TeacherApp'));
 
 const Loader = () => (
     <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin"></div>
 );
 
-const App: React.FC = () => {
+const AdminApp: React.FC = () => {
     // Initialize Data & Subscriptions
     useInitializeData();
 
@@ -392,6 +397,32 @@ const App: React.FC = () => {
             <NotificationPrompter />
         </div>
     );
+};
+
+// Decide qué ve cada persona tras iniciar sesión: el ERP completo (administración), el panel de
+// profesor (cuenta con rol de profesor) o una pantalla de "sin acceso". Sin sesión, AdminApp
+// muestra el login. Ver useStaffGate.
+const App: React.FC = () => {
+    const gate = useStaffGate();
+
+    if (gate.status === 'loading') {
+        return (
+            <div className="flex justify-center items-center h-screen bg-gray-900 text-gray-200">
+                <Loader />
+            </div>
+        );
+    }
+    if (gate.status === 'teacher') {
+        return (
+            <Suspense fallback={<div className="flex justify-center items-center h-screen bg-gray-900"><Loader /></div>}>
+                <TeacherApp email={gate.email} onLogout={() => { signOut(auth).catch(console.error); }} />
+            </Suspense>
+        );
+    }
+    if (gate.status === 'noaccess') {
+        return <NoAccessScreen email={gate.email} onLogout={() => { signOut(auth).catch(console.error); }} />;
+    }
+    return <AdminApp />;
 };
 
 export default App;

@@ -2,7 +2,9 @@ import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/fire
 import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import * as webpush from 'web-push';
+import { randomInt } from 'crypto';
 import { classesDueNow, getMadridNow, REMINDER_LEAD_MINUTES, ReminderClass } from './classReminders';
+import { ADMIN_EMAILS, chunk as chunkArray, toTeacherStudent, toTeacherClass, validateAttendanceInput, TeacherStudentView } from './teacherData';
 
 admin.initializeApp();
 
@@ -494,6 +496,242 @@ export const scheduledFirestoreBackup = onSchedule({
         outputUriPrefix,
     });
     console.log(`[scheduledFirestoreBackup] Export en curso, operación: ${operation.name}`);
+});
+
+// --- Acceso de profesores al ERP ---
+// Un profesor entra con email y contraseña (Firebase Auth) y un custom claim { role: 'Instructor',
+// instructorId }. NO lee Firestore directamente (las reglas no cambian: alumnas, pagos, etc. siguen
+// cerrados): todo lo suyo pasa por teacherOverview / teacherSaveAttendance, que solo devuelven o
+// aceptan datos de SUS clases. instructorAccounts/{instructorId} (solo SDK admin, sin reglas de
+// cliente = denegado) guarda el uid vinculado, de modo que revocar el acceso surte efecto al
+// instante aunque su token siga vigente hasta una hora.
+
+function requireAdminCaller(request: { auth?: { token: { email?: string } } | null }): string {
+    const email = request.auth?.token?.email;
+    if (!email || !ADMIN_EMAILS.includes(email)) {
+        throw new HttpsError('permission-denied', 'Solo la administración puede gestionar accesos.');
+    }
+    return email;
+}
+
+// Sin caracteres ambiguos (0/O, 1/l/I) para poder dictarla o copiarla sin errores.
+function generateTemporaryPassword(length = 12): string {
+    const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    let password = '';
+    for (let i = 0; i < length; i++) password += alphabet[randomInt(alphabet.length)];
+    return password;
+}
+
+/**
+ * Crea, restablece o revoca la cuenta de ERP de un profesor. Solo administradores.
+ * - create: crea el usuario con el email de la ficha del profesor y una contraseña temporal que se
+ *   devuelve UNA vez para que la administración se la entregue.
+ * - reset: genera una contraseña temporal nueva (y cierra sus sesiones abiertas).
+ * - revoke: borra la cuenta; el profesor deja de poder entrar.
+ */
+export const manageInstructorAccount = onCall({ cors: true }, async (request) => {
+    requireAdminCaller(request as any);
+
+    const action = request.data?.action as string | undefined;
+    const instructorId = (request.data?.instructorId as string | undefined)?.trim();
+    if (!instructorId || !['create', 'reset', 'revoke'].includes(action || '')) {
+        throw new HttpsError('invalid-argument', 'Solicitud no válida.');
+    }
+
+    const db = admin.firestore();
+    const instructorRef = db.collection('instructors').doc(instructorId);
+    const accountRef = db.collection('instructorAccounts').doc(instructorId);
+    const [instructorSnap, accountSnap] = await Promise.all([instructorRef.get(), accountRef.get()]);
+
+    if (!instructorSnap.exists || instructorSnap.data()?.deletedAt) {
+        throw new HttpsError('not-found', 'No se encontró al profesor.');
+    }
+    const instructor = instructorSnap.data()!;
+
+    if (action === 'create') {
+        if (accountSnap.exists) throw new HttpsError('already-exists', 'Este profesor ya tiene acceso. Puedes restablecer su contraseña.');
+        const email = String(instructor.email || '').trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            throw new HttpsError('failed-precondition', 'La ficha del profesor no tiene un email válido. Añádelo antes de crear el acceso.');
+        }
+        if (ADMIN_EMAILS.includes(email)) {
+            throw new HttpsError('failed-precondition', 'Ese email pertenece a un administrador.');
+        }
+
+        const password = generateTemporaryPassword();
+        let user: admin.auth.UserRecord;
+        try {
+            user = await admin.auth().createUser({ email, password, displayName: String(instructor.name || ''), emailVerified: false });
+        } catch (error: any) {
+            if (error?.code === 'auth/email-already-exists') {
+                throw new HttpsError('already-exists', 'Ya existe una cuenta con ese email (por ejemplo, de una alumna). Usa otro email para el profesor.');
+            }
+            throw error;
+        }
+
+        await admin.auth().setCustomUserClaims(user.uid, { role: 'Instructor', instructorId });
+        await Promise.all([
+            accountRef.set({ uid: user.uid, email, createdAt: new Date().toISOString() }),
+            db.collection('userProfiles').doc(user.uid).set({ uid: user.uid, email, role: 'Instructor', name: instructor.name || email.split('@')[0], instructorId }),
+            instructorRef.update({ hasAccess: true }),
+        ]);
+        return { email, password };
+    }
+
+    if (!accountSnap.exists) throw new HttpsError('failed-precondition', 'Este profesor todavía no tiene acceso.');
+    const { uid, email } = accountSnap.data() as { uid: string; email: string };
+
+    if (action === 'reset') {
+        const password = generateTemporaryPassword();
+        await admin.auth().updateUser(uid, { password });
+        await admin.auth().revokeRefreshTokens(uid);
+        return { email, password };
+    }
+
+    // revoke
+    try {
+        await admin.auth().deleteUser(uid);
+    } catch (error: any) {
+        if (error?.code !== 'auth/user-not-found') throw error;
+    }
+    await Promise.all([
+        accountRef.delete(),
+        db.collection('userProfiles').doc(uid).delete(),
+        instructorRef.update({ hasAccess: false }),
+    ]);
+    return { ok: true };
+});
+
+// Comprueba que quien llama es un profesor con cuenta vigente y devuelve su ficha. Se valida contra
+// instructorAccounts (no solo contra el claim del token) para que una revocación sea inmediata.
+async function requireInstructor(request: { auth?: { uid: string; token: Record<string, any> } | null }) {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Debes iniciar sesión.');
+    const instructorId = request.auth.token.instructorId as string | undefined;
+    if (request.auth.token.role !== 'Instructor' || !instructorId) {
+        throw new HttpsError('permission-denied', 'Tu cuenta no tiene acceso de profesor.');
+    }
+    const db = admin.firestore();
+    const [accountSnap, instructorSnap] = await Promise.all([
+        db.collection('instructorAccounts').doc(instructorId).get(),
+        db.collection('instructors').doc(instructorId).get(),
+    ]);
+    const instructor = instructorSnap.data();
+    if (!accountSnap.exists || accountSnap.data()?.uid !== request.auth.uid
+        || !instructorSnap.exists || !instructor || instructor.deletedAt || instructor.active === false) {
+        throw new HttpsError('permission-denied', 'Tu acceso ya no está activo. Contacta con la administración.');
+    }
+    return { instructorId, instructor, email: request.auth.token.email as string | undefined };
+}
+
+async function getInstructorClassIds(instructorId: string) {
+    const snap = await admin.firestore().collection('classes').where('instructorId', '==', instructorId).get();
+    const docs = snap.docs.filter(d => !d.data().deletedAt);
+    return { docs, ids: docs.map(d => d.id) };
+}
+
+/**
+ * Todo lo que necesita el panel del profesor, solo de SUS clases: clases, alumnas activas (datos
+ * mínimos), asistencia de los últimos ~13 meses y avisos de ausencia próximos.
+ */
+export const teacherOverview = onCall({ cors: true }, async (request) => {
+    const { instructorId, instructor } = await requireInstructor(request as any);
+    const db = admin.firestore();
+    const today = getMadridNow(new Date()).dateIso;
+    const since = new Date(Date.parse(today + 'T00:00:00Z') - 400 * 86400000).toISOString().slice(0, 10);
+
+    const { docs: classDocs, ids: classIds } = await getInstructorClassIds(instructorId);
+    const classes = classDocs.map(d => toTeacherClass(d.data(), d.id));
+    const classIdSet = new Set(classIds);
+
+    const students: TeacherStudentView[] = [];
+    const attendance: Array<{ id: string; classId: string; date: string; presentStudentIds: string[]; notes?: string }> = [];
+    const absences: Array<{ id: string; classId: string; studentId: string; studentName: string; date: string }> = [];
+
+    if (classIds.length > 0) {
+        const seen = new Set<string>();
+        await Promise.all(chunkArray(classIds, 10).map(async (ids) => {
+            const [studentsSnap, attendanceSnap, absencesSnap] = await Promise.all([
+                db.collection('students').where('enrolledClassIds', 'array-contains-any', ids).get(),
+                db.collection('attendance').where('classId', 'in', ids).get(),
+                db.collection('classAbsences').where('classId', 'in', ids).get(),
+            ]);
+            studentsSnap.docs.forEach(d => {
+                if (seen.has(d.id)) return;
+                const view = toTeacherStudent(d.data(), d.id, classIdSet);
+                if (view) { seen.add(d.id); students.push(view); }
+            });
+            attendanceSnap.docs.forEach(d => {
+                const r = d.data();
+                if (typeof r.date === 'string' && r.date >= since) {
+                    attendance.push({ id: d.id, classId: r.classId, date: r.date, presentStudentIds: r.presentStudentIds || [], notes: r.notes });
+                }
+            });
+            absencesSnap.docs.forEach(d => {
+                const a = d.data();
+                if (typeof a.date === 'string' && a.date >= today) {
+                    absences.push({ id: d.id, classId: a.classId, studentId: a.studentId, studentName: a.studentName, date: a.date });
+                }
+            });
+        }));
+    }
+
+    students.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    return {
+        today,
+        instructor: { id: instructorId, name: String(instructor.name || '') },
+        classes,
+        students,
+        attendance,
+        absences,
+    };
+});
+
+/**
+ * El profesor pasa lista de una de SUS clases. Se valida la clase, la fecha (hoy o hasta 60 días
+ * atrás) y que todas las asistentes estén inscritas en esa clase; crea o actualiza el registro de
+ * ese día y avisa a la administración como ya hace la asistencia registrada por un Admin.
+ */
+export const teacherSaveAttendance = onCall({ cors: true }, async (request) => {
+    const { instructorId, instructor, email } = await requireInstructor(request as any);
+    const db = admin.firestore();
+
+    const validation = validateAttendanceInput(request.data, getMadridNow(new Date()).dateIso);
+    if (validation.ok === false) throw new HttpsError('invalid-argument', validation.message);
+    const { classId, date, presentStudentIds, notes } = validation.value;
+
+    const classSnap = await db.collection('classes').doc(classId).get();
+    const danceClass = classSnap.data();
+    if (!classSnap.exists || !danceClass || danceClass.deletedAt || danceClass.instructorId !== instructorId) {
+        throw new HttpsError('permission-denied', 'Esa clase no es tuya.');
+    }
+
+    const enrolledSnap = await db.collection('students').where('enrolledClassIds', 'array-contains', classId).get();
+    const enrolledIds = new Set(enrolledSnap.docs.filter(d => !d.data().deletedAt).map(d => d.id));
+    if (presentStudentIds.some(id => !enrolledIds.has(id))) {
+        throw new HttpsError('invalid-argument', 'Hay alumnas que no están inscritas en esta clase.');
+    }
+
+    const record = { classId, date, presentStudentIds, notes, recordedByInstructorId: instructorId };
+    const existing = await db.collection('attendance').where('classId', '==', classId).where('date', '==', date).limit(1).get();
+    let attendanceId: string;
+    if (existing.empty) {
+        attendanceId = (await db.collection('attendance').add(record)).id;
+    } else {
+        attendanceId = existing.docs[0].id;
+        await existing.docs[0].ref.set(record);
+    }
+
+    await db.collection('activityLogs').add({
+        type: 'attendance',
+        actorEmail: email || '',
+        actorName: instructor.name || '',
+        description: `Asistencia registrada por ${instructor.name || 'un profesor'}: ${danceClass.name} el ${date.split('-').reverse().join('/')} (${presentStudentIds.length} presentes)`,
+        targetRole: 'SuperAdmin',
+        timestamp: new Date().toISOString(),
+        read: false,
+    });
+
+    return { id: attendanceId };
 });
 
 // --- Recordatorio push de clase para las alumnas del Portal ---
