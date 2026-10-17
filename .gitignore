@@ -30,3 +30,5 @@ ts_errors.txt
 
 # GitHub credentials (NEVER commit these)
 .github-credentials/
+# Cloud Functions
+/functions/node_modules
