@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { chunk, toTeacherStudent, toTeacherClass, validateAttendanceInput } from '../../functions/src/teacherData';
+import { chunk, toTeacherStudent, toTeacherClass, toTeacherEvent, validateAttendanceInput } from '../../functions/src/teacherData';
 
 describe('toTeacherStudent', () => {
     const mine = new Set(['c1', 'c2']);
@@ -55,5 +55,29 @@ describe('chunk', () => {
     it('parte en trozos del tamaño pedido', () => {
         expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
         expect(chunk([], 3)).toEqual([]);
+    });
+});
+
+describe('toTeacherEvent', () => {
+    const names = new Map([['s1', 'Ana'], ['s2', 'Berta']]);
+    const raw = {
+        name: 'Gala', type: 'Exhibición', date: '2026-10-20', time: '18:00', location: 'Teatro', capacity: 50,
+        studentIds: ['s1', 'x9'], participants: [{ studentId: 's2', ticketCount: 2 }, { studentId: 's1', ticketCount: 1 }],
+        price: 15, notes: 'pagar al técnico', imageUrl: 'http://x',
+    };
+
+    it('cuenta inscritas sin duplicar y nombra solo a las alumnas del profesor, sin precio ni notas', () => {
+        const view = toTeacherEvent(raw, 'e1', '2026-10-17', names);
+        expect(view).toEqual({ id: 'e1', name: 'Gala', type: 'Exhibición', date: '2026-10-20', time: '18:00', location: 'Teatro', capacity: 50, enrolledCount: 3, myStudents: ['Ana', 'Berta'] });
+        expect(JSON.stringify(view)).not.toMatch(/price|notes|pagar|x9|imageUrl/);
+    });
+    it('incluye el evento de hoy y descarta pasados, borrados y sin fecha válida', () => {
+        expect(toTeacherEvent({ ...raw, date: '2026-10-17' }, 'e', '2026-10-17', names)).not.toBeNull();
+        expect(toTeacherEvent({ ...raw, date: '2026-10-16' }, 'e', '2026-10-17', names)).toBeNull();
+        expect(toTeacherEvent({ ...raw, deletedAt: '2026-01-01' }, 'e', '2026-10-17', names)).toBeNull();
+        expect(toTeacherEvent({ ...raw, date: 'pronto' }, 'e', '2026-10-17', names)).toBeNull();
+    });
+    it('sin participantes ni alumnas suyas devuelve cero y lista vacía', () => {
+        expect(toTeacherEvent({ name: 'Taller', date: '2026-11-01' }, 'e', '2026-10-17', names)).toMatchObject({ enrolledCount: 0, myStudents: [] });
     });
 });

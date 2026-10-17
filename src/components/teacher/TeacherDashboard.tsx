@@ -6,10 +6,12 @@ import {
 } from '../../utils/teacherStats';
 import { findStudentsAtRisk } from '../../utils/attendanceRisk';
 import { Student, AttendanceRecord } from '../../../types';
+import TeacherEventCard from './TeacherEventCard';
 
 interface TeacherDashboardProps {
     data: TeacherOverview;
     onTakeAttendance: (classId?: string) => void;
+    onViewEvents: () => void;
 }
 
 const CHART_TOOLTIP = { backgroundColor: '#111827', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb' };
@@ -32,8 +34,8 @@ const Kpi: React.FC<{ label: string; value: React.ReactNode; hint?: string }> = 
     </div>
 );
 
-const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ data, onTakeAttendance }) => {
-    const { today, classes, students, attendance, absences } = data;
+const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ data, onTakeAttendance, onViewEvents }) => {
+    const { today, classes, students, attendance, absences, events } = data;
     const firstName = data.instructor.name.split(' ')[0] || 'profe';
 
     const months = useMemo(() => monthlyAttendance(attendance, students, today, 6), [attendance, students, today]);
@@ -134,6 +136,23 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ data, onTakeAttenda
                     )}
                 </Card>
             </div>
+
+            <Card title="Próximos eventos">
+                {events.length === 0 ? (
+                    <p className="text-sm text-gray-400">No hay eventos programados por ahora.</p>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {events.slice(0, 3).map(ev => <TeacherEventCard key={ev.id} event={ev} today={today} />)}
+                        </div>
+                        {events.length > 3 && (
+                            <button onClick={onViewEvents} className="mt-3 text-sm font-semibold text-purple-300 hover:text-purple-200 min-h-[44px]">
+                                Ver los {events.length} eventos →
+                            </button>
+                        )}
+                    </>
+                )}
+            </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card title="Asistencia por mes (% de inscritas)">

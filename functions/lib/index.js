@@ -617,6 +617,13 @@ exports.teacherOverview = (0, https_1.onCall)({ cors: true }, async (request) =>
         }));
     }
     students.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    // Próximos eventos del ERP (sin precios ni notas), con cuáles de SUS alumnas están apuntadas.
+    const studentNames = new Map(students.map(s => [s.id, s.name]));
+    const eventsSnap = await db.collection('events').where('date', '>=', today).get();
+    const events = eventsSnap.docs
+        .map(d => (0, teacherData_1.toTeacherEvent)(d.data(), d.id, today, studentNames))
+        .filter((e) => e !== null)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
     return {
         today,
         instructor: { id: instructorId, name: String(instructor.name || '') },
@@ -624,6 +631,7 @@ exports.teacherOverview = (0, https_1.onCall)({ cors: true }, async (request) =>
         students,
         attendance,
         absences,
+        events,
     };
 });
 /**

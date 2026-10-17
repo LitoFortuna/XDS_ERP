@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { TeacherOverview } from '../../services/domain/teacherService';
 import { classAttendanceStats, weekdayName } from '../../utils/teacherStats';
 import { downloadWeeklyClassesIcs } from '../../utils/icsExport';
+import TeacherEventCard from './TeacherEventCard';
 
 interface TeacherScheduleProps {
     data: TeacherOverview;
@@ -21,7 +22,7 @@ const ageOf = (birthDate: string | undefined, todayIso: string): number | null =
 };
 
 const TeacherSchedule: React.FC<TeacherScheduleProps> = ({ data, onTakeAttendance }) => {
-    const { today, classes, students, attendance } = data;
+    const { today, classes, students, attendance, events } = data;
     const [openClassId, setOpenClassId] = useState<string | null>(null);
     const todayName = weekdayName(today);
 
@@ -69,6 +70,17 @@ const TeacherSchedule: React.FC<TeacherScheduleProps> = ({ data, onTakeAttendanc
                         </ul>
                     </div>
                 ))}
+            </section>
+
+            <section aria-label="Próximos eventos" className="bg-gray-800 border border-gray-700 rounded-xl p-4 sm:p-6">
+                <h3 className="text-base font-bold text-white mb-4">Próximos eventos</h3>
+                {events.length === 0 ? (
+                    <p className="text-sm text-gray-400">No hay eventos programados por ahora.</p>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        {events.map(ev => <TeacherEventCard key={ev.id} event={ev} today={today} showStudents />)}
+                    </div>
+                )}
             </section>
 
             <section aria-label="Mis clases" className="grid grid-cols-1 lg:grid-cols-2 gap-4">

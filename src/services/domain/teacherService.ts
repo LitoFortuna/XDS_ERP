@@ -39,6 +39,18 @@ export interface TeacherAbsence {
     date: string;
 }
 
+export interface TeacherEvent {
+    id: string;
+    name: string;
+    type: string;
+    date: string; // YYYY-MM-DD
+    time: string;
+    location: string;
+    capacity?: number;
+    enrolledCount: number; // inscritas en total
+    myStudents: string[]; // nombres de sus alumnas apuntadas
+}
+
 export interface TeacherOverview {
     today: string; // YYYY-MM-DD en hora de Madrid
     instructor: { id: string; name: string };
@@ -46,6 +58,7 @@ export interface TeacherOverview {
     students: TeacherStudent[];
     attendance: TeacherAttendanceRecord[];
     absences: TeacherAbsence[];
+    events: TeacherEvent[]; // próximos, de más cercano a más lejano
 }
 
 export const fetchTeacherOverview = async (): Promise<TeacherOverview> => {

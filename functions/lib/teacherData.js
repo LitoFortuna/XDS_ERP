@@ -6,7 +6,7 @@
 // alumnas, pagos, etc.). Todo lo suyo pasa por las Cloud Functions teacherOverview y
 // teacherSaveAttendance, que usan estas funciones para devolver solo lo mínimo de SUS clases.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateAttendanceInput = exports.MAX_BACKDATE_DAYS = exports.toTeacherClass = exports.toTeacherStudent = exports.chunk = exports.ADMIN_EMAILS = void 0;
+exports.toTeacherEvent = exports.validateAttendanceInput = exports.MAX_BACKDATE_DAYS = exports.toTeacherClass = exports.toTeacherStudent = exports.chunk = exports.ADMIN_EMAILS = void 0;
 /** Mismos administradores que firestore.rules (isAdmin) y userProfileService.ts. */
 exports.ADMIN_EMAILS = ['raulfdz3@gmail.com', 'info@xendance.space'];
 const chunk = (items, size) => {
@@ -80,4 +80,26 @@ const validateAttendanceInput = (input, todayIso) => {
     return { ok: true, value: { classId, date, presentStudentIds, notes } };
 };
 exports.validateAttendanceInput = validateAttendanceInput;
+// Vista de un evento para un profesor: sin precio, notas internas ni ids de otras alumnas.
+// Devuelve null si el evento está borrado, no tiene fecha válida o ya pasó.
+const toTeacherEvent = (raw, id, todayIso, teacherStudentNames) => {
+    if (!raw || raw.deletedAt || typeof raw.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(raw.date) || raw.date < todayIso)
+        return null;
+    const ids = new Set([
+        ...(Array.isArray(raw.studentIds) ? raw.studentIds : []),
+        ...(Array.isArray(raw.participants) ? raw.participants.map((p) => p === null || p === void 0 ? void 0 : p.studentId) : []),
+    ].filter((s) => typeof s === 'string'));
+    return {
+        id,
+        name: String(raw.name || ''),
+        type: String(raw.type || ''),
+        date: raw.date,
+        time: typeof raw.time === 'string' ? raw.time : '',
+        location: String(raw.location || ''),
+        capacity: typeof raw.capacity === 'number' ? raw.capacity : undefined,
+        enrolledCount: ids.size,
+        myStudents: [...ids].map(s => teacherStudentNames.get(s)).filter((n) => !!n).sort((a, b) => a.localeCompare(b, 'es')),
+    };
+};
+exports.toTeacherEvent = toTeacherEvent;
 //# sourceMappingURL=teacherData.js.map

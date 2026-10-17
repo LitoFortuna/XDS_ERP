@@ -105,3 +105,42 @@ export const validateAttendanceInput = (input: any, todayIso: string): Attendanc
     const notes = typeof input?.notes === 'string' ? input.notes.trim().slice(0, 500) : '';
     return { ok: true, value: { classId, date, presentStudentIds, notes } };
 };
+
+export interface TeacherEventView {
+    id: string;
+    name: string;
+    type: string;
+    date: string; // YYYY-MM-DD
+    time: string;
+    location: string;
+    capacity?: number;
+    /** Total de inscritas (de todas las clases) y cuáles son alumnas de este profesor. */
+    enrolledCount: number;
+    myStudents: string[]; // nombres
+}
+
+// Vista de un evento para un profesor: sin precio, notas internas ni ids de otras alumnas.
+// Devuelve null si el evento está borrado, no tiene fecha válida o ya pasó.
+export const toTeacherEvent = (
+    raw: Record<string, any>,
+    id: string,
+    todayIso: string,
+    teacherStudentNames: Map<string, string>
+): TeacherEventView | null => {
+    if (!raw || raw.deletedAt || typeof raw.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(raw.date) || raw.date < todayIso) return null;
+    const ids = new Set<string>([
+        ...(Array.isArray(raw.studentIds) ? raw.studentIds : []),
+        ...(Array.isArray(raw.participants) ? raw.participants.map((p: any) => p?.studentId) : []),
+    ].filter((s): s is string => typeof s === 'string'));
+    return {
+        id,
+        name: String(raw.name || ''),
+        type: String(raw.type || ''),
+        date: raw.date,
+        time: typeof raw.time === 'string' ? raw.time : '',
+        location: String(raw.location || ''),
+        capacity: typeof raw.capacity === 'number' ? raw.capacity : undefined,
+        enrolledCount: ids.size,
+        myStudents: [...ids].map(s => teacherStudentNames.get(s)).filter((n): n is string => !!n).sort((a, b) => a.localeCompare(b, 'es')),
+    };
+};

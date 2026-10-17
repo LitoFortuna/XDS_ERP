@@ -111,7 +111,7 @@ const TeacherApp: React.FC<TeacherAppProps> = ({ email, onLogout }) => {
 
                 {data && (
                     <Suspense fallback={<div className="flex justify-center py-16"><div className="w-10 h-10 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin" /></div>}>
-                        {tab === 'dashboard' && <TeacherDashboard data={data} onTakeAttendance={goToAttendance} />}
+                        {tab === 'dashboard' && <TeacherDashboard data={data} onTakeAttendance={goToAttendance} onViewEvents={() => setTab('schedule')} />}
                         {tab === 'attendance' && (
                             <TeacherAttendance
                                 data={data}

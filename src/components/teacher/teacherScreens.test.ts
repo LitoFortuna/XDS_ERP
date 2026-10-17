@@ -24,13 +24,16 @@ const overview = (over: Partial<TeacherOverview> = {}): TeacherOverview => ({
         { id: 'a3', classId: 'c1', date: '2026-09-26', presentStudentIds: ['s1'] },
     ],
     absences: [{ id: 'x1', classId: 'c1', studentId: 's2', studentName: 'Berta Gil', date: '2026-10-17' }],
+    events: [
+        { id: 'e1', name: 'Gala de Navidad', type: 'Exhibición', date: '2026-10-19', time: '18:00', location: 'Teatro Municipal', capacity: 50, enrolledCount: 12, myStudents: ['Ana López'] },
+    ],
     ...over,
 });
 
 const noop = () => undefined;
 
 describe('TeacherDashboard', () => {
-    const html = renderToStaticMarkup(React.createElement(TeacherDashboard, { data: overview(), onTakeAttendance: noop }));
+    const html = renderToStaticMarkup(React.createElement(TeacherDashboard, { data: overview(), onTakeAttendance: noop, onViewEvents: noop }));
 
     it('saluda, muestra KPIs y la clase de hoy con botón de pasar lista', () => {
         expect(html).toContain('¡Hola, Carlos!');
@@ -45,8 +48,15 @@ describe('TeacherDashboard', () => {
         expect(html).toContain('Han avisado que no vienen');
         expect(html).toContain('Berta Gil');
     });
+    it('muestra los próximos eventos con inscritas y alumnas suyas', () => {
+        expect(html).toContain('Próximos eventos');
+        expect(html).toContain('Gala de Navidad');
+        expect(html).toContain('En 2 días');
+        expect(html).toContain('12 inscritas de 50');
+        expect(html).toContain('1 alumna tuya');
+    });
     it('sin clases asignadas explica que aún no hay nada', () => {
-        const empty = renderToStaticMarkup(React.createElement(TeacherDashboard, { data: overview({ classes: [], students: [], attendance: [], absences: [] }), onTakeAttendance: noop }));
+        const empty = renderToStaticMarkup(React.createElement(TeacherDashboard, { data: overview({ classes: [], students: [], attendance: [], absences: [], events: [] }), onTakeAttendance: noop, onViewEvents: noop }));
         expect(empty).toContain('Todavía no tienes clases asignadas');
     });
 });
@@ -75,6 +85,12 @@ describe('TeacherSchedule', () => {
         expect(html).toContain('11:00–12:00');
         expect(html).toContain('Ver alumnas (2)');
         expect(html).toContain('Añadir a mi calendario');
+    });
+    it('lista los eventos con los nombres de sus alumnas apuntadas', () => {
+        const html = renderToStaticMarkup(React.createElement(TeacherSchedule, { data: overview(), onTakeAttendance: noop }));
+        expect(html).toContain('Gala de Navidad');
+        expect(html).toContain('Teatro Municipal');
+        expect(html).toContain('Ana López');
     });
 });
 

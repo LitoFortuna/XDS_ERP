@@ -4,7 +4,7 @@ import * as admin from 'firebase-admin';
 import * as webpush from 'web-push';
 import { randomInt } from 'crypto';
 import { classesDueNow, getMadridNow, REMINDER_LEAD_MINUTES, ReminderClass } from './classReminders';
-import { ADMIN_EMAILS, chunk as chunkArray, toTeacherStudent, toTeacherClass, validateAttendanceInput, TeacherStudentView } from './teacherData';
+import { ADMIN_EMAILS, chunk as chunkArray, toTeacherStudent, toTeacherClass, toTeacherEvent, validateAttendanceInput, TeacherStudentView, TeacherEventView } from './teacherData';
 
 admin.initializeApp();
 
@@ -676,6 +676,15 @@ export const teacherOverview = onCall({ cors: true }, async (request) => {
     }
 
     students.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+    // Próximos eventos del ERP (sin precios ni notas), con cuáles de SUS alumnas están apuntadas.
+    const studentNames = new Map(students.map(s => [s.id, s.name]));
+    const eventsSnap = await db.collection('events').where('date', '>=', today).get();
+    const events: TeacherEventView[] = eventsSnap.docs
+        .map(d => toTeacherEvent(d.data(), d.id, today, studentNames))
+        .filter((e): e is TeacherEventView => e !== null)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+
     return {
         today,
         instructor: { id: instructorId, name: String(instructor.name || '') },
@@ -683,6 +692,7 @@ export const teacherOverview = onCall({ cors: true }, async (request) => {
         students,
         attendance,
         absences,
+        events,
     };
 });
 
