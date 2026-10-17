@@ -13,6 +13,13 @@ describe('buildInstructorWelcomeEmail', () => {
         expect(email.subject).toContain('Tu acceso al ERP');
     });
 
+    it('fuerza el texto blanco de la cabecera y del botón en modo oscuro', () => {
+        expect(email.html).toContain('[data-ogsc] .hdr-title');
+        expect(email.html).toContain('prefers-color-scheme: dark');
+        expect(email.html).toContain('class="hdr-title"');
+        expect(email.html).toContain('class="btn-text"');
+    });
+
     it('trae versión de texto con las mismas credenciales', () => {
         expect(email.text).toContain('Usuario: carlos@correo.es');
         expect(email.text).toContain('Contraseña temporal: Ab3dEf7hJk9m');

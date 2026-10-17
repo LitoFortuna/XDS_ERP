@@ -49,6 +49,18 @@ export const buildInstructorWelcomeEmail = ({ name, email, password, loginUrl = 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>Tu acceso al ERP de Xen Dance Space</title>
+<style>
+  /* Los textos sobre fondo de color se fuerzan en el modo oscuro: Gmail (data-ogsc) y otros
+     clientes oscurecen el texto blanco de la cabecera y del botón si no se les obliga. */
+  .hdr-title, .btn-text { color: #ffffff !important; }
+  .hdr-eyebrow { color: #f5d0fe !important; }
+  @media (prefers-color-scheme: dark) {
+    .hdr-title, .btn-text { color: #ffffff !important; }
+    .hdr-eyebrow { color: #f5d0fe !important; }
+  }
+  [data-ogsc] .hdr-title, [data-ogsc] .btn-text { color: #ffffff !important; }
+  [data-ogsc] .hdr-eyebrow { color: #f5d0fe !important; }
+</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f3e8ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Ya tienes acceso a tu panel de profesor. Aquí están tus credenciales.</div>
@@ -60,8 +72,8 @@ export const buildInstructorWelcomeEmail = ({ name, email, password, loginUrl = 
           <tr>
             <td align="center" bgcolor="#581c87" style="background-color:#581c87;background-image:linear-gradient(135deg,#581c87 0%,#9d174d 100%);padding:40px 24px 36px;">
               <img src="${LOGO_URL}" width="84" height="84" alt="Xen Dance Space" style="display:block;border:0;border-radius:20px;margin:0 auto 18px;">
-              <div style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#f5d0fe;font-weight:700;">Xen Dance Space</div>
-              <h1 style="margin:10px 0 0;font-size:28px;line-height:34px;color:#ffffff;font-weight:800;">¡Bienvenido/a al equipo digital, ${safeFirst}! 💃</h1>
+              <div class="hdr-eyebrow" style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#f5d0fe;font-weight:700;">Xen Dance Space</div>
+              <h1 class="hdr-title" style="margin:10px 0 0;font-size:28px;line-height:34px;color:#ffffff;font-weight:800;">¡Bienvenido/a al equipo digital, ${safeFirst}! 💃</h1>
             </td>
           </tr>
 
@@ -94,7 +106,7 @@ export const buildInstructorWelcomeEmail = ({ name, email, password, loginUrl = 
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="center" bgcolor="#7e22ce" style="border-radius:14px;background-color:#7e22ce;background-image:linear-gradient(135deg,#7e22ce 0%,#db2777 100%);">
-                    <a href="${safeUrl}" target="_blank" style="display:inline-block;padding:16px 36px;font-size:17px;font-weight:800;color:#ffffff;text-decoration:none;border-radius:14px;">Entrar a mi panel →</a>
+                    <a class="btn-text" href="${safeUrl}" target="_blank" style="display:inline-block;padding:16px 36px;font-size:17px;font-weight:800;color:#ffffff;text-decoration:none;border-radius:14px;">Entrar a mi panel →</a>
                   </td>
                 </tr>
               </table>
