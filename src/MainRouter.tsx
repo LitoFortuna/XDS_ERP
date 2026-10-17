@@ -7,6 +7,7 @@ import { db, auth } from './config/firebase';
 
 import { InstallPrompt } from './components/InstallPrompt';
 import { FeedbackProvider } from './components/ui/Feedback';
+import { loadPortalSnapshot, clearPortalSnapshots } from './utils/portalOfflineCache';
 
 // The full admin ERP and the full student portal are two separate apps that only ever share a
 // visitor with each other in dev/testing — erp.xendance.space and alumni.xendance.space each
@@ -92,8 +93,17 @@ const MainRouter: React.FC = () => {
                 } else {
                     localStorage.removeItem('student_portal_id');
                 }
-            }).catch(() => {
-                localStorage.removeItem('student_portal_id');
+            }).catch((err) => {
+                // Sin conexión (o Firestore inalcanzable) la sesión sigue siendo válida: se arranca
+                // con la copia local de la ficha en vez de cerrarla. Cualquier otro fallo (permiso
+                // denegado, ficha borrada...) sí cierra la sesión como antes.
+                const offline = navigator.onLine === false || err?.code === 'unavailable';
+                const cached = offline ? loadPortalSnapshot(storedStudentId)?.student : null;
+                if (cached) {
+                    setCurrentStudent(cached);
+                } else {
+                    localStorage.removeItem('student_portal_id');
+                }
             }).finally(() => {
                 setIsLoadingStudent(false);
             });
@@ -106,6 +116,7 @@ const MainRouter: React.FC = () => {
 
     const handleStudentLogout = () => {
         localStorage.removeItem('student_portal_id');
+        clearPortalSnapshots(); // en un móvil compartido no debe quedar la ficha guardada
         signOut(auth).catch(() => { /* best-effort: local state is cleared regardless */ });
         setCurrentStudent(null);
         setMode('portal');
@@ -143,6 +154,7 @@ const MainRouter: React.FC = () => {
                         <button
                             onClick={() => {
                                 localStorage.removeItem('student_portal_id');
+                                clearPortalSnapshots();
                                 window.location.reload();
                             }}
                             className="text-gray-400 hover:text-white text-sm underline bg-transparent border-none cursor-pointer"

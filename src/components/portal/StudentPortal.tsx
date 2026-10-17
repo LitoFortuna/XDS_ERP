@@ -14,6 +14,7 @@ import ProfilePage from './pages/ProfilePage';
 import StorePage from './pages/StorePage';
 import EventsPage from './pages/EventsPage';
 import StudentNotificationPrompter from './StudentNotificationPrompter';
+import { loadPortalSnapshot, savePortalSnapshot } from '../../utils/portalOfflineCache';
 
 interface StudentPortalProps {
     student: Student;
@@ -34,6 +35,10 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
     const [reloadKey, setReloadKey] = useState(0);
     const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
     const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+    // Modo sin conexión: se avisa cuando no hay red y, si los datos que se ven vienen de la copia
+    // local (portalOfflineCache) en vez de Firestore, se indica de cuándo son.
+    const [isOnline, setIsOnline] = useState(() => navigator.onLine !== false);
+    const [offlineSavedAt, setOfflineSavedAt] = useState<string | null>(null);
 
     // Progress data for HomePage
     const [currentStreak, setCurrentStreak] = useState(0);
@@ -42,10 +47,37 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
     const [levelIcon, setLevelIcon] = useState('🌱');
 
     useEffect(() => {
+        const goOnline = () => { setIsOnline(true); setReloadKey(k => k + 1); }; // al volver la red se refresca todo
+        const goOffline = () => setIsOnline(false);
+        window.addEventListener('online', goOnline);
+        window.addEventListener('offline', goOffline);
+        return () => {
+            window.removeEventListener('online', goOnline);
+            window.removeEventListener('offline', goOffline);
+        };
+    }, []);
+
+    useEffect(() => {
         const loadStudentData = async () => {
             setLoadError(false);
+            const snapshot = loadPortalSnapshot(student.id);
             try {
                 console.log('[StudentPortal] Loading data for student:', student.name, student.id);
+
+                // Sin red y con copia local: se muestra directamente, sin esperar a que Firestore falle.
+                if (navigator.onLine === false && snapshot) {
+                    setPayments(snapshot.payments);
+                    setClasses(snapshot.classes);
+                    setEvents(snapshot.events);
+                    if (snapshot.progress) {
+                        setCurrentStreak(snapshot.progress.currentStreak);
+                        setLevel(snapshot.progress.level);
+                        setLevelName(snapshot.progress.levelName);
+                        setLevelIcon(snapshot.progress.levelIcon);
+                    }
+                    setOfflineSavedAt(snapshot.savedAt);
+                    return;
+                }
 
                 // Promise.allSettled en vez de Promise.all: si UNA sola de estas 9 lecturas falla
                 // (p.ej. un permiso denegado puntual o una red inestable), antes se perdía TODO
@@ -111,11 +143,24 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 };
                 const anyFailed = results.some(r => r.status === 'rejected');
 
-                const paymentsData = getValue(results[0], [] as Payment[]);
+                // Pagos (0), clases (2) y eventos (4) tienen copia local: si fallan (p.ej. sin red) se
+                // usa esa copia en vez de dejar la pantalla vacía.
+                let usedCachedData = false;
+                const withCache = <T,>(result: PromiseSettledResult<T>, fallback: T, cached: T | undefined): T => {
+                    if (result.status === 'fulfilled') return result.value;
+                    if (cached !== undefined) {
+                        console.warn('[StudentPortal] Usando la copia local por un fallo de carga:', result.reason);
+                        usedCachedData = true;
+                        return cached;
+                    }
+                    return getValue(result, fallback);
+                };
+
+                const paymentsData = withCache(results[0], [] as Payment[], snapshot?.payments);
                 const attendanceData = getValue(results[1], [] as AttendanceRecord[]);
-                const classesData = getValue(results[2], [] as DanceClass[]);
+                const classesData = withCache(results[2], [] as DanceClass[], snapshot?.classes);
                 const merchandiseData = getValue(results[3], [] as MerchandiseItem[]);
-                const eventsData = getValue(results[4], [] as DanceEvent[]);
+                const eventsData = withCache(results[4], [] as DanceEvent[], snapshot?.events);
                 const requestsData = getValue(results[5], [] as ChangeRequest[]);
                 const progressData = getValue(results[6], null as StudentProgress | null);
                 const instructorsSnapshot = getValue(results[7], { docs: [] } as any); // QuerySnapshot
@@ -128,8 +173,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     instructorMap.set(doc.id, data.name || data.email);
                 });
 
-                // Enrich classes with instructor names
-                const enrichedClasses = classesData.map(c => ({
+                // Enrich classes with instructor names (la copia local ya los trae resueltos)
+                const classesFromCache = results[2].status === 'rejected' && !!snapshot;
+                const enrichedClasses = classesFromCache ? classesData : classesData.map(c => ({
                     ...c,
                     instructorName: instructorMap.get(c.instructorId) || (c as any).instructor || 'Sin Asignar'
                 }));
@@ -155,8 +201,22 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 setLevelName(levelInfo.name);
                 setLevelIcon(levelInfo.icon);
 
-                if (anyFailed) setLoadError(true);
-                console.log('[StudentPortal] All data loaded successfully');
+                setOfflineSavedAt(usedCachedData && snapshot ? snapshot.savedAt : null);
+                // Solo cuenta como error lo que la copia local no ha podido cubrir.
+                const uncoveredFailure = results.some((r, i) => r.status === 'rejected' && !(snapshot && (i === 0 || i === 2 || i === 4)));
+                if (uncoveredFailure) setLoadError(true);
+
+                // Carga completa: se renueva la copia local para el próximo uso sin conexión.
+                if (!anyFailed) {
+                    savePortalSnapshot({
+                        student,
+                        classes: enrichedClasses,
+                        events: eventsData,
+                        payments: paymentsData,
+                        progress: { currentStreak: clientStreak, level: levelInfo.level, levelName: levelInfo.name, levelIcon: levelInfo.icon },
+                    });
+                }
+                console.log('[StudentPortal] Data loaded', anyFailed ? '(con fallos)' : 'successfully');
             } catch (error) {
                 console.error('[StudentPortal] Error loading data:', error);
                 setLoadError(true);
@@ -262,6 +322,15 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
             {/* Main Content */}
             <main className="max-w-4xl mx-auto px-4 py-6">
+                {(!isOnline || offlineSavedAt) && !isLoading && (
+                    <div role="status" className="mb-6 bg-amber-900/30 border border-amber-500/40 text-amber-100 px-4 py-3 rounded-lg text-sm">
+                        📴 Sin conexión.{' '}
+                        {offlineSavedAt
+                            ? `Estás viendo la información guardada el ${new Date(offlineSavedAt).toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}. `
+                            : 'Puedes seguir consultando tu horario. '}
+                        Comprar, apuntarte a un evento o avisar de una ausencia necesita internet.
+                    </div>
+                )}
                 {loadError && !isLoading && (
                     <div className="mb-6 bg-red-900/30 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg text-sm flex items-center justify-between gap-3">
                         <span>⚠️ Algunos datos no se han podido cargar. Es posible que falte información en esta pantalla.</span>
@@ -283,6 +352,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                             <HomePage
                                 student={student}
                                 upcomingClasses={upcomingClasses}
+                                enrolledClasses={classes.filter(c => student.enrolledClassIds?.includes(c.id))}
                                 payments={payments}
                                 currentStreak={currentStreak}
                                 level={level}

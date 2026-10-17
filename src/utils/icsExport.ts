@@ -34,10 +34,14 @@ export const downloadIcsEvent = (opts: IcsEventOptions): void => {
     ].filter(Boolean);
 
     // CRLF es obligatorio según la RFC 5545, aunque la mayoría de apps toleren \n a secas.
-    const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+    triggerIcsDownload(lines.join('\r\n'), `${opts.title.replace(/[^a-z0-9]+/gi, '_').slice(0, 50)}.ics`);
+};
+
+const triggerIcsDownload = (content: string, filename: string): void => {
+    const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${opts.title.replace(/[^a-z0-9]+/gi, '_').slice(0, 50)}.ics`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -48,10 +52,9 @@ export const downloadIcsEvent = (opts: IcsEventOptions): void => {
 // convertir "esta clase es los Martes" en una fecha concreta con la que generar el .ics.
 const SPANISH_WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-export const getNextOccurrence = (dayName: string, timeHHMM: string): Date => {
+export const getNextOccurrence = (dayName: string, timeHHMM: string, now: Date = new Date()): Date => {
     const targetDayIndex = SPANISH_WEEKDAYS.findIndex((d) => d.toLowerCase() === dayName.toLowerCase());
     const [hours, minutes] = timeHHMM.split(':').map(Number);
-    const now = new Date();
     const result = new Date(now);
     result.setHours(hours || 0, minutes || 0, 0, 0);
 
@@ -63,3 +66,85 @@ export const getNextOccurrence = (dayName: string, timeHHMM: string): Date => {
     result.setDate(now.getDate() + daysUntil);
     return result;
 };
+
+// --- Horario semanal de clases (un solo .ics con una serie semanal por clase y día) ---
+
+export interface IcsClassInput {
+    id: string;
+    name: string;
+    days: string[];
+    startTime: string; // HH:MM
+    endTime: string; // HH:MM
+    instructorName?: string;
+}
+
+const ICS_WEEKDAY_CODES: Record<string, string> = {
+    lunes: 'MO', martes: 'TU', 'miércoles': 'WE', jueves: 'TH', viernes: 'FR', 'sábado': 'SA', domingo: 'SU',
+};
+
+// Hora local "flotante" (sin Z ni zona): el calendario la interpreta en la zona del dispositivo,
+// que para quien viene a clase es la misma que la del estudio, y evita tener que incluir un
+// VTIMEZONE (que cada app interpreta a su manera). Respeta bien el cambio de horario de verano.
+const formatIcsLocal = (d: Date): string => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+};
+
+// RFC 5545: las líneas no pueden pasar de 75 octetos; las largas se parten con CRLF + espacio.
+const foldIcsLine = (line: string): string => {
+    const chunks: string[] = [];
+    let rest = line;
+    while (rest.length > 74) {
+        chunks.push(rest.slice(0, 74));
+        rest = ' ' + rest.slice(74);
+    }
+    chunks.push(rest);
+    return chunks.join('\r\n');
+};
+
+export const buildWeeklyClassesIcs = (classes: IcsClassInput[], now: Date = new Date()): string => {
+    const lines: string[] = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Xen Dance Space//Portal de Alumno//ES',
+        'CALSCALE:GREGORIAN',
+        'X-WR-CALNAME:Mis clases - Xen Dance Space',
+    ];
+    const stamp = formatIcsDate(now);
+
+    classes.forEach(c => {
+        c.days.forEach(day => {
+            const byDay = ICS_WEEKDAY_CODES[day.toLowerCase()];
+            if (!byDay) return;
+            const start = getNextOccurrence(day, c.startTime, now);
+            const [endH, endM] = c.endTime.split(':').map(Number);
+            const end = new Date(start);
+            end.setHours(endH || 0, endM || 0, 0, 0);
+            if (end <= start) end.setTime(start.getTime() + 60 * 60 * 1000); // sin hora de fin válida: 1 h
+
+            lines.push(
+                'BEGIN:VEVENT',
+                `UID:clase-${c.id}-${byDay}@xendance.space`,
+                `DTSTAMP:${stamp}`,
+                `DTSTART:${formatIcsLocal(start)}`,
+                `DTEND:${formatIcsLocal(end)}`,
+                `RRULE:FREQ=WEEKLY;BYDAY=${byDay}`,
+                `SUMMARY:${escapeIcsText(c.name)}`,
+                c.instructorName ? `DESCRIPTION:${escapeIcsText(`Profesor/a: ${c.instructorName}`)}` : '',
+                'LOCATION:Xen Dance Space',
+                'BEGIN:VALARM',
+                'ACTION:DISPLAY',
+                `DESCRIPTION:${escapeIcsText(c.name)}`,
+                'TRIGGER:-PT1H',
+                'END:VALARM',
+                'END:VEVENT',
+            );
+        });
+    });
+
+    lines.push('END:VCALENDAR');
+    return lines.filter(Boolean).map(foldIcsLine).join('\r\n');
+};
+
+export const downloadWeeklyClassesIcs = (classes: IcsClassInput[]): void =>
+    triggerIcsDownload(buildWeeklyClassesIcs(classes), 'mis-clases-xen-dance-space.ics');

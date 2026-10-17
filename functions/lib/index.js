@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scheduledFirestoreBackup = exports.purgeTrash = exports.checkSpecialDates = exports.joinEvent = exports.studentPurchase = exports.studentLogin = exports.onChangeRequestReviewed = exports.getVapidPublicKey = exports.onNewActivityLog = void 0;
+exports.sendClassReminders = exports.scheduledFirestoreBackup = exports.purgeTrash = exports.checkSpecialDates = exports.joinEvent = exports.studentPurchase = exports.studentLogin = exports.onChangeRequestReviewed = exports.getVapidPublicKey = exports.onNewActivityLog = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const webpush = require("web-push");
+const classReminders_1 = require("./classReminders");
 admin.initializeApp();
 // VAPID keys for Web Push — loaded from functions/.env (gitignored), never hardcoded in source.
 // Rotate by regenerating with `npx web-push generate-vapid-keys`, updating .env, and also
@@ -440,6 +441,60 @@ exports.scheduledFirestoreBackup = (0, scheduler_1.onSchedule)({
         outputUriPrefix,
     });
     console.log(`[scheduledFirestoreBackup] Export en curso, operación: ${operation.name}`);
+});
+// --- Recordatorio push de clase para las alumnas del Portal ---
+// Corre cada 15 min y avisa a las alumnas inscritas unas 2 horas antes de cada clase (nunca antes
+// de las 08:00, ver classReminders.ts). Se salta a quien ya avisó de que no va a esa sesión y no
+// repite el aviso si la función se reintenta o se solapa: cada (fecha, clase) se "reserva" creando
+// classReminderLog/{fecha}_{claseId}; si ya existía, otra ejecución lo envió ya.
+exports.sendClassReminders = (0, scheduler_1.onSchedule)({
+    schedule: '*/15 * * * *',
+    timeZone: 'Europe/Madrid',
+    retryCount: 0,
+}, async () => {
+    var _a;
+    const db = admin.firestore();
+    const now = (0, classReminders_1.getMadridNow)(new Date());
+    const classesSnap = await db.collection('classes').get();
+    const dueClasses = (0, classReminders_1.classesDueNow)(classesSnap.docs.map(d => (Object.assign({ id: d.id }, d.data()))), now);
+    if (dueClasses.length === 0)
+        return;
+    for (const danceClass of dueClasses) {
+        try {
+            try {
+                await db.collection('classReminderLog').doc(`${now.dateIso}_${danceClass.id}`).create({
+                    sentAt: new Date().toISOString(),
+                    className: danceClass.name,
+                });
+            }
+            catch (error) {
+                if ((error === null || error === void 0 ? void 0 : error.code) === 6)
+                    continue; // ALREADY_EXISTS: ya se avisó de esta sesión
+                throw error;
+            }
+            const [studentsSnap, absencesSnap, instructorDoc] = await Promise.all([
+                db.collection('students').where('enrolledClassIds', 'array-contains', danceClass.id).get(),
+                db.collection('classAbsences').where('classId', '==', danceClass.id).where('date', '==', now.dateIso).get(),
+                danceClass.instructorId ? db.collection('instructors').doc(danceClass.instructorId).get() : Promise.resolve(null),
+            ]);
+            const absentIds = new Set(absencesSnap.docs.map(d => d.data().studentId));
+            const instructorName = (instructorDoc === null || instructorDoc === void 0 ? void 0 : instructorDoc.exists) ? (_a = instructorDoc.data()) === null || _a === void 0 ? void 0 : _a.name : undefined;
+            const recipients = studentsSnap.docs.filter(d => {
+                const s = d.data();
+                return s.active && !s.deletedAt && !absentIds.has(d.id);
+            });
+            await Promise.all(recipients.map(d => sendPushToStudent(d.id, {
+                title: `💃 ${danceClass.name} a las ${danceClass.startTime}`,
+                body: `Tu clase es hoy a las ${danceClass.startTime}${instructorName ? ` con ${instructorName}` : ''}. ¡Te esperamos!`,
+                url: '/portal',
+            })));
+            console.log(`[sendClassReminders] ${danceClass.name} (${now.dateIso}, aviso ${classReminders_1.REMINDER_LEAD_MINUTES} min antes): ${recipients.length} alumna(s) avisada(s), ${absentIds.size} ausencia(s) avisada(s).`);
+        }
+        catch (error) {
+            // Una clase que falla no debe impedir los avisos de las demás.
+            console.error(`[sendClassReminders] Error con la clase ${danceClass.id}:`, error);
+        }
+    }
 });
 async function sendAnniversaryEmail(email, name, years) {
     const mailOptions = {

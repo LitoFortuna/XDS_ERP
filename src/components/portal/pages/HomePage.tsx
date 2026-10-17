@@ -1,10 +1,14 @@
 import React from 'react';
 import { Student, DanceClass, Payment } from '../../../../types';
 import { PortalPage } from '../BottomNavigation';
+import CelebrationCard from '../CelebrationCard';
+import WeeklySchedule from '../WeeklySchedule';
 
 interface HomePageProps {
     student: Student;
     upcomingClasses: DanceClass[];
+    /** Todas las clases en las que está inscrita (para "Mi semana"); upcomingClasses son solo las de hoy. */
+    enrolledClasses?: DanceClass[];
     payments: Payment[];
     currentStreak?: number;
     level?: number;
@@ -16,6 +20,7 @@ interface HomePageProps {
 const HomePage: React.FC<HomePageProps> = ({
     student,
     upcomingClasses,
+    enrolledClasses = [],
     payments,
     currentStreak = 0,
     level = 1,
@@ -43,6 +48,8 @@ const HomePage: React.FC<HomePageProps> = ({
 
     return (
         <div className="space-y-6">
+            <CelebrationCard student={student} />
+
             {/* Combined Welcome & Status Card */}
             <div className="bg-gradient-to-br from-purple-900/60 via-purple-800/40 to-fuchsia-900/60 border border-purple-500/50 rounded-xl p-6 relative overflow-hidden">
                 {/* Decorative background circle */}
@@ -99,7 +106,7 @@ const HomePage: React.FC<HomePageProps> = ({
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                     </svg>
-                    Próximas Clases
+                    Clases de hoy
                     {onNavigate && (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-auto text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -134,9 +141,11 @@ const HomePage: React.FC<HomePageProps> = ({
                         ))}
                     </div>
                 ) : (
-                    <p className="text-gray-400 text-center py-4">No hay clases programadas próximamente</p>
+                    <p className="text-gray-400 text-center py-4">Hoy no tienes clases</p>
                 )}
             </div>
+
+            <WeeklySchedule classes={enrolledClasses} />
 
             {/* Payment History */}
             <section className="bg-gray-800 rounded-xl border border-gray-700 p-6">

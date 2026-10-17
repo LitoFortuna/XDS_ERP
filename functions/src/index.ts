@@ -2,6 +2,7 @@ import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/fire
 import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import * as webpush from 'web-push';
+import { classesDueNow, getMadridNow, REMINDER_LEAD_MINUTES, ReminderClass } from './classReminders';
 
 admin.initializeApp();
 
@@ -493,6 +494,65 @@ export const scheduledFirestoreBackup = onSchedule({
         outputUriPrefix,
     });
     console.log(`[scheduledFirestoreBackup] Export en curso, operación: ${operation.name}`);
+});
+
+// --- Recordatorio push de clase para las alumnas del Portal ---
+// Corre cada 15 min y avisa a las alumnas inscritas unas 2 horas antes de cada clase (nunca antes
+// de las 08:00, ver classReminders.ts). Se salta a quien ya avisó de que no va a esa sesión y no
+// repite el aviso si la función se reintenta o se solapa: cada (fecha, clase) se "reserva" creando
+// classReminderLog/{fecha}_{claseId}; si ya existía, otra ejecución lo envió ya.
+export const sendClassReminders = onSchedule({
+    schedule: '*/15 * * * *',
+    timeZone: 'Europe/Madrid',
+    retryCount: 0,
+}, async () => {
+    const db = admin.firestore();
+    const now = getMadridNow(new Date());
+
+    const classesSnap = await db.collection('classes').get();
+    const dueClasses = classesDueNow(
+        classesSnap.docs.map(d => ({ id: d.id, ...d.data() } as ReminderClass)),
+        now
+    );
+    if (dueClasses.length === 0) return;
+
+    for (const danceClass of dueClasses) {
+        try {
+            try {
+                await db.collection('classReminderLog').doc(`${now.dateIso}_${danceClass.id}`).create({
+                    sentAt: new Date().toISOString(),
+                    className: danceClass.name,
+                });
+            } catch (error: any) {
+                if (error?.code === 6) continue; // ALREADY_EXISTS: ya se avisó de esta sesión
+                throw error;
+            }
+
+            const [studentsSnap, absencesSnap, instructorDoc] = await Promise.all([
+                db.collection('students').where('enrolledClassIds', 'array-contains', danceClass.id).get(),
+                db.collection('classAbsences').where('classId', '==', danceClass.id).where('date', '==', now.dateIso).get(),
+                danceClass.instructorId ? db.collection('instructors').doc(danceClass.instructorId).get() : Promise.resolve(null),
+            ]);
+
+            const absentIds = new Set(absencesSnap.docs.map(d => d.data().studentId as string));
+            const instructorName = instructorDoc?.exists ? (instructorDoc.data()?.name as string | undefined) : undefined;
+            const recipients = studentsSnap.docs.filter(d => {
+                const s = d.data();
+                return s.active && !s.deletedAt && !absentIds.has(d.id);
+            });
+
+            await Promise.all(recipients.map(d => sendPushToStudent(d.id, {
+                title: `💃 ${danceClass.name} a las ${danceClass.startTime}`,
+                body: `Tu clase es hoy a las ${danceClass.startTime}${instructorName ? ` con ${instructorName}` : ''}. ¡Te esperamos!`,
+                url: '/portal',
+            })));
+
+            console.log(`[sendClassReminders] ${danceClass.name} (${now.dateIso}, aviso ${REMINDER_LEAD_MINUTES} min antes): ${recipients.length} alumna(s) avisada(s), ${absentIds.size} ausencia(s) avisada(s).`);
+        } catch (error) {
+            // Una clase que falla no debe impedir los avisos de las demás.
+            console.error(`[sendClassReminders] Error con la clase ${danceClass.id}:`, error);
+        }
+    }
 });
 
 async function sendAnniversaryEmail(email: string, name: string, years: number) {
