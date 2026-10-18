@@ -21,6 +21,20 @@ export const setBadge = (count: number) => {
     }
 };
 
+// Cierra las notificaciones que siguen en la bandeja del sistema (las del service worker). Se usa al
+// abrir la app: si la persona ya está viendo la app, no tiene sentido que sigan ahí ni que el icono
+// siga marcando un número.
+export const closeAllNotifications = async () => {
+    try {
+        if (!('serviceWorker' in navigator)) return;
+        const registration = await navigator.serviceWorker.getRegistration();
+        const shown = (await registration?.getNotifications()) || [];
+        shown.forEach(n => n.close());
+    } catch (error) {
+        console.error('Error closing notifications:', error);
+    }
+};
+
 export const clearBadge = () => {
     if ('clearAppBadge' in navigator) {
         (navigator as any).clearAppBadge().catch((error: any) => {
@@ -127,8 +141,20 @@ export const subscribeStudentToPush = async (studentId: string): Promise<PushSub
 /**
  * Schedules a local notification for a class attendance reminder
  */
-export const scheduleAttendanceReminder = async (className: string, startTime: string) => {
+// Recordatorios ya programados en esta pestaña (clave día+clase+hora). Sin esto, cada vez que la lista
+// de clases se recargaba se programaba OTRO temporizador para la misma clase y, a la hora, salían
+// varios avisos de golpe.
+const scheduledReminders = new Set<string>();
+
+export const attendanceReminderKey = (className: string, startTime: string, now: Date = new Date()): string =>
+    `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}|${className}|${startTime}`;
+
+// `shouldSkip` se evalúa al llegar la hora: p. ej. no avisar si ya se pasó lista de esa clase.
+export const scheduleAttendanceReminder = async (className: string, startTime: string, shouldSkip?: () => boolean) => {
     if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+
+    const key = attendanceReminderKey(className, startTime);
+    if (scheduledReminders.has(key)) return;
 
     const registration = await navigator.serviceWorker.ready;
 
@@ -144,11 +170,13 @@ export const scheduleAttendanceReminder = async (className: string, startTime: s
     const delay = scheduledTime.getTime() - now.getTime();
 
     if (delay > 0) {
+        scheduledReminders.add(key);
         console.log(`[Notification] Programando recordatorio para ${className} en ${Math.round(delay / 60000)} min`);
 
         // Note: Real "scheduling" for web usually requires a backend push.
         // However, for the current session, we can use a timeout as a "live" reminder.
         setTimeout(() => {
+            if (shouldSkip?.()) return;
             registration.showNotification('📝 Recordatorio de Asistencia', {
                 body: `La clase de "${className}" empezó hace 5 minutos. No olvides pasar lista.`,
                 icon: '/android-chrome-192x192.png',

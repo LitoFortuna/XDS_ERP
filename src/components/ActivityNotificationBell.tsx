@@ -1,26 +1,36 @@
 
 import React, { useState } from 'react';
+import { ActivityLog } from '../../types';
 import { useAppStore } from '../store/useAppStore';
 import { markAllActivitiesAsRead } from '../services/domain/activityLogService';
 
 const ActivityNotificationBell: React.FC = () => {
     const { activityLogs, userProfile } = useAppStore();
     const [isOpen, setIsOpen] = useState(false);
+    // Lo que se ve al abrir: una copia, porque al marcarlas como leídas desaparecen de la lista en vivo
+    // y la persona no llegaría a leerlas.
+    const [viewedLogs, setViewedLogs] = useState<ActivityLog[]>([]);
 
     // Only SuperAdmins see this component
     if (!userProfile || userProfile.role !== 'SuperAdmin') {
         return null;
     }
 
-    const handleMarkAllRead = async () => {
-        await markAllActivitiesAsRead(activityLogs);
-        setIsOpen(false);
+    // Abrir la campana equivale a haber visto las novedades: se marcan como leídas y el número rojo
+    // desaparece (antes se quedaba hasta pulsar «Marcar leídas»).
+    const handleToggle = () => {
+        if (isOpen) { setIsOpen(false); return; }
+        setViewedLogs(activityLogs);
+        setIsOpen(true);
+        if (activityLogs.length > 0) void markAllActivitiesAsRead(activityLogs);
     };
+
+    const shownLogs = isOpen ? viewedLogs : activityLogs;
 
     return (
         <div className="relative">
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={handleToggle}
                 className="relative p-2 text-gray-400 hover:text-white transition-colors"
                 title="Notificaciones de Actividad"
             >
@@ -29,7 +39,7 @@ const ActivityNotificationBell: React.FC = () => {
                 </svg>
                 {activityLogs.length > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-                        {activityLogs.length}
+                        {activityLogs.length > 9 ? '9+' : activityLogs.length}
                     </span>
                 )}
             </button>
@@ -38,17 +48,9 @@ const ActivityNotificationBell: React.FC = () => {
                 <div className="absolute left-full top-0 ml-2 w-80 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-left-4 duration-200 lg:left-full lg:right-auto lg:ml-2 max-lg:right-0 max-lg:left-auto max-lg:top-full max-lg:mt-2">
                     <div className="p-3 bg-gray-700/50 border-b border-gray-600 flex justify-between items-center">
                         <h3 className="text-white font-bold text-sm">Actividad Reciente</h3>
-                        {activityLogs.length > 0 && (
-                            <button
-                                onClick={handleMarkAllRead}
-                                className="text-[10px] text-purple-400 hover:text-purple-300 font-bold uppercase"
-                            >
-                                Marcar leídas
-                            </button>
-                        )}
                     </div>
                     <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                        {activityLogs.length === 0 ? (
+                        {shownLogs.length === 0 ? (
                             <div className="p-6 text-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -57,7 +59,7 @@ const ActivityNotificationBell: React.FC = () => {
                                 <p className="text-gray-600 text-xs mt-1">Las acciones del Admin aparecerán aquí</p>
                             </div>
                         ) : (
-                            activityLogs.map((log) => (
+                            shownLogs.map((log) => (
                                 <div key={log.id} className="p-3 border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
                                     <div className="flex items-start gap-3">
                                         <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${log.type === 'payment' ? 'bg-green-500/20 text-green-400' :

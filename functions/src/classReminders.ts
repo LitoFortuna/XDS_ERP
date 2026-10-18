@@ -72,3 +72,26 @@ export const classesDueNow = (classes: ReminderClass[], now: MadridNow): Reminde
         const sendMinute = reminderSendMinute(start);
         return sendMinute !== null && sendMinute <= now.minutes && sendMinute > now.minutes - RUN_INTERVAL_MINUTES;
     });
+
+export interface ReminderItem {
+    className: string;
+    startTime: string; // HH:MM
+    instructorName?: string;
+}
+
+// Un solo aviso por alumna y ejecución aunque tenga varias clases a la vez (antes salía un push por
+// clase y llegaban "varios de golpe"). Con una clase conserva el texto de siempre.
+export const buildReminderMessage = (items: ReminderItem[]): { title: string; body: string } => {
+    const sorted = [...items].sort((a, b) => a.startTime.localeCompare(b.startTime) || a.className.localeCompare(b.className, 'es'));
+    if (sorted.length === 1) {
+        const c = sorted[0];
+        return {
+            title: `💃 ${c.className} a las ${c.startTime}`,
+            body: `Tu clase es hoy a las ${c.startTime}${c.instructorName ? ` con ${c.instructorName}` : ''}. ¡Te esperamos!`,
+        };
+    }
+    return {
+        title: `💃 Hoy tienes ${sorted.length} clases`,
+        body: `${sorted.map(c => `${c.className} a las ${c.startTime}`).join(' · ')}. ¡Te esperamos!`,
+    };
+};

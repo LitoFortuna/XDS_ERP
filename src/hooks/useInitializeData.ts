@@ -78,8 +78,11 @@ export const useInitializeData = () => {
 
         console.log(`[Reminders] Analizando ${todayClasses.length} clases de hoy para recordatorios...`);
 
+        const todayIso = toIsoLocal(date);
         todayClasses.forEach(c => {
-            scheduleAttendanceReminder(c.name, c.startTime);
+            // No se avisa de pasar lista si ya se pasó (comprobado al llegar la hora).
+            scheduleAttendanceReminder(c.name, c.startTime, () =>
+                useAppStore.getState().attendanceRecords.some(r => r.classId === c.id && r.date === todayIso));
         });
     }, [store.dataLoading, store.classes]);
 
@@ -90,17 +93,11 @@ export const useInitializeData = () => {
         // Only SuperAdmins receive activity notifications
         if (store.userProfile.role === 'SuperAdmin') {
             console.log('[ActivityLog] Subscribing to activity logs for SuperAdmin...');
+            // Solo se actualiza la lista (campana). El aviso del sistema lo manda el servidor por push
+            // (onNewActivityLog); crear aquí además un Notification local hacía que cada actividad sin leer
+            // sonara dos veces y que, al abrir la app, salieran avisos viejos de golpe.
             const unsubscribe = subscribeToActivityLogs('SuperAdmin', (logs) => {
                 store.setActivityLogs(logs);
-
-                // Show browser notification for new activities
-                if (logs.length > 0 && Notification.permission === 'granted') {
-                    const latestLog = logs[0];
-                    new Notification('📣 Nueva Actividad en XDS ERP', {
-                        body: latestLog.description,
-                        icon: '/android-chrome-192x192.png'
-                    });
-                }
             });
             return () => unsubscribe();
         }

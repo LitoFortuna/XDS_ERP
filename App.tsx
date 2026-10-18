@@ -10,7 +10,6 @@ import { useInitializeData } from './src/hooks/useInitializeData';
 import { useAppActions } from './src/hooks/useAppActions';
 import { batchAddStudents, batchAddInstructors, batchAddClasses, batchAddPayments, batchAddCosts, batchAddMerchandiseItems } from './src/services/firestoreService';
 import NotificationPrompter from './src/components/NotificationPrompter';
-import { setBadge, clearBadge } from './src/utils/notificationUtils';
 import { signOut } from 'firebase/auth';
 import { auth } from './src/config/firebase';
 import { useStaffGate } from './src/hooks/useStaffGate';
@@ -153,15 +152,8 @@ const AdminApp: React.FC = () => {
         if (rqAttendanceRecords) useAppStore.getState().setAttendanceRecords(rqAttendanceRecords);
     }, [rqAttendanceRecords]);
 
-    // Handle App Badge
-    useEffect(() => {
-        if (birthdaysToday.length > 0) {
-            setBadge(birthdaysToday.length);
-        } else {
-            clearBadge();
-        }
-    }, [birthdaysToday]);
-
+    // La insignia del icono la gestiona useBadgeSync (se borra al abrir la app); los cumpleaños ya se
+    // ven en el aviso del día y en el Calendario, no hace falta dejar un número fijo en el icono.
     if (authLoading) {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-900 text-gray-200">

@@ -4,10 +4,10 @@ import * as admin from 'firebase-admin';
 import * as webpush from 'web-push';
 import { randomInt } from 'crypto';
 import { buildInstructorWelcomeEmail } from './emailTemplates';
-import { classesDueNow, getMadridNow, REMINDER_LEAD_MINUTES, ReminderClass } from './classReminders';
+import { classesDueNow, getMadridNow, buildReminderMessage, REMINDER_LEAD_MINUTES, ReminderClass, ReminderItem } from './classReminders';
 import {
     ADMIN_EMAILS, chunk as chunkArray, toTeacherStudent, toTeacherClass, toTeacherEvent, validateAttendanceInput,
-    classInstructorIds, teacherGroupScope, isStudentInScope, composeNotes, mergePresent, NoteEntry,
+    classInstructorIds, teacherGroupScope, isStudentInScope, composeNotes, mergePresent, studentInstructorIds, NoteEntry,
     TeacherStudentView, TeacherEventView,
 } from './teacherData';
 
@@ -29,6 +29,19 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
     console.error('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY missing from environment — push notifications will fail.');
 }
 
+// Los triggers de Firestore se entregan "al menos una vez": ante un reintento el mismo evento puede llegar
+// dos veces y mandar el push repetido. Cada evento se reserva creando pushEventLog/{eventId}; si ya
+// existía, ya se atendió y se ignora.
+async function claimEvent(eventId: string): Promise<boolean> {
+    try {
+        await admin.firestore().collection('pushEventLog').doc(eventId).create({ at: new Date().toISOString() });
+        return true;
+    } catch (error: any) {
+        if (error?.code === 6) return false; // ALREADY_EXISTS
+        throw error;
+    }
+}
+
 /**
  * Triggered when a new activity log is created
  * Sends push notification to SuperAdmin
@@ -44,6 +57,11 @@ export const onNewActivityLog = onDocumentCreated('activityLogs/{logId}', async 
 
     if (!activityData || activityData.targetRole !== 'SuperAdmin') {
         console.log('Activity not targeted at SuperAdmin, skipping');
+        return;
+    }
+
+    if (!(await claimEvent(event.id))) {
+        console.log('Evento ya atendido, se ignora el reintento:', event.id);
         return;
     }
 
@@ -69,7 +87,8 @@ export const onNewActivityLog = onDocumentCreated('activityLogs/{logId}', async 
                     body: activityData.description,
                     icon: '/android-chrome-192x192.png',
                     badge: '/android-chrome-192x192.png',
-                    badgeCount: 1,
+                    // Misma etiqueta por tipo: una ráfaga de actividad se sustituye en vez de apilarse.
+                    tag: `activity-${activityData.type || 'general'}`,
                     data: {
                         url: '/',
                         type: activityData.type
@@ -110,7 +129,7 @@ export const getVapidPublicKey = onRequest({ cors: true }, (req, res) => {
 // studentPushSubscriptions/{studentId} -- ver src/utils/notificationUtils.ts::subscribeStudentToPush.
 // Si el envío falla con 410 (Gone), la suscripción ya no es válida (se desinstaló la PWA, cambió
 // de navegador, etc.) y se borra para no seguir intentando en cada aviso futuro.
-async function sendPushToStudent(studentId: string, payload: { title: string; body: string; url?: string }) {
+async function sendPushToStudent(studentId: string, payload: { title: string; body: string; url?: string; tag?: string }) {
     const subDoc = await admin.firestore().collection('studentPushSubscriptions').doc(studentId).get();
     if (!subDoc.exists) return;
 
@@ -121,6 +140,7 @@ async function sendPushToStudent(studentId: string, payload: { title: string; bo
             body: payload.body,
             icon: '/android-chrome-192x192.png',
             badge: '/android-chrome-192x192.png',
+            tag: payload.tag,
             data: { url: payload.url || '/portal' },
         }));
     } catch (error: any) {
@@ -141,6 +161,7 @@ export const onChangeRequestReviewed = onDocumentUpdated('changeRequests/{reques
     if (!before || !after) return;
     if (before.status === after.status) return; // solo interesa el cambio de estado
     if (after.status !== 'Aprobada' && after.status !== 'Rechazada') return;
+    if (!(await claimEvent(event.id))) return; // reintento del mismo evento
 
     await sendPushToStudent(after.studentId, {
         title: after.status === 'Aprobada' ? '✅ Solicitud aprobada' : '❌ Solicitud rechazada',
@@ -148,6 +169,7 @@ export const onChangeRequestReviewed = onDocumentUpdated('changeRequests/{reques
             ? 'Tu solicitud de cambio de datos ha sido aprobada.'
             : `Tu solicitud de cambio de datos ha sido rechazada.${after.reviewNotes ? ` Motivo: ${after.reviewNotes}` : ''}`,
         url: '/portal',
+        tag: `change-request-${event.params.requestId}`,
     });
 });
 
@@ -827,6 +849,14 @@ export const sendClassReminders = onSchedule({
     );
     if (dueClasses.length === 0) return;
 
+    // Profesores por id, para nombrar en el aviso al de SU grupo.
+    const instructorNames = new Map<string, string>();
+    (await db.collection('instructors').get()).docs.forEach(d => instructorNames.set(d.id, String(d.data().name || '')));
+
+    // Una alumna puede tener varias clases a la misma hora: se junta todo y se manda UN solo aviso por
+    // alumna (antes salía un push por clase y llegaban varios de golpe).
+    const remindersByStudent = new Map<string, ReminderItem[]>();
+
     for (const danceClass of dueClasses) {
         try {
             try {
@@ -839,24 +869,26 @@ export const sendClassReminders = onSchedule({
                 throw error;
             }
 
-            const [studentsSnap, absencesSnap, instructorDoc] = await Promise.all([
+            const [studentsSnap, absencesSnap] = await Promise.all([
                 db.collection('students').where('enrolledClassIds', 'array-contains', danceClass.id).get(),
                 db.collection('classAbsences').where('classId', '==', danceClass.id).where('date', '==', now.dateIso).get(),
-                danceClass.instructorId ? db.collection('instructors').doc(danceClass.instructorId).get() : Promise.resolve(null),
             ]);
 
             const absentIds = new Set(absencesSnap.docs.map(d => d.data().studentId as string));
-            const instructorName = instructorDoc?.exists ? (instructorDoc.data()?.name as string | undefined) : undefined;
+            const rawClass = classesSnap.docs.find(c => c.id === danceClass.id)?.data() || {};
             const recipients = studentsSnap.docs.filter(d => {
                 const s = d.data();
                 return s.active && !s.deletedAt && !absentIds.has(d.id);
             });
 
-            await Promise.all(recipients.map(d => sendPushToStudent(d.id, {
-                title: `💃 ${danceClass.name} a las ${danceClass.startTime}`,
-                body: `Tu clase es hoy a las ${danceClass.startTime}${instructorName ? ` con ${instructorName}` : ''}. ¡Te esperamos!`,
-                url: '/portal',
-            })));
+            recipients.forEach(d => {
+                const names = studentInstructorIds(rawClass, danceClass.id, d.data())
+                    .map(id => instructorNames.get(id))
+                    .filter((n): n is string => !!n);
+                const list = remindersByStudent.get(d.id) || [];
+                list.push({ className: danceClass.name, startTime: danceClass.startTime, instructorName: names.length > 0 ? names.join(' y ') : undefined });
+                remindersByStudent.set(d.id, list);
+            });
 
             console.log(`[sendClassReminders] ${danceClass.name} (${now.dateIso}, aviso ${REMINDER_LEAD_MINUTES} min antes): ${recipients.length} alumna(s) avisada(s), ${absentIds.size} ausencia(s) avisada(s).`);
         } catch (error) {
@@ -864,6 +896,12 @@ export const sendClassReminders = onSchedule({
             console.error(`[sendClassReminders] Error con la clase ${danceClass.id}:`, error);
         }
     }
+
+    await Promise.all([...remindersByStudent.entries()].map(([studentId, items]) => {
+        const message = buildReminderMessage(items);
+        return sendPushToStudent(studentId, { ...message, url: '/portal', tag: 'class-reminder' });
+    }));
+    console.log(`[sendClassReminders] ${remindersByStudent.size} alumna(s) avisada(s) de ${dueClasses.length} clase(s).`);
 });
 
 async function sendAnniversaryEmail(email: string, name: string, years: number) {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     chunk, toTeacherStudent, toTeacherClass, toTeacherEvent, validateAttendanceInput,
-    classInstructorIds, teacherGroupScope, isStudentInScope, composeNotes, mergePresent,
+    classInstructorIds, teacherGroupScope, isStudentInScope, composeNotes, mergePresent, studentInstructorIds,
 } from '../../functions/src/teacherData';
 
 describe('toTeacherStudent', () => {
@@ -137,5 +137,17 @@ describe('clases con grupos y varios profesores', () => {
         expect(composeNotes({ a: { name: 'Pablo', text: ' Coreo nueva ' }, b: { name: 'Vic', text: '' }, c: { name: 'Diana', text: 'Faltó música' } }))
             .toBe('Pablo: Coreo nueva  ·  Diana: Faltó música');
         expect(composeNotes({})).toBe('');
+    });
+});
+
+describe('studentInstructorIds', () => {
+    const mini = { instructorId: 'pablo', groups: [{ id: 'g1', name: 'Parejas', instructorIds: ['pablo'] }, { id: 'g2', name: 'Solista', instructorIds: ['vic', 'diana'] }] };
+    it('devuelve los profesores del grupo de la alumna', () => {
+        expect(studentInstructorIds(mini, 'mini', { classGroups: { mini: 'g2' } })).toEqual(['vic', 'diana']);
+        expect(studentInstructorIds(mini, 'mini', { classGroups: { mini: 'g1' } })).toEqual(['pablo']);
+    });
+    it('sin grupo asignado o sin grupos devuelve todos los de la clase', () => {
+        expect(studentInstructorIds(mini, 'mini', {})).toEqual(['pablo', 'vic', 'diana']);
+        expect(studentInstructorIds({ instructorId: 'x' }, 'c', {})).toEqual(['x']);
     });
 });

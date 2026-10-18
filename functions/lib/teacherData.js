@@ -6,7 +6,7 @@
 // alumnas, pagos, etc.). Todo lo suyo pasa por las Cloud Functions teacherOverview y
 // teacherSaveAttendance, que usan estas funciones para devolver solo lo mínimo de SUS clases.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.mergePresent = exports.composeNotes = exports.toTeacherEvent = exports.validateAttendanceInput = exports.MAX_BACKDATE_DAYS = exports.toTeacherClass = exports.toTeacherStudent = exports.isStudentInScope = exports.teacherGroupScope = exports.classInstructorIds = exports.chunk = exports.ADMIN_EMAILS = void 0;
+exports.studentInstructorIds = exports.mergePresent = exports.composeNotes = exports.toTeacherEvent = exports.validateAttendanceInput = exports.MAX_BACKDATE_DAYS = exports.toTeacherClass = exports.toTeacherStudent = exports.isStudentInScope = exports.teacherGroupScope = exports.classInstructorIds = exports.chunk = exports.ADMIN_EMAILS = void 0;
 /** Mismos administradores que firestore.rules (isAdmin) y userProfileService.ts. */
 exports.ADMIN_EMAILS = ['raulfdz3@gmail.com', 'info@xendance.space'];
 const chunk = (items, size) => {
@@ -154,4 +154,16 @@ const mergePresent = (existingPresent, scopeIds, chosen) => [
     ...new Set([...existingPresent.filter(id => !scopeIds.has(id)), ...chosen]),
 ];
 exports.mergePresent = mergePresent;
+// Profesores que llevan a esta alumna en esta clase: los de su grupo si la clase tiene grupos y ella
+// tiene uno asignado; si no, todos los de la clase.
+const studentInstructorIds = (rawClass, classId, rawStudent) => {
+    var _a;
+    const groupId = (_a = rawStudent === null || rawStudent === void 0 ? void 0 : rawStudent.classGroups) === null || _a === void 0 ? void 0 : _a[classId];
+    const groups = Array.isArray(rawClass === null || rawClass === void 0 ? void 0 : rawClass.groups) ? rawClass.groups : [];
+    const group = groupId ? groups.find(g => String(g === null || g === void 0 ? void 0 : g.id) === String(groupId)) : undefined;
+    return group && Array.isArray(group.instructorIds) && group.instructorIds.length > 0
+        ? group.instructorIds.filter((i) => typeof i === 'string')
+        : (0, exports.classInstructorIds)(rawClass);
+};
+exports.studentInstructorIds = studentInstructorIds;
 //# sourceMappingURL=teacherData.js.map

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    classesDueNow, getMadridNow, parseHHMM, reminderSendMinute, ReminderClass, MadridNow,
+    classesDueNow, getMadridNow, parseHHMM, reminderSendMinute, buildReminderMessage, ReminderClass, MadridNow,
 } from '../../functions/src/classReminders';
 
 const cls = (over: Partial<ReminderClass>): ReminderClass => ({
@@ -51,5 +51,24 @@ describe('getMadridNow', () => {
         const now = getMadridNow(new Date('2026-07-14T22:30:00Z'));
         expect(now.dateIso).toBe('2026-07-15');
         expect(now.weekday).toBe('Miércoles');
+    });
+});
+
+describe('buildReminderMessage', () => {
+    it('con una clase mantiene el texto de siempre', () => {
+        expect(buildReminderMessage([{ className: 'Salsa', startTime: '19:00', instructorName: 'Carlos' }])).toEqual({
+            title: '💃 Salsa a las 19:00',
+            body: 'Tu clase es hoy a las 19:00 con Carlos. ¡Te esperamos!',
+        });
+        expect(buildReminderMessage([{ className: 'Salsa', startTime: '19:00' }]).body).toBe('Tu clase es hoy a las 19:00. ¡Te esperamos!');
+    });
+
+    it('con varias clases manda un único aviso ordenado por hora', () => {
+        const msg = buildReminderMessage([
+            { className: 'Bachata', startTime: '20:30' },
+            { className: 'Salsa', startTime: '19:00' },
+        ]);
+        expect(msg.title).toBe('💃 Hoy tienes 2 clases');
+        expect(msg.body).toBe('Salsa a las 19:00 · Bachata a las 20:30. ¡Te esperamos!');
     });
 });

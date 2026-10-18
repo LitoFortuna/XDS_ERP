@@ -8,6 +8,7 @@ import { db, auth } from './config/firebase';
 import { InstallPrompt } from './components/InstallPrompt';
 import { FeedbackProvider } from './components/ui/Feedback';
 import { loadPortalSnapshot, clearPortalSnapshots } from './utils/portalOfflineCache';
+import { useBadgeSync } from './hooks/useBadgeSync';
 
 // The full admin ERP and the full student portal are two separate apps that only ever share a
 // visitor with each other in dev/testing — erp.xendance.space and alumni.xendance.space each
@@ -40,6 +41,7 @@ const getInitialMode = (): 'erp' | 'portal' => {
 };
 
 const MainRouter: React.FC = () => {
+    useBadgeSync();
     // Simple routing state
     // 'erp': Admin interface
     // 'portal': Student portal

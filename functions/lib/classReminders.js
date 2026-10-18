@@ -2,7 +2,7 @@
 // Lógica pura (sin Firebase) de los recordatorios de clase, separada de index.ts para poder
 // probarla desde el vitest de la raíz (src/utils/classReminders.test.ts).
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.classesDueNow = exports.reminderSendMinute = exports.getMadridNow = exports.parseHHMM = exports.MIN_USEFUL_LEAD_MINUTES = exports.RUN_INTERVAL_MINUTES = exports.EARLIEST_REMINDER_MINUTE = exports.REMINDER_LEAD_MINUTES = void 0;
+exports.buildReminderMessage = exports.classesDueNow = exports.reminderSendMinute = exports.getMadridNow = exports.parseHHMM = exports.MIN_USEFUL_LEAD_MINUTES = exports.RUN_INTERVAL_MINUTES = exports.EARLIEST_REMINDER_MINUTE = exports.REMINDER_LEAD_MINUTES = void 0;
 /** Cuánto antes de empezar la clase se avisa. */
 exports.REMINDER_LEAD_MINUTES = 120;
 /** No se manda ningún aviso antes de esta hora (minutos desde medianoche): las 08:00. */
@@ -62,4 +62,21 @@ const classesDueNow = (classes, now) => classes.filter(c => {
     return sendMinute !== null && sendMinute <= now.minutes && sendMinute > now.minutes - exports.RUN_INTERVAL_MINUTES;
 });
 exports.classesDueNow = classesDueNow;
+// Un solo aviso por alumna y ejecución aunque tenga varias clases a la vez (antes salía un push por
+// clase y llegaban "varios de golpe"). Con una clase conserva el texto de siempre.
+const buildReminderMessage = (items) => {
+    const sorted = [...items].sort((a, b) => a.startTime.localeCompare(b.startTime) || a.className.localeCompare(b.className, 'es'));
+    if (sorted.length === 1) {
+        const c = sorted[0];
+        return {
+            title: `💃 ${c.className} a las ${c.startTime}`,
+            body: `Tu clase es hoy a las ${c.startTime}${c.instructorName ? ` con ${c.instructorName}` : ''}. ¡Te esperamos!`,
+        };
+    }
+    return {
+        title: `💃 Hoy tienes ${sorted.length} clases`,
+        body: `${sorted.map(c => `${c.className} a las ${c.startTime}`).join(' · ')}. ¡Te esperamos!`,
+    };
+};
+exports.buildReminderMessage = buildReminderMessage;
 //# sourceMappingURL=classReminders.js.map

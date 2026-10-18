@@ -197,3 +197,14 @@ export const composeNotes = (byInstructor: Record<string, NoteEntry>): string =>
 export const mergePresent = (existingPresent: string[], scopeIds: Set<string>, chosen: string[]): string[] => [
     ...new Set([...existingPresent.filter(id => !scopeIds.has(id)), ...chosen]),
 ];
+
+// Profesores que llevan a esta alumna en esta clase: los de su grupo si la clase tiene grupos y ella
+// tiene uno asignado; si no, todos los de la clase.
+export const studentInstructorIds = (rawClass: Record<string, any>, classId: string, rawStudent: Record<string, any>): string[] => {
+    const groupId = rawStudent?.classGroups?.[classId];
+    const groups: any[] = Array.isArray(rawClass?.groups) ? rawClass.groups : [];
+    const group = groupId ? groups.find(g => String(g?.id) === String(groupId)) : undefined;
+    return group && Array.isArray(group.instructorIds) && group.instructorIds.length > 0
+        ? group.instructorIds.filter((i: unknown): i is string => typeof i === 'string')
+        : classInstructorIds(rawClass);
+};
