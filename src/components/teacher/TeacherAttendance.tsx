@@ -48,7 +48,7 @@ const TeacherAttendance: React.FC<TeacherAttendanceProps> = ({ data, initialClas
     // Al cambiar de clase o de día se carga lo ya guardado (si había lista) o se parte de cero.
     useEffect(() => {
         setPresent(new Set(existing?.presentStudentIds.filter(id => enrolled.some(s => s.id === id)) || []));
-        setNotes(existing?.notes || '');
+        setNotes(existing?.myNotes ?? existing?.notes ?? '');
         // existing cambia de referencia al refrescar tras guardar; eso reconstruye el mismo estado.
     }, [existing, enrolled]);
 
@@ -97,7 +97,7 @@ const TeacherAttendance: React.FC<TeacherAttendanceProps> = ({ data, initialClas
                         onChange={e => setClassId(e.target.value)}
                         className="w-full bg-gray-700 border border-gray-600 rounded-md py-2.5 px-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                     >
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name} ({c.days.join(', ')} {c.startTime})</option>)}
+                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.groupName ? ` · ${c.groupName}` : ''} ({c.days.join(', ')} {c.startTime})</option>)}
                     </select>
                 </div>
                 <div>
@@ -117,6 +117,11 @@ const TeacherAttendance: React.FC<TeacherAttendanceProps> = ({ data, initialClas
             {selectedClass && !scheduledThatDay && (
                 <p role="status" className="text-sm text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-2.5">
                     {selectedClass.name} no es una clase habitual de ese día ({selectedClass.days.join(', ')}). Puedes pasar lista igualmente.
+                </p>
+            )}
+            {selectedClass?.groupName && (
+                <p role="status" className="text-sm text-purple-200 bg-purple-500/10 border border-purple-500/30 rounded-lg px-4 py-2.5">
+                    Esta clase tiene varios grupos: aquí pasas lista de <strong>{selectedClass.groupName}</strong>. Los demás grupos los pasan sus profesores.
                 </p>
             )}
             {existing && (

@@ -225,6 +225,7 @@ const AdminApp: React.FC = () => {
                     addClass={addClass}
                     updateClass={updateClass}
                     deleteClass={deleteClass}
+                    updateStudent={updateStudent}
                 />;
             case View.INTERACTIVE_SCHEDULE:
                 return <InteractiveSchedule

@@ -24,12 +24,41 @@ export interface TeacherStudentView {
     enrolledClassIds: string[];
 }
 
+// Todos los profesores de una clase: el principal, instructorIds y los de cada grupo.
+export const classInstructorIds = (raw: Record<string, any>): string[] => {
+    const groups: any[] = Array.isArray(raw?.groups) ? raw.groups : [];
+    const ids = [
+        raw?.instructorId,
+        ...(Array.isArray(raw?.instructorIds) ? raw.instructorIds : []),
+        ...groups.flatMap(g => (Array.isArray(g?.instructorIds) ? g.instructorIds : [])),
+    ].filter((id): id is string => typeof id === 'string' && id.length > 0);
+    return [...new Set(ids)];
+};
+
+// Grupos de la clase que lleva este profesor. null = no ve por grupos (la clase no tiene grupos, o
+// él figura como principal sin estar en ninguno): ve a todas las alumnas de la clase.
+export const teacherGroupScope = (raw: Record<string, any>, instructorId: string): string[] | null => {
+    const groups: any[] = Array.isArray(raw?.groups) ? raw.groups : [];
+    if (groups.length === 0) return null;
+    const mine = groups.filter(g => Array.isArray(g?.instructorIds) && g.instructorIds.includes(instructorId)).map(g => String(g.id));
+    return mine.length > 0 ? mine : null;
+};
+
+// ¿Entra la alumna en lo que ve el profesor de esta clase? Quien no tiene grupo asignado lo ven
+// todos los profesores de la clase, para que nadie quede sin lista.
+export const isStudentInScope = (rawStudent: Record<string, any>, classId: string, scope: string[] | null): boolean => {
+    if (scope === null) return true;
+    const groupId = rawStudent?.classGroups?.[classId];
+    return !groupId || scope.includes(String(groupId));
+};
+
 // Vista reducida de una alumna para un profesor: sin teléfono, email, cuotas, notas ni método de
-// pago. Devuelve null si no es una alumna activa de alguna de sus clases.
-export const toTeacherStudent = (raw: Record<string, any>, id: string, teacherClassIds: Set<string>): TeacherStudentView | null => {
+// pago. `scopeByClass` tiene SUS clases (classId -> grupos que lleva, o null si ve toda la clase).
+// Devuelve null si no es una alumna activa de alguna de sus clases/grupos.
+export const toTeacherStudent = (raw: Record<string, any>, id: string, scopeByClass: Map<string, string[] | null>): TeacherStudentView | null => {
     if (!raw || raw.deletedAt || raw.active === false) return null;
     const enrolled: string[] = Array.isArray(raw.enrolledClassIds)
-        ? raw.enrolledClassIds.filter((c: unknown) => typeof c === 'string' && teacherClassIds.has(c))
+        ? raw.enrolledClassIds.filter((c: unknown) => typeof c === 'string' && scopeByClass.has(c) && isStudentInScope(raw, c, scopeByClass.get(c)!))
         : [];
     if (enrolled.length === 0) return null;
     return {
@@ -50,10 +79,12 @@ export interface TeacherClassView {
     startTime: string;
     endTime: string;
     capacity: number;
+    /** Nombre(s) del/los grupo(s) que lleva este profesor en la clase, si la clase tiene grupos. */
+    groupName?: string;
 }
 
 // Sin tarifas (baseRate) ni nada económico.
-export const toTeacherClass = (raw: Record<string, any>, id: string): TeacherClassView => ({
+export const toTeacherClass = (raw: Record<string, any>, id: string, instructorId?: string): TeacherClassView => ({
     id,
     name: String(raw.name || ''),
     category: String(raw.category || ''),
@@ -61,6 +92,12 @@ export const toTeacherClass = (raw: Record<string, any>, id: string): TeacherCla
     startTime: String(raw.startTime || ''),
     endTime: String(raw.endTime || ''),
     capacity: Number(raw.capacity) || 0,
+    groupName: (() => {
+        const scope = instructorId ? teacherGroupScope(raw, instructorId) : null;
+        if (!scope) return undefined;
+        const names = (raw.groups as any[]).filter(g => scope.includes(String(g.id))).map(g => String(g.name || '')).filter(Boolean);
+        return names.length > 0 ? names.join(' + ') : undefined;
+    })(),
 });
 
 export const MAX_BACKDATE_DAYS = 60;
@@ -144,3 +181,19 @@ export const toTeacherEvent = (
         myStudents: [...ids].map(s => teacherStudentNames.get(s)).filter((n): n is string => !!n).sort((a, b) => a.localeCompare(b, 'es')),
     };
 };
+
+export interface NoteEntry { name: string; text: string }
+
+// Notas de una clase con varios profesores: cada uno escribe las suyas (notesByInstructor) y el
+// campo `notes` que ve la administración las reúne como "Pablo: …  ·  Vic: …".
+export const composeNotes = (byInstructor: Record<string, NoteEntry>): string =>
+    Object.values(byInstructor)
+        .filter(e => e && e.text && e.text.trim())
+        .map(e => `${e.name}: ${e.text.trim()}`)
+        .join('  ·  ');
+
+// Asistencia final de una clase cuando pasa lista un profesor que solo lleva a parte de las
+// alumnas: se conserva lo que ya marcaron los demás y se sustituye solo lo de su alcance.
+export const mergePresent = (existingPresent: string[], scopeIds: Set<string>, chosen: string[]): string[] => [
+    ...new Set([...existingPresent.filter(id => !scopeIds.has(id)), ...chosen]),
+];

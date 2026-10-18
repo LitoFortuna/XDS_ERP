@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
-import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory, Cost } from '../../types';
+import { DanceClass, Instructor, Student, DayOfWeek, ClassCategory, Cost, ClassGroup } from '../../types';
 import Modal from './Modal';
 import PageHeader from './ui/PageHeader';
 import { useConfirm } from './ui/Feedback';
+import { getClassInstructorIds, getClassInstructorNames, classesOfInstructor, hasGroups, newGroupId, normalizeClassInstructors, cleanClassGroups, getStudentGroup } from '../utils/classInstructors';
 
 interface ClassScheduleProps {
   classes: DanceClass[];
@@ -13,6 +14,7 @@ interface ClassScheduleProps {
   addClass: (danceClass: Omit<DanceClass, 'id'>) => void;
   updateClass: (danceClass: DanceClass) => void;
   deleteClass: (id: string) => void;
+  updateStudent?: (student: Student) => void; // Para asignar alumnas a los grupos de una clase
 }
 
 type SortKey = keyof DanceClass | 'instructorName' | 'occupancy' | 'avgPrice' | 'revenue' | 'cost' | 'profitability';
@@ -34,7 +36,19 @@ export const ClassForm: React.FC<{
   students?: Student[];
   onSubmit: (danceClass: Omit<DanceClass, 'id'> | DanceClass) => void;
   onCancel: () => void;
-}> = ({ danceClass, instructors, students, onSubmit, onCancel }) => {
+  // Si se pasa, el formulario permite asignar las alumnas inscritas a cada grupo y llama aquí con los cambios.
+  onAssignGroups?: (assignments: Array<{ studentId: string; groupId: string | null }>) => void;
+}> = ({ danceClass, instructors, students, onSubmit, onCancel, onAssignGroups }) => {
+  const [useGroups, setUseGroups] = useState(() => !!danceClass && hasGroups(danceClass));
+  const [groups, setGroups] = useState<ClassGroup[]>(() => danceClass?.groups || []);
+  const [assignments, setAssignments] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    (students || []).forEach(s => {
+      const groupId = danceClass ? s.classGroups?.[danceClass.id] : undefined;
+      if (groupId) initial[s.id] = groupId;
+    });
+    return initial;
+  });
   const [formData, setFormData] = useState({
     name: danceClass?.name || '',
     instructorId: danceClass?.instructorId || '',
@@ -73,12 +87,53 @@ export const ClassForm: React.FC<{
     }
   };
 
+  const toggleGroups = (enabled: boolean) => {
+    setUseGroups(enabled);
+    if (enabled && groups.length === 0) {
+      // Se parte de un grupo con el profesor que ya estuviera asignado.
+      setGroups([{ id: newGroupId(), name: 'Grupo 1', instructorIds: formData.instructorId ? [formData.instructorId] : [] }]);
+    }
+  };
+
+  const updateGroup = (id: string, patch: Partial<ClassGroup>) =>
+    setGroups(prev => prev.map(g => (g.id === id ? { ...g, ...patch } : g)));
+
+  const toggleGroupInstructor = (groupId: string, instructorId: string) =>
+    setGroups(prev => prev.map(g => g.id !== groupId ? g : {
+      ...g,
+      instructorIds: g.instructorIds.includes(instructorId) ? g.instructorIds.filter(i => i !== instructorId) : [...g.instructorIds, instructorId],
+    }));
+
+  const removeGroup = (id: string) => {
+    setGroups(prev => prev.filter(g => g.id !== id));
+    setAssignments(prev => Object.fromEntries(Object.entries(prev).filter(([, gid]) => gid !== id)));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (useGroups && (groups.length === 0 || groups.some(g => !g.name.trim() || g.instructorIds.length === 0))) {
+      alert('Cada grupo necesita un nombre y al menos un profesor.');
+      return;
+    }
+    const normalized = normalizeClassInstructors({ ...formData, groups: useGroups ? groups : [] });
+
+    if (danceClass && onAssignGroups) {
+      const validIds = new Set(normalized.groups.map(g => g.id));
+      const changes = enrolledStudents
+        .map(s => ({
+          studentId: s.id,
+          groupId: useGroups && assignments[s.id] && validIds.has(assignments[s.id]) ? assignments[s.id] : null,
+          current: s.classGroups?.[danceClass.id] ?? null,
+        }))
+        .filter(a => a.groupId !== a.current)
+        .map(({ studentId, groupId }) => ({ studentId, groupId }));
+      if (changes.length > 0) onAssignGroups(changes);
+    }
+
     if (danceClass) {
-      onSubmit({ ...danceClass, ...formData });
+      onSubmit({ ...danceClass, ...normalized });
     } else {
-      onSubmit(formData);
+      onSubmit(normalized);
     }
   };
 
@@ -93,6 +148,7 @@ export const ClassForm: React.FC<{
         <input type="text" name="name" value={formData.name} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {!useGroups && (
         <div>
           <label className="block text-sm font-medium text-gray-300">Profesor Asignado</label>
           <select name="instructorId" value={formData.instructorId} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
@@ -100,6 +156,7 @@ export const ClassForm: React.FC<{
             {sortedInstructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
           </select>
         </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-300">Categoría</label>
           <select name="category" value={formData.category} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
@@ -133,7 +190,80 @@ export const ClassForm: React.FC<{
         </div>
       </div>
 
-      {danceClass && (
+      <div className="rounded-lg border border-gray-700 bg-gray-900/40 p-4">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={useGroups} onChange={e => toggleGroups(e.target.checked)} className="mt-1 h-4 w-4" />
+          <span>
+            <span className="block text-sm font-medium text-gray-200">Esta clase tiene varios grupos con distintos profesores</span>
+            <span className="block text-xs text-gray-400">Por ejemplo, «Parejas» con un profesor y «Solista» con otros dos. Cada profesor solo verá y pasará lista de su grupo; todos cobran la clase.</span>
+          </span>
+        </label>
+
+        {useGroups && (
+          <div className="mt-4 space-y-3">
+            {groups.map((g, idx) => (
+              <div key={g.id} className="rounded-md border border-gray-700 bg-gray-800 p-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={g.name}
+                    onChange={e => updateGroup(g.id, { name: e.target.value })}
+                    placeholder={`Nombre del grupo ${idx + 1}`}
+                    aria-label={`Nombre del grupo ${idx + 1}`}
+                    className="flex-1 min-w-0 bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  />
+                  <button type="button" onClick={() => removeGroup(g.id)} className="text-sm text-red-300 hover:text-red-200 px-2 py-2">Quitar</button>
+                </div>
+                <p className="text-xs text-gray-400 mt-3 mb-1">Profesores del grupo</p>
+                <div className="flex flex-wrap gap-2">
+                  {sortedInstructors.map(i => {
+                    const selected = g.instructorIds.includes(i.id);
+                    return (
+                      <button
+                        type="button"
+                        key={i.id}
+                        onClick={() => toggleGroupInstructor(g.id, i.id)}
+                        aria-pressed={selected}
+                        className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selected ? 'bg-purple-600 border-purple-400 text-white' : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'}`}
+                      >
+                        {selected && '✓ '}{i.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            <button type="button" onClick={() => setGroups(prev => [...prev, { id: newGroupId(), name: '', instructorIds: [] }])} className="text-sm font-semibold text-purple-300 hover:text-purple-200">+ Añadir grupo</button>
+          </div>
+        )}
+      </div>
+
+      {danceClass && useGroups && onAssignGroups && (
+        <div>
+          <h4 className="text-lg font-medium text-gray-200 mb-2 mt-4">Alumnos inscritos por grupo ({enrolledStudents.length})</h4>
+          <div className="bg-gray-900/50 rounded-md p-3 max-h-64 overflow-y-auto border border-gray-700 space-y-2">
+            {enrolledStudents.length === 0 ? (
+              <p className="text-gray-400 italic">No hay alumnos inscritos en esta clase.</p>
+            ) : enrolledStudents.map(s => (
+              <div key={s.id} className="flex items-center justify-between gap-3">
+                <span className="text-gray-200 text-sm truncate">{s.name}</span>
+                <select
+                  aria-label={`Grupo de ${s.name}`}
+                  value={assignments[s.id] && groups.some(g => g.id === assignments[s.id]) ? assignments[s.id] : ''}
+                  onChange={e => setAssignments(prev => ({ ...prev, [s.id]: e.target.value }))}
+                  className="bg-gray-700 border border-gray-600 rounded-md py-1.5 px-2 text-sm text-white focus:outline-none focus:ring-purple-500"
+                >
+                  <option value="">Sin grupo</option>
+                  {groups.filter(g => g.name.trim()).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-1">Quien no tenga grupo lo ven todos los profesores de la clase.</p>
+        </div>
+      )}
+
+      {danceClass && !(useGroups && onAssignGroups) && (
         <div>
           <h4 className="text-lg font-medium text-gray-200 mb-2 mt-4">Alumnos Inscritos ({enrolledStudents.length})</h4>
           <div className="bg-gray-900/50 rounded-md p-3 max-h-32 overflow-y-auto border border-gray-700">
@@ -157,7 +287,7 @@ export const ClassForm: React.FC<{
 };
 
 
-const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, students, costs, addClass, updateClass, deleteClass }) => {
+const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, students, costs, addClass, updateClass, deleteClass, updateStudent }) => {
   const confirm = useConfirm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<DanceClass | undefined>(undefined);
@@ -250,12 +380,17 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
     const totalCost = instructorCosts.reduce((sum, c) => sum + c.amount, 0);
 
     // Count total classes for this instructor
-    const instructorClassCount = classes.filter(c => c.instructorId === instructorId).length;
+    const instructorClassCount = classesOfInstructor(classes, instructorId).length;
 
     if (instructorClassCount === 0) return 0;
 
     return totalCost / instructorClassCount;
   };
+
+  // Coste de una clase = suma del coste por clase de CADA uno de sus profesores (cada profesor
+  // cobra la tarifa de la clase, también en las clases con varios grupos y profesores).
+  const calculateClassCost = (c: DanceClass) =>
+    getClassInstructorIds(c).reduce((sum, id) => sum + calculateInstructorCostPerClass(id), 0);
 
   const sortedClasses = useMemo(() => {
     let sortableClasses = [...classes];
@@ -265,8 +400,8 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
 
       switch (sortConfig.key) {
         case 'instructorName':
-          aValue = getInstructorName(a.instructorId);
-          bValue = getInstructorName(b.instructorId);
+          aValue = getClassInstructorNames(a, instructors);
+          bValue = getClassInstructorNames(b, instructors);
           break;
         case 'occupancy':
           const aEnrolled = students.filter(s => s.enrolledClassIds.includes(a.id)).length;
@@ -285,15 +420,15 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
           bValue = calculateAveragePrice(b.id) * getActiveStudentsForMonth(b.id).length;
           break;
         case 'cost':
-          aValue = calculateInstructorCostPerClass(a.instructorId);
-          bValue = calculateInstructorCostPerClass(b.instructorId);
+          aValue = calculateClassCost(a);
+          bValue = calculateClassCost(b);
           break;
         case 'profitability':
           const aRevenue = calculateAveragePrice(a.id) * getActiveStudentsForMonth(a.id).length;
-          const aCost = calculateInstructorCostPerClass(a.instructorId);
+          const aCost = calculateClassCost(a);
           aValue = aRevenue - aCost;
           const bRevenue = calculateAveragePrice(b.id) * getActiveStudentsForMonth(b.id).length;
-          const bCost = calculateInstructorCostPerClass(b.instructorId);
+          const bCost = calculateClassCost(b);
           bValue = bRevenue - bCost;
           break;
         case 'name':
@@ -354,6 +489,18 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
       addClass(danceClass);
     }
     handleCloseModal();
+  };
+
+  // Guarda en cada alumna a qué grupo de esta clase va (Student.classGroups), sin tocar el resto.
+  const handleAssignGroups = (assignments: Array<{ studentId: string; groupId: string | null }>) => {
+    if (!updateStudent || !editingClass) return;
+    assignments.forEach(({ studentId, groupId }) => {
+      const student = students.find(s => s.id === studentId);
+      if (!student) return;
+      const next = { ...(student.classGroups || {}) };
+      if (groupId) next[editingClass.id] = groupId; else delete next[editingClass.id];
+      updateStudent({ ...student, classGroups: next });
+    });
   };
 
   const handleDelete = async (classId: string) => {
@@ -427,7 +574,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
       const enrolledCount = students.filter(s => s.enrolledClassIds.includes(c.id)).length;
       const avgPrice = calculateAveragePrice(c.id);
       const totalRevenue = avgPrice * enrolledCount;
-      const instructorCost = calculateInstructorCostPerClass(c.instructorId);
+      const instructorCost = calculateClassCost(c);
       const profitability = totalRevenue - instructorCost;
 
       return [
@@ -436,7 +583,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
         c.days.join(', '),
         c.startTime,
         c.endTime,
-        getInstructorName(c.instructorId),
+        getClassInstructorNames(c, instructors),
         enrolledCount,
         c.capacity,
         avgPrice.toFixed(2),
@@ -568,7 +715,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
                       .reduce((sum, c) => sum + c.amount, 0);
 
                     // Count classes
-                    const classCount = classes.filter(c => c.instructorId === instructor.id).length;
+                    const classCount = classesOfInstructor(classes, instructor.id).length;
 
                     const costPerClass = classCount > 0 ? totalPayments / classCount : 0;
 
@@ -595,7 +742,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
       <div className="md:hidden space-y-3">
         {sortedClasses.map(c => {
           const revenue = calculateAveragePrice(c.id) * getActiveStudentsForMonth(c.id).length;
-          const cost = calculateInstructorCostPerClass(c.instructorId);
+          const cost = calculateClassCost(c);
           const profit = revenue - cost;
           return (
             <div key={c.id} className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
@@ -607,7 +754,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
                 <div className="flex-shrink-0 text-sm"><OccupancyStatus danceClass={c} /></div>
               </div>
               <p className="text-sm text-gray-200 mt-2">{c.days.join(' · ')} <span className="text-gray-400">· {c.startTime}</span></p>
-              <p className="text-sm text-gray-400">{getInstructorName(c.instructorId)}</p>
+              <p className="text-sm text-gray-400">{getClassInstructorNames(c, instructors)}</p>
               <dl className="grid grid-cols-3 gap-2 mt-3 text-center">
                 <div className="bg-gray-900/40 rounded-lg py-2">
                   <dt className="text-[11px] uppercase tracking-wide text-gray-400">Ingresos</dt>
@@ -658,7 +805,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
                 <td className="hidden 2xl:table-cell px-3 2xl:px-4 py-3 2xl:py-4">{c.category}</td>
                 <td className="px-3 2xl:px-4 py-3 2xl:py-4">{c.days.join(', ')}</td>
                 <td className="px-3 2xl:px-4 py-3 2xl:py-4">{c.startTime}</td>
-                <td className="px-3 2xl:px-4 py-3 2xl:py-4">{getInstructorName(c.instructorId)}</td>
+                <td className="px-3 2xl:px-4 py-3 2xl:py-4">{getClassInstructorNames(c, instructors)}</td>
                 <td className="px-3 2xl:px-4 py-3 2xl:py-4">
                   <OccupancyStatus danceClass={c} />
                 </td>
@@ -667,12 +814,12 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
                   €{(calculateAveragePrice(c.id) * getActiveStudentsForMonth(c.id).length).toFixed(2)}
                 </td>
                 <td className="px-3 2xl:px-4 py-3 2xl:py-4 text-red-300">
-                  €{calculateInstructorCostPerClass(c.instructorId).toFixed(2)}
+                  €{calculateClassCost(c).toFixed(2)}
                 </td>
                 <td className="px-3 2xl:px-4 py-3 2xl:py-4">
                   {(() => {
                     const revenue = calculateAveragePrice(c.id) * getActiveStudentsForMonth(c.id).length;
-                    const cost = calculateInstructorCostPerClass(c.instructorId);
+                    const cost = calculateClassCost(c);
                     const profit = revenue - cost;
                     return (
                       <span className={`font-bold ${profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -696,6 +843,7 @@ const ClassSchedule: React.FC<ClassScheduleProps> = ({ classes, instructors, stu
           instructors={instructors}
           students={students}
           onSubmit={handleSubmit}
+          onAssignGroups={updateStudent && editingClass ? handleAssignGroups : undefined}
           onCancel={handleCloseModal} />
       </Modal>
     </div>

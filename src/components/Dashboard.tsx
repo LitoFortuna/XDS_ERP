@@ -16,6 +16,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useAppActions } from '../hooks/useAppActions';
 import { getEventRevenue } from '../utils/eventRevenue';
 import { formatCurrency } from '../utils/formatters';
+import { getClassInstructorIds, classesOfInstructor } from '../utils/classInstructors';
 
 interface DashboardProps {
     // Props handled via Zustand
@@ -362,27 +363,22 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
 
             // --- NEW LOGIC: Instructor Cost = Total Cost (SELECTED Month) / Class Count ---
             const gastosEstimados = (() => {
-                if (!c.instructorId) return 0;
-
                 // Target: SELECTED month/year (as requested by user)
                 const targetMonth = selectedRentMonth;
                 const targetYear = selectedYear;
 
-                // Filter costs for this instructor in that specific month
-                const instructorCosts = costs.filter(cost => {
-                    if (cost.relatedInstructorId !== c.instructorId) return false;
-                    const costDate = new Date(cost.paymentDate);
-                    return costDate.getMonth() === targetMonth && costDate.getFullYear() === targetYear;
-                });
-
-                const totalCost = instructorCosts.reduce((sum, cost) => sum + cost.amount, 0);
-
-                // Count total classes for this instructor
-                const instructorClassCount = classes.filter(cls => cls.instructorId === c.instructorId).length;
-
-                if (instructorClassCount === 0) return 0;
-
-                return totalCost / instructorClassCount;
+                // Cada profesor de la clase aporta su coste por clase (pagos del mes / nº de sus clases).
+                return getClassInstructorIds(c).reduce((sum, instructorId) => {
+                    const totalCost = costs
+                        .filter(cost => {
+                            if (cost.relatedInstructorId !== instructorId) return false;
+                            const costDate = new Date(cost.paymentDate);
+                            return costDate.getMonth() === targetMonth && costDate.getFullYear() === targetYear;
+                        })
+                        .reduce((acc, cost) => acc + cost.amount, 0);
+                    const instructorClassCount = classesOfInstructor(classes, instructorId).length;
+                    return sum + (instructorClassCount === 0 ? 0 : totalCost / instructorClassCount);
+                }, 0);
             })();
 
             return {
@@ -687,7 +683,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
             });
 
             const totalCost = instructorCosts.reduce((sum, c) => sum + c.amount, 0);
-            const instructorClassCount = classes.filter(c => c.instructorId === instructorId).length;
+            const instructorClassCount = classesOfInstructor(classes, instructorId).length;
 
             return instructorClassCount > 0 ? totalCost / instructorClassCount : 0;
         };
@@ -721,12 +717,13 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                 let totalCost = 0;
 
                 monthsToInclude.forEach(({ year, month }) => {
-                    const instructorClasses = classes.filter(c => c.instructorId === instructor.id);
+                    const instructorClasses = classesOfInstructor(classes, instructor.id);
 
                     instructorClasses.forEach(cls => {
                         const avgPrice = calculateAvgPriceForMonth(cls.id, year, month);
                         const activeStudents = getActiveStudentsForMonth(cls.id, year, month).length;
-                        totalRevenue += avgPrice * activeStudents;
+                        // Una clase con varios profesores reparte sus ingresos entre ellos.
+                        totalRevenue += (avgPrice * activeStudents) / Math.max(1, getClassInstructorIds(cls).length);
                     });
 
                     const costPerClass = calculateInstructorCostForMonth(instructor.id, year, month);
@@ -755,7 +752,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                     const activeStudents = getActiveStudentsForMonth(cls.id, year, month).length;
                     totalRevenue += avgPrice * activeStudents;
 
-                    const costPerClass = calculateInstructorCostForMonth(cls.instructorId, year, month);
+                    const costPerClass = getClassInstructorIds(cls).reduce((s, id) => s + calculateInstructorCostForMonth(id, year, month), 0);
                     totalCost += costPerClass;
                 });
 
@@ -786,7 +783,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         const activeStudents = getActiveStudentsForMonth(cls.id, year, month).length;
                         dayData.revenue += avgPrice * activeStudents;
 
-                        const costPerClass = calculateInstructorCostForMonth(cls.instructorId, year, month);
+                        const costPerClass = getClassInstructorIds(cls).reduce((s, id) => s + calculateInstructorCostForMonth(id, year, month), 0);
                         dayData.cost += costPerClass;
                     });
                 });
@@ -1400,7 +1397,7 @@ const Dashboard: React.FC<DashboardProps> = React.memo(() => {
                         Top 5 Profesores (por nº alumnos)
                     </h3>
                     <ResponsiveContainer width="100%" height={260}>
-                        <BarChart layout="vertical" data={instructors.map(i => ({ name: i.name, value: students.filter(s => s.active && classes.filter(c => c.instructorId === i.id).some(c => s.enrolledClassIds.includes(c.id))).length })).sort((a, b) => b.value - a.value).slice(0, 5)} margin={{ right: 30 }}>
+                        <BarChart layout="vertical" data={instructors.map(i => ({ name: i.name, value: students.filter(s => s.active && classesOfInstructor(classes, i.id).some(c => s.enrolledClassIds.includes(c.id))).length })).sort((a, b) => b.value - a.value).slice(0, 5)} margin={{ right: 30 }}>
                             <XAxis type="number" hide />
                             <YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
                             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px' }} cursor={{ fill: '#1e293b' }} />

@@ -96,7 +96,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ data, onTakeAttenda
                                 return (
                                     <li key={c.id} className="flex items-center justify-between gap-3 bg-gray-900/50 rounded-lg p-3 border border-gray-700/60">
                                         <div className="min-w-0">
-                                            <p className="font-semibold text-white truncate">{c.name}</p>
+                                            <p className="font-semibold text-white truncate">{c.name}{c.groupName && <span className="text-purple-300 font-normal"> · {c.groupName}</span>}</p>
                                             <p className="text-xs text-gray-400 font-mono">{c.startTime}–{c.endTime}</p>
                                         </div>
                                         {done ? (

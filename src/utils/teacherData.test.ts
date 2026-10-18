@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { chunk, toTeacherStudent, toTeacherClass, toTeacherEvent, validateAttendanceInput } from '../../functions/src/teacherData';
+import {
+    chunk, toTeacherStudent, toTeacherClass, toTeacherEvent, validateAttendanceInput,
+    classInstructorIds, teacherGroupScope, isStudentInScope, composeNotes, mergePresent,
+} from '../../functions/src/teacherData';
 
 describe('toTeacherStudent', () => {
-    const mine = new Set(['c1', 'c2']);
+    const mine = new Map<string, string[] | null>([['c1', null], ['c2', null]]);
 
     it('devuelve solo los campos mínimos y solo las clases del profesor', () => {
         const view = toTeacherStudent({
@@ -79,5 +82,60 @@ describe('toTeacherEvent', () => {
     });
     it('sin participantes ni alumnas suyas devuelve cero y lista vacía', () => {
         expect(toTeacherEvent({ name: 'Taller', date: '2026-11-01' }, 'e', '2026-10-17', names)).toMatchObject({ enrolledCount: 0, myStudents: [] });
+    });
+});
+
+describe('clases con grupos y varios profesores', () => {
+    const mini = {
+        name: 'Mini', instructorId: 'pablo', instructorIds: ['pablo', 'vic', 'diana'],
+        groups: [
+            { id: 'g1', name: 'Parejas', instructorIds: ['pablo'] },
+            { id: 'g2', name: 'Solista', instructorIds: ['vic', 'diana'] },
+        ],
+    };
+
+    it('reúne todos los profesores y calcula el grupo de cada uno', () => {
+        expect(classInstructorIds(mini)).toEqual(['pablo', 'vic', 'diana']);
+        expect(classInstructorIds({ instructorId: 'x' })).toEqual(['x']);
+        expect(teacherGroupScope(mini, 'vic')).toEqual(['g2']);
+        expect(teacherGroupScope(mini, 'pablo')).toEqual(['g1']);
+        expect(teacherGroupScope({ instructorId: 'x' }, 'x')).toBeNull(); // sin grupos: ve toda la clase
+        expect(teacherGroupScope(mini, 'otro')).toBeNull(); // principal sin grupo: ve toda la clase
+    });
+
+    it('cada profesor ve solo a las alumnas de su grupo (y a las que no tienen grupo)', () => {
+        const irene = { classGroups: { mini: 'g2' } };
+        const pareja = { classGroups: { mini: 'g1' } };
+        const sinGrupo = {};
+        expect(isStudentInScope(irene, 'mini', ['g2'])).toBe(true);
+        expect(isStudentInScope(irene, 'mini', ['g1'])).toBe(false);
+        expect(isStudentInScope(pareja, 'mini', ['g2'])).toBe(false);
+        expect(isStudentInScope(sinGrupo, 'mini', ['g1'])).toBe(true);
+        expect(isStudentInScope(irene, 'mini', null)).toBe(true);
+    });
+
+    it('toTeacherStudent respeta el grupo del profesor', () => {
+        const irene = { name: 'Irene', active: true, enrolledClassIds: ['mini'], classGroups: { mini: 'g2' } };
+        expect(toTeacherStudent(irene, 'i', new Map([['mini', ['g2']]]))?.enrolledClassIds).toEqual(['mini']); // Vic o Diana
+        expect(toTeacherStudent(irene, 'i', new Map([['mini', ['g1']]]))).toBeNull(); // Pablo no la ve
+    });
+
+    it('toTeacherClass indica el grupo que lleva cada profesor', () => {
+        expect(toTeacherClass(mini, 'mini', 'pablo').groupName).toBe('Parejas');
+        expect(toTeacherClass(mini, 'mini', 'vic').groupName).toBe('Solista');
+        expect(toTeacherClass({ name: 'Salsa', instructorId: 'x' }, 'c', 'x').groupName).toBeUndefined();
+    });
+
+    it('mergePresent conserva lo marcado por otros profesores y sustituye solo lo del alcance', () => {
+        // Pablo ya pasó lista: pareja1, pareja2. Vic (grupo Solista: irene, ana) marca solo a irene.
+        const merged = mergePresent(['pareja1', 'pareja2', 'ana'], new Set(['irene', 'ana']), ['irene']);
+        expect(merged.sort()).toEqual(['irene', 'pareja1', 'pareja2']); // ana deja de estar presente; las parejas no se tocan
+        expect(mergePresent([], new Set(['a']), ['a'])).toEqual(['a']);
+    });
+
+    it('composeNotes reúne las notas de cada profesor ignorando vacías', () => {
+        expect(composeNotes({ a: { name: 'Pablo', text: ' Coreo nueva ' }, b: { name: 'Vic', text: '' }, c: { name: 'Diana', text: 'Faltó música' } }))
+            .toBe('Pablo: Coreo nueva  ·  Diana: Faltó música');
+        expect(composeNotes({})).toBe('');
     });
 });

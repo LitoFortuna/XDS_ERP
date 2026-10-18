@@ -6,6 +6,7 @@ import { batchSetStudentPrivateData, fetchAllStudentPrivateData } from '../servi
 import { parseDateLocal } from '../utils/paymentStatus';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { classesOfInstructor, getClassInstructorIds } from '../utils/classInstructors';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import PageHeader from './ui/PageHeader';
 
@@ -584,13 +585,14 @@ const DataManagement: React.FC<DataManagementProps> = ({
         const instructorProfitability = instructors.map(instructor => {
             let totalRevenue = 0;
             let totalCost = 0;
-            const instructorClasses = classes.filter(c => c.instructorId === instructor.id);
+            const instructorClasses = classesOfInstructor(classes, instructor.id);
             instructorClasses.forEach(cls => {
                 const activeStudents = getActiveStudentsForMonth(cls.id);
                 const avgPrice = activeStudents.length > 0
                     ? activeStudents.reduce((sum, s) => sum + (s.monthlyFee / s.enrolledClassIds.length), 0) / activeStudents.length
                     : 0;
-                totalRevenue += avgPrice * activeStudents.length;
+                // Una clase con varios profesores reparte sus ingresos entre ellos.
+                totalRevenue += (avgPrice * activeStudents.length) / Math.max(1, getClassInstructorIds(cls).length);
             });
             const instructorMonthCosts = monthCosts.filter(c => c.relatedInstructorId === instructor.id);
             totalCost = instructorMonthCosts.reduce((sum, c) => sum + c.amount, 0);

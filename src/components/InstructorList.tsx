@@ -3,6 +3,7 @@ import { Instructor, DanceClass } from '../../types';
 import Modal from './Modal';
 import PageHeader from './ui/PageHeader';
 import { useConfirm } from './ui/Feedback';
+import { classesOfInstructor } from '../utils/classInstructors';
 import InstructorAccessModal from './InstructorAccessModal';
 
 interface InstructorListProps {
@@ -33,7 +34,7 @@ const InstructorForm: React.FC<{
     notes: instructor?.notes || '',
   });
 
-  const assignedClasses = instructor ? classes.filter(c => c.instructorId === instructor.id) : [];
+  const assignedClasses = instructor ? classesOfInstructor(classes, instructor.id) : [];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -127,7 +128,7 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
   };
   
   const getInstructorWeeklyHours = (instructorId: string) => {
-    const assignedClasses = classes.filter(c => c.instructorId === instructorId);
+    const assignedClasses = classesOfInstructor(classes, instructorId);
     return assignedClasses.reduce((totalMinutes, c) => {
         const duration = calculateClassDurationMinutes(c.startTime, c.endTime);
         return totalMinutes + (duration * c.days.length);
@@ -205,7 +206,7 @@ const InstructorList: React.FC<InstructorListProps> = ({ instructors, classes, a
   };
 
   const getInstructorInfo = (instructorId: string) => {
-    const assignedClasses = classes.filter(c => c.instructorId === instructorId);
+    const assignedClasses = classesOfInstructor(classes, instructorId);
     const weeklyHours = getInstructorWeeklyHours(instructorId);
     const classNames = assignedClasses.map(c => c.name).join(', ') || 'Ninguna';
     return { weeklyHours, classNames };

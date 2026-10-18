@@ -64,7 +64,7 @@ const TeacherSchedule: React.FC<TeacherScheduleProps> = ({ data, onTakeAttendanc
                             {items.map(c => (
                                 <li key={c.id} className="flex items-baseline gap-3">
                                     <span className="font-mono text-sm text-purple-200 flex-shrink-0 w-[5.5rem]">{c.startTime}–{c.endTime}</span>
-                                    <span className="text-white font-semibold text-sm break-words">{c.name}</span>
+                                    <span className="text-white font-semibold text-sm break-words">{c.name}{c.groupName && <span className="text-purple-300 font-normal"> · {c.groupName}</span>}</span>
                                 </li>
                             ))}
                         </ul>
@@ -94,7 +94,7 @@ const TeacherSchedule: React.FC<TeacherScheduleProps> = ({ data, onTakeAttendanc
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <h3 className="font-bold text-white break-words">{c.name}</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">{c.category}</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">{c.category}{c.groupName && <span className="text-purple-300"> · Grupo: {c.groupName}</span>}</p>
                                 </div>
                                 <button
                                     onClick={() => onTakeAttendance(c.id)}

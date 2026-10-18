@@ -6,7 +6,7 @@
 // alumnas, pagos, etc.). Todo lo suyo pasa por las Cloud Functions teacherOverview y
 // teacherSaveAttendance, que usan estas funciones para devolver solo lo mínimo de SUS clases.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.toTeacherEvent = exports.validateAttendanceInput = exports.MAX_BACKDATE_DAYS = exports.toTeacherClass = exports.toTeacherStudent = exports.chunk = exports.ADMIN_EMAILS = void 0;
+exports.mergePresent = exports.composeNotes = exports.toTeacherEvent = exports.validateAttendanceInput = exports.MAX_BACKDATE_DAYS = exports.toTeacherClass = exports.toTeacherStudent = exports.isStudentInScope = exports.teacherGroupScope = exports.classInstructorIds = exports.chunk = exports.ADMIN_EMAILS = void 0;
 /** Mismos administradores que firestore.rules (isAdmin) y userProfileService.ts. */
 exports.ADMIN_EMAILS = ['raulfdz3@gmail.com', 'info@xendance.space'];
 const chunk = (items, size) => {
@@ -16,13 +16,45 @@ const chunk = (items, size) => {
     return chunks;
 };
 exports.chunk = chunk;
+// Todos los profesores de una clase: el principal, instructorIds y los de cada grupo.
+const classInstructorIds = (raw) => {
+    const groups = Array.isArray(raw === null || raw === void 0 ? void 0 : raw.groups) ? raw.groups : [];
+    const ids = [
+        raw === null || raw === void 0 ? void 0 : raw.instructorId,
+        ...(Array.isArray(raw === null || raw === void 0 ? void 0 : raw.instructorIds) ? raw.instructorIds : []),
+        ...groups.flatMap(g => (Array.isArray(g === null || g === void 0 ? void 0 : g.instructorIds) ? g.instructorIds : [])),
+    ].filter((id) => typeof id === 'string' && id.length > 0);
+    return [...new Set(ids)];
+};
+exports.classInstructorIds = classInstructorIds;
+// Grupos de la clase que lleva este profesor. null = no ve por grupos (la clase no tiene grupos, o
+// él figura como principal sin estar en ninguno): ve a todas las alumnas de la clase.
+const teacherGroupScope = (raw, instructorId) => {
+    const groups = Array.isArray(raw === null || raw === void 0 ? void 0 : raw.groups) ? raw.groups : [];
+    if (groups.length === 0)
+        return null;
+    const mine = groups.filter(g => Array.isArray(g === null || g === void 0 ? void 0 : g.instructorIds) && g.instructorIds.includes(instructorId)).map(g => String(g.id));
+    return mine.length > 0 ? mine : null;
+};
+exports.teacherGroupScope = teacherGroupScope;
+// ¿Entra la alumna en lo que ve el profesor de esta clase? Quien no tiene grupo asignado lo ven
+// todos los profesores de la clase, para que nadie quede sin lista.
+const isStudentInScope = (rawStudent, classId, scope) => {
+    var _a;
+    if (scope === null)
+        return true;
+    const groupId = (_a = rawStudent === null || rawStudent === void 0 ? void 0 : rawStudent.classGroups) === null || _a === void 0 ? void 0 : _a[classId];
+    return !groupId || scope.includes(String(groupId));
+};
+exports.isStudentInScope = isStudentInScope;
 // Vista reducida de una alumna para un profesor: sin teléfono, email, cuotas, notas ni método de
-// pago. Devuelve null si no es una alumna activa de alguna de sus clases.
-const toTeacherStudent = (raw, id, teacherClassIds) => {
+// pago. `scopeByClass` tiene SUS clases (classId -> grupos que lleva, o null si ve toda la clase).
+// Devuelve null si no es una alumna activa de alguna de sus clases/grupos.
+const toTeacherStudent = (raw, id, scopeByClass) => {
     if (!raw || raw.deletedAt || raw.active === false)
         return null;
     const enrolled = Array.isArray(raw.enrolledClassIds)
-        ? raw.enrolledClassIds.filter((c) => typeof c === 'string' && teacherClassIds.has(c))
+        ? raw.enrolledClassIds.filter((c) => typeof c === 'string' && scopeByClass.has(c) && (0, exports.isStudentInScope)(raw, c, scopeByClass.get(c)))
         : [];
     if (enrolled.length === 0)
         return null;
@@ -37,7 +69,7 @@ const toTeacherStudent = (raw, id, teacherClassIds) => {
 };
 exports.toTeacherStudent = toTeacherStudent;
 // Sin tarifas (baseRate) ni nada económico.
-const toTeacherClass = (raw, id) => ({
+const toTeacherClass = (raw, id, instructorId) => ({
     id,
     name: String(raw.name || ''),
     category: String(raw.category || ''),
@@ -45,6 +77,13 @@ const toTeacherClass = (raw, id) => ({
     startTime: String(raw.startTime || ''),
     endTime: String(raw.endTime || ''),
     capacity: Number(raw.capacity) || 0,
+    groupName: (() => {
+        const scope = instructorId ? (0, exports.teacherGroupScope)(raw, instructorId) : null;
+        if (!scope)
+            return undefined;
+        const names = raw.groups.filter(g => scope.includes(String(g.id))).map(g => String(g.name || '')).filter(Boolean);
+        return names.length > 0 ? names.join(' + ') : undefined;
+    })(),
 });
 exports.toTeacherClass = toTeacherClass;
 exports.MAX_BACKDATE_DAYS = 60;
@@ -102,4 +141,17 @@ const toTeacherEvent = (raw, id, todayIso, teacherStudentNames) => {
     };
 };
 exports.toTeacherEvent = toTeacherEvent;
+// Notas de una clase con varios profesores: cada uno escribe las suyas (notesByInstructor) y el
+// campo `notes` que ve la administración las reúne como "Pablo: …  ·  Vic: …".
+const composeNotes = (byInstructor) => Object.values(byInstructor)
+    .filter(e => e && e.text && e.text.trim())
+    .map(e => `${e.name}: ${e.text.trim()}`)
+    .join('  ·  ');
+exports.composeNotes = composeNotes;
+// Asistencia final de una clase cuando pasa lista un profesor que solo lleva a parte de las
+// alumnas: se conserva lo que ya marcaron los demás y se sustituye solo lo de su alcance.
+const mergePresent = (existingPresent, scopeIds, chosen) => [
+    ...new Set([...existingPresent.filter(id => !scopeIds.has(id)), ...chosen]),
+];
+exports.mergePresent = mergePresent;
 //# sourceMappingURL=teacherData.js.map

@@ -4,6 +4,7 @@ import { DanceClass, Instructor, Student, DayOfWeek } from '../../types';
 import Modal from './Modal';
 import { ClassForm } from './ClassSchedule';
 import PageHeader from './ui/PageHeader';
+import { getClassInstructorNames } from '../utils/classInstructors';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -213,7 +214,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                             .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime))
                             .map(c => {
                                 const enrolledCount = students.filter(s => s.enrolledClassIds.includes(c.id)).length;
-                                const instructorName = instructors.find(i => i.id === c.instructorId)?.name;
+                                const instructorName = getClassInstructorNames(c, instructors);
                                 const isFull = c.capacity > 0 && enrolledCount >= c.capacity;
                                 return (
                                     <button
@@ -326,7 +327,7 @@ const InteractiveSchedule: React.FC<InteractiveScheduleProps> = ({ classes, inst
                                                 
                                                 {duration >= 60 && (
                                                     <div className="mt-0.5 text-[7px] font-bold uppercase opacity-70 truncate border-t border-white/10 pt-0.5">
-                                                        {instructors.find(i => i.id === c.instructorId)?.name.split(' ')[0]}
+                                                        {getClassInstructorNames(c, instructors, true)}
                                                     </div>
                                                 )}
                                             </div>

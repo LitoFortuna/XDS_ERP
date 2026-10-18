@@ -584,8 +584,17 @@ async function requireInstructor(request) {
     return { instructorId, instructor, email: request.auth.token.email };
 }
 async function getInstructorClassIds(instructorId) {
-    const snap = await admin.firestore().collection('classes').where('instructorId', '==', instructorId).get();
-    const docs = snap.docs.filter(d => !d.data().deletedAt);
+    // Una clase puede llevarla como profesor principal (instructorId) o como profesor de uno de sus
+    // grupos (instructorIds); se juntan las dos consultas sin duplicar.
+    const col = admin.firestore().collection('classes');
+    const [primary, grouped] = await Promise.all([
+        col.where('instructorId', '==', instructorId).get(),
+        col.where('instructorIds', 'array-contains', instructorId).get(),
+    ]);
+    const byId = new Map();
+    [...primary.docs, ...grouped.docs].forEach(d => { if (!d.data().deletedAt)
+        byId.set(d.id, d); });
+    const docs = [...byId.values()];
     return { docs, ids: docs.map(d => d.id) };
 }
 /**
@@ -598,8 +607,9 @@ exports.teacherOverview = (0, https_1.onCall)({ cors: true }, async (request) =>
     const today = (0, classReminders_1.getMadridNow)(new Date()).dateIso;
     const since = new Date(Date.parse(today + 'T00:00:00Z') - 400 * 86400000).toISOString().slice(0, 10);
     const { docs: classDocs, ids: classIds } = await getInstructorClassIds(instructorId);
-    const classes = classDocs.map(d => (0, teacherData_1.toTeacherClass)(d.data(), d.id));
-    const classIdSet = new Set(classIds);
+    const classes = classDocs.map(d => (0, teacherData_1.toTeacherClass)(d.data(), d.id, instructorId));
+    // classId -> grupos que lleva este profesor (null = ve toda la clase)
+    const scopeByClass = new Map(classDocs.map(d => [d.id, (0, teacherData_1.teacherGroupScope)(d.data(), instructorId)]));
     const students = [];
     const attendance = [];
     const absences = [];
@@ -614,16 +624,19 @@ exports.teacherOverview = (0, https_1.onCall)({ cors: true }, async (request) =>
             studentsSnap.docs.forEach(d => {
                 if (seen.has(d.id))
                     return;
-                const view = (0, teacherData_1.toTeacherStudent)(d.data(), d.id, classIdSet);
+                const view = (0, teacherData_1.toTeacherStudent)(d.data(), d.id, scopeByClass);
                 if (view) {
                     seen.add(d.id);
                     students.push(view);
                 }
             });
             attendanceSnap.docs.forEach(d => {
+                var _a, _b, _c;
                 const r = d.data();
                 if (typeof r.date === 'string' && r.date >= since) {
-                    attendance.push({ id: d.id, classId: r.classId, date: r.date, presentStudentIds: r.presentStudentIds || [], notes: r.notes });
+                    // Con varios profesores cada uno ve sus propias notas; si no, las de la clase.
+                    const myNotes = r.notesByInstructor ? ((_b = (_a = r.notesByInstructor[instructorId]) === null || _a === void 0 ? void 0 : _a.text) !== null && _b !== void 0 ? _b : '') : ((_c = r.notes) !== null && _c !== void 0 ? _c : '');
+                    attendance.push({ id: d.id, classId: r.classId, date: r.date, presentStudentIds: r.presentStudentIds || [], notes: r.notes, myNotes });
                 }
             });
             absencesSnap.docs.forEach(d => {
@@ -635,6 +648,14 @@ exports.teacherOverview = (0, https_1.onCall)({ cors: true }, async (request) =>
         }));
     }
     students.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    // En las clases con grupos solo cuentan las alumnas de su grupo (asistencia y avisos de ausencia).
+    const visibleIds = new Set(students.map(s => s.id));
+    attendance.forEach(r => {
+        if (scopeByClass.get(r.classId) !== null && scopeByClass.has(r.classId)) {
+            r.presentStudentIds = r.presentStudentIds.filter(id => visibleIds.has(id));
+        }
+    });
+    const visibleAbsences = absences.filter(a => !(scopeByClass.get(a.classId) !== null && scopeByClass.has(a.classId)) || visibleIds.has(a.studentId));
     // Próximos eventos del ERP (sin precios ni notas), con cuáles de SUS alumnas están apuntadas.
     const studentNames = new Map(students.map(s => [s.id, s.name]));
     const eventsSnap = await db.collection('events').where('date', '>=', today).get();
@@ -648,7 +669,7 @@ exports.teacherOverview = (0, https_1.onCall)({ cors: true }, async (request) =>
         classes,
         students,
         attendance,
-        absences,
+        absences: visibleAbsences,
         events,
     };
 });
@@ -666,16 +687,38 @@ exports.teacherSaveAttendance = (0, https_1.onCall)({ cors: true }, async (reque
     const { classId, date, presentStudentIds, notes } = validation.value;
     const classSnap = await db.collection('classes').doc(classId).get();
     const danceClass = classSnap.data();
-    if (!classSnap.exists || !danceClass || danceClass.deletedAt || danceClass.instructorId !== instructorId) {
+    if (!classSnap.exists || !danceClass || danceClass.deletedAt || !(0, teacherData_1.classInstructorIds)(danceClass).includes(instructorId)) {
         throw new https_1.HttpsError('permission-denied', 'Esa clase no es tuya.');
     }
+    // Solo puede marcar a las alumnas de SU grupo (o a todas si la clase no tiene grupos / no tiene
+    // grupo asignado la alumna).
+    const scope = (0, teacherData_1.teacherGroupScope)(danceClass, instructorId);
     const enrolledSnap = await db.collection('students').where('enrolledClassIds', 'array-contains', classId).get();
-    const enrolledIds = new Set(enrolledSnap.docs.filter(d => !d.data().deletedAt).map(d => d.id));
-    if (presentStudentIds.some(id => !enrolledIds.has(id))) {
-        throw new https_1.HttpsError('invalid-argument', 'Hay alumnas que no están inscritas en esta clase.');
+    const eligibleIds = new Set(enrolledSnap.docs
+        .filter(d => !d.data().deletedAt && (0, teacherData_1.isStudentInScope)(d.data(), classId, scope))
+        .map(d => d.id));
+    if (presentStudentIds.some(id => !eligibleIds.has(id))) {
+        throw new https_1.HttpsError('invalid-argument', 'Hay alumnas que no están inscritas en tu grupo de esta clase.');
     }
-    const record = { classId, date, presentStudentIds, notes, recordedByInstructorId: instructorId };
     const existing = await db.collection('attendance').where('classId', '==', classId).where('date', '==', date).limit(1).get();
+    const existingData = existing.empty ? null : existing.docs[0].data();
+    // Clase con varios profesores: se conserva lo que marcaron los demás y las notas de cada uno.
+    const shared = (0, teacherData_1.classInstructorIds)(danceClass).length > 1;
+    let finalPresent = presentStudentIds;
+    let finalNotes = notes;
+    let notesByInstructor;
+    if (shared) {
+        finalPresent = (0, teacherData_1.mergePresent)((existingData === null || existingData === void 0 ? void 0 : existingData.presentStudentIds) || [], eligibleIds, presentStudentIds);
+        const byInstructor = Object.assign({}, ((existingData === null || existingData === void 0 ? void 0 : existingData.notesByInstructor) || {}));
+        if (!(existingData === null || existingData === void 0 ? void 0 : existingData.notesByInstructor) && (existingData === null || existingData === void 0 ? void 0 : existingData.notes))
+            byInstructor._admin = { name: 'Notas', text: existingData.notes };
+        byInstructor[instructorId] = { name: String(instructor.name || 'Profesor'), text: notes };
+        notesByInstructor = byInstructor;
+        finalNotes = (0, teacherData_1.composeNotes)(byInstructor);
+    }
+    const record = { classId, date, presentStudentIds: finalPresent, notes: finalNotes, recordedByInstructorId: instructorId };
+    if (notesByInstructor)
+        record.notesByInstructor = notesByInstructor;
     let attendanceId;
     if (existing.empty) {
         attendanceId = (await db.collection('attendance').add(record)).id;

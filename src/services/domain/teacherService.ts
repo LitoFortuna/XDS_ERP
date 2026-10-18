@@ -12,6 +12,7 @@ export interface TeacherClass {
     startTime: string;
     endTime: string;
     capacity: number;
+    groupName?: string; // grupo(s) que lleva este profesor, si la clase tiene grupos
 }
 
 export interface TeacherStudent {
@@ -29,6 +30,7 @@ export interface TeacherAttendanceRecord {
     date: string; // YYYY-MM-DD
     presentStudentIds: string[];
     notes?: string;
+    myNotes?: string; // sus propias notas (en clases con varios profesores cada uno tiene las suyas)
 }
 
 export interface TeacherAbsence {

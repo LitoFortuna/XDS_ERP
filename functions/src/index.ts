@@ -5,7 +5,11 @@ import * as webpush from 'web-push';
 import { randomInt } from 'crypto';
 import { buildInstructorWelcomeEmail } from './emailTemplates';
 import { classesDueNow, getMadridNow, REMINDER_LEAD_MINUTES, ReminderClass } from './classReminders';
-import { ADMIN_EMAILS, chunk as chunkArray, toTeacherStudent, toTeacherClass, toTeacherEvent, validateAttendanceInput, TeacherStudentView, TeacherEventView } from './teacherData';
+import {
+    ADMIN_EMAILS, chunk as chunkArray, toTeacherStudent, toTeacherClass, toTeacherEvent, validateAttendanceInput,
+    classInstructorIds, teacherGroupScope, isStudentInScope, composeNotes, mergePresent, NoteEntry,
+    TeacherStudentView, TeacherEventView,
+} from './teacherData';
 
 admin.initializeApp();
 
@@ -641,8 +645,16 @@ async function requireInstructor(request: { auth?: { uid: string; token: Record<
 }
 
 async function getInstructorClassIds(instructorId: string) {
-    const snap = await admin.firestore().collection('classes').where('instructorId', '==', instructorId).get();
-    const docs = snap.docs.filter(d => !d.data().deletedAt);
+    // Una clase puede llevarla como profesor principal (instructorId) o como profesor de uno de sus
+    // grupos (instructorIds); se juntan las dos consultas sin duplicar.
+    const col = admin.firestore().collection('classes');
+    const [primary, grouped] = await Promise.all([
+        col.where('instructorId', '==', instructorId).get(),
+        col.where('instructorIds', 'array-contains', instructorId).get(),
+    ]);
+    const byId = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    [...primary.docs, ...grouped.docs].forEach(d => { if (!d.data().deletedAt) byId.set(d.id, d); });
+    const docs = [...byId.values()];
     return { docs, ids: docs.map(d => d.id) };
 }
 
@@ -657,11 +669,12 @@ export const teacherOverview = onCall({ cors: true }, async (request) => {
     const since = new Date(Date.parse(today + 'T00:00:00Z') - 400 * 86400000).toISOString().slice(0, 10);
 
     const { docs: classDocs, ids: classIds } = await getInstructorClassIds(instructorId);
-    const classes = classDocs.map(d => toTeacherClass(d.data(), d.id));
-    const classIdSet = new Set(classIds);
+    const classes = classDocs.map(d => toTeacherClass(d.data(), d.id, instructorId));
+    // classId -> grupos que lleva este profesor (null = ve toda la clase)
+    const scopeByClass = new Map<string, string[] | null>(classDocs.map(d => [d.id, teacherGroupScope(d.data(), instructorId)]));
 
     const students: TeacherStudentView[] = [];
-    const attendance: Array<{ id: string; classId: string; date: string; presentStudentIds: string[]; notes?: string }> = [];
+    const attendance: Array<{ id: string; classId: string; date: string; presentStudentIds: string[]; notes?: string; myNotes?: string }> = [];
     const absences: Array<{ id: string; classId: string; studentId: string; studentName: string; date: string }> = [];
 
     if (classIds.length > 0) {
@@ -674,13 +687,15 @@ export const teacherOverview = onCall({ cors: true }, async (request) => {
             ]);
             studentsSnap.docs.forEach(d => {
                 if (seen.has(d.id)) return;
-                const view = toTeacherStudent(d.data(), d.id, classIdSet);
+                const view = toTeacherStudent(d.data(), d.id, scopeByClass);
                 if (view) { seen.add(d.id); students.push(view); }
             });
             attendanceSnap.docs.forEach(d => {
                 const r = d.data();
                 if (typeof r.date === 'string' && r.date >= since) {
-                    attendance.push({ id: d.id, classId: r.classId, date: r.date, presentStudentIds: r.presentStudentIds || [], notes: r.notes });
+                    // Con varios profesores cada uno ve sus propias notas; si no, las de la clase.
+                    const myNotes = r.notesByInstructor ? (r.notesByInstructor[instructorId]?.text ?? '') : (r.notes ?? '');
+                    attendance.push({ id: d.id, classId: r.classId, date: r.date, presentStudentIds: r.presentStudentIds || [], notes: r.notes, myNotes });
                 }
             });
             absencesSnap.docs.forEach(d => {
@@ -693,6 +708,15 @@ export const teacherOverview = onCall({ cors: true }, async (request) => {
     }
 
     students.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+    // En las clases con grupos solo cuentan las alumnas de su grupo (asistencia y avisos de ausencia).
+    const visibleIds = new Set(students.map(s => s.id));
+    attendance.forEach(r => {
+        if (scopeByClass.get(r.classId) !== null && scopeByClass.has(r.classId)) {
+            r.presentStudentIds = r.presentStudentIds.filter(id => visibleIds.has(id));
+        }
+    });
+    const visibleAbsences = absences.filter(a => !(scopeByClass.get(a.classId) !== null && scopeByClass.has(a.classId)) || visibleIds.has(a.studentId));
 
     // Próximos eventos del ERP (sin precios ni notas), con cuáles de SUS alumnas están apuntadas.
     const studentNames = new Map(students.map(s => [s.id, s.name]));
@@ -708,7 +732,7 @@ export const teacherOverview = onCall({ cors: true }, async (request) => {
         classes,
         students,
         attendance,
-        absences,
+        absences: visibleAbsences,
         events,
     };
 });
@@ -728,18 +752,40 @@ export const teacherSaveAttendance = onCall({ cors: true }, async (request) => {
 
     const classSnap = await db.collection('classes').doc(classId).get();
     const danceClass = classSnap.data();
-    if (!classSnap.exists || !danceClass || danceClass.deletedAt || danceClass.instructorId !== instructorId) {
+    if (!classSnap.exists || !danceClass || danceClass.deletedAt || !classInstructorIds(danceClass).includes(instructorId)) {
         throw new HttpsError('permission-denied', 'Esa clase no es tuya.');
     }
 
+    // Solo puede marcar a las alumnas de SU grupo (o a todas si la clase no tiene grupos / no tiene
+    // grupo asignado la alumna).
+    const scope = teacherGroupScope(danceClass, instructorId);
     const enrolledSnap = await db.collection('students').where('enrolledClassIds', 'array-contains', classId).get();
-    const enrolledIds = new Set(enrolledSnap.docs.filter(d => !d.data().deletedAt).map(d => d.id));
-    if (presentStudentIds.some(id => !enrolledIds.has(id))) {
-        throw new HttpsError('invalid-argument', 'Hay alumnas que no están inscritas en esta clase.');
+    const eligibleIds = new Set(enrolledSnap.docs
+        .filter(d => !d.data().deletedAt && isStudentInScope(d.data(), classId, scope))
+        .map(d => d.id));
+    if (presentStudentIds.some(id => !eligibleIds.has(id))) {
+        throw new HttpsError('invalid-argument', 'Hay alumnas que no están inscritas en tu grupo de esta clase.');
     }
 
-    const record = { classId, date, presentStudentIds, notes, recordedByInstructorId: instructorId };
     const existing = await db.collection('attendance').where('classId', '==', classId).where('date', '==', date).limit(1).get();
+    const existingData = existing.empty ? null : existing.docs[0].data();
+
+    // Clase con varios profesores: se conserva lo que marcaron los demás y las notas de cada uno.
+    const shared = classInstructorIds(danceClass).length > 1;
+    let finalPresent = presentStudentIds;
+    let finalNotes = notes;
+    let notesByInstructor: Record<string, NoteEntry> | undefined;
+    if (shared) {
+        finalPresent = mergePresent(existingData?.presentStudentIds || [], eligibleIds, presentStudentIds);
+        const byInstructor: Record<string, NoteEntry> = { ...(existingData?.notesByInstructor || {}) };
+        if (!existingData?.notesByInstructor && existingData?.notes) byInstructor._admin = { name: 'Notas', text: existingData.notes };
+        byInstructor[instructorId] = { name: String(instructor.name || 'Profesor'), text: notes };
+        notesByInstructor = byInstructor;
+        finalNotes = composeNotes(byInstructor);
+    }
+
+    const record: Record<string, unknown> = { classId, date, presentStudentIds: finalPresent, notes: finalNotes, recordedByInstructorId: instructorId };
+    if (notesByInstructor) record.notesByInstructor = notesByInstructor;
     let attendanceId: string;
     if (existing.empty) {
         attendanceId = (await db.collection('attendance').add(record)).id;

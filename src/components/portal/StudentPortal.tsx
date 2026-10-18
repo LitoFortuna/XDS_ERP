@@ -15,6 +15,7 @@ import StorePage from './pages/StorePage';
 import EventsPage from './pages/EventsPage';
 import StudentNotificationPrompter from './StudentNotificationPrompter';
 import { loadPortalSnapshot, savePortalSnapshot } from '../../utils/portalOfflineCache';
+import { getInstructorIdsForStudent } from '../../utils/classInstructors';
 
 interface StudentPortalProps {
     student: Student;
@@ -177,7 +178,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 const classesFromCache = results[2].status === 'rejected' && !!snapshot;
                 const enrichedClasses = classesFromCache ? classesData : classesData.map(c => ({
                     ...c,
-                    instructorName: instructorMap.get(c.instructorId) || (c as any).instructor || 'Sin Asignar'
+                    instructorName: getInstructorIdsForStudent(c, student).map(id => instructorMap.get(id)).filter(Boolean).join(', ')
+                        || instructorMap.get(c.instructorId) || (c as any).instructor || 'Sin Asignar'
                 }));
 
                 setPayments(paymentsData);

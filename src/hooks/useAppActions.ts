@@ -51,6 +51,7 @@ import {
 } from '../services/firestoreService';
 import { logActivity } from '../services/domain/activityLogService';
 import { updateProgressAfterAttendance } from '../../services/progressService';
+import { classHasInstructor } from '../utils/classInstructors';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const useAppActions = () => {
@@ -109,7 +110,7 @@ export const useAppActions = () => {
     };
 
     const deleteInstructor = async (instructorId: string) => {
-        const isAssigned = classes.some(c => c.instructorId === instructorId);
+        const isAssigned = classes.some(c => classHasInstructor(c, instructorId));
         if (isAssigned) {
             alert('Este profesor está asignado a clases. Por favor, reasigna esas clases antes de eliminarlo.');
             return;

@@ -12,6 +12,7 @@ export interface Student {
   phone?: string;     // Made optional
   email?: string;     // Made optional
   enrolledClassIds: string[];
+  classGroups?: { [classId: string]: string }; // classId -> id del grupo de esa clase (solo clases con grupos)
   monthlyFee: number;
   paymentMethod: PaymentMethod;
   active: boolean;
@@ -49,10 +50,21 @@ export interface Instructor {
 export type DayOfWeek = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo';
 export type ClassCategory = 'Fitness' | 'Baile Moderno' | 'Competición' | 'Especializada';
 
+// Grupo dentro de una clase con sus propios profesores (p. ej. "Parejas" con Pablo y "Solista" con
+// Vic y Diana en Competición MiniSolista/MiniParejas). Cada alumna se asigna a un grupo con
+// Student.classGroups; cada profesor solo ve y pasa lista de su grupo.
+export interface ClassGroup {
+  id: string;
+  name: string;
+  instructorIds: string[];
+}
+
 export interface DanceClass {
   id: string;
   name: string;
-  instructorId: string;
+  instructorId: string; // Profesor principal (el primero del primer grupo si la clase tiene grupos)
+  instructorIds?: string[]; // TODOS los profesores de la clase (principal + los de cada grupo); permite consultarlos por array-contains
+  groups?: ClassGroup[]; // Vacío o ausente = clase sin grupos, todas las alumnas con el profesor principal
   category: ClassCategory;
   days: DayOfWeek[];
   startTime: string; // HH:MM

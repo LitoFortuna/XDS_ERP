@@ -1,4 +1,5 @@
 
+import { getClassInstructorNames } from './classInstructors';
 import {
     Payment, Cost, Student, Instructor, DanceClass, MerchandiseItem,
     PaymentMethod, CostPaymentMethod, ClassCategory, DayOfWeek, CostCategory, StudentPrivateData
@@ -198,10 +199,10 @@ export const exportClassesToCSV = (classes: DanceClass[], instructors: Instructo
     ];
 
     const rows = classes.map(c => {
-        const instructor = instructors.find(i => i.id === c.instructorId);
+        const instructorNames = getClassInstructorNames(c, instructors);
         return [
             c.name,
-            instructor ? instructor.name : 'Desconocido',
+            instructorNames || 'Desconocido',
             c.category,
             (c.days || []).join('; '),
             c.startTime,
