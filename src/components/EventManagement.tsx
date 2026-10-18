@@ -152,7 +152,7 @@ const EventForm: React.FC<{
                                 </div>
                             )}
                         </div>
-                        <div className="flex-grow">
+                        <div className="flex-grow min-w-0">
                             <input
                                 type="file"
                                 accept="image/*"
@@ -407,12 +407,12 @@ const EventManagement: React.FC<EventManagementProps> = ({ events, students, add
                 }
             />
 
-            <div role="group" aria-label="Filtrar por tipo de evento" className="mb-6 sm:mb-8 flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
+            <div role="group" aria-label="Filtrar por tipo de evento" className="mb-6 sm:mb-8 flex flex-wrap gap-2">
                 {['Todos', 'Competición', 'Exhibición', 'Taller', 'Otro'].map(type => (
                     <button
                         key={type}
                         onClick={() => setFilterType(type as any)}
-                        className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all border whitespace-nowrap ${filterType === type ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-900/40' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'}`}
+                        className={`px-4 sm:px-5 py-2.5 rounded-full text-sm font-bold transition-all border whitespace-nowrap ${filterType === type ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-900/40' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'}`}
                     >
                         {type}
                     </button>

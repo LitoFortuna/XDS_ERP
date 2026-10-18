@@ -84,14 +84,14 @@ const TeacherApp: React.FC<TeacherAppProps> = ({ email, onLogout }) => {
                             onClick={() => setShowPasswordModal(true)}
                             aria-label="Cambiar mi contraseña"
                             title="Cambiar mi contraseña"
-                            className="text-sm font-medium text-gray-300 hover:text-white px-3 py-2.5 rounded-lg flex items-center gap-1.5"
+                            className="text-sm font-medium text-gray-300 hover:text-white px-2.5 py-2.5 rounded-lg flex items-center gap-1.5"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                             <span className="hidden sm:inline">Contraseña</span>
                         </button>
                         <button
                             onClick={onLogout}
-                            className="text-sm font-medium text-red-400 hover:text-red-300 px-3 py-2.5 -mr-2 rounded-lg"
+                            className="text-sm font-medium text-red-400 hover:text-red-300 px-2.5 py-2.5 rounded-lg"
                         >
                             Cerrar sesión
                         </button>

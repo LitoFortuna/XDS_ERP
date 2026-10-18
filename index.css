@@ -18,6 +18,23 @@
     accent-color: #8b5cf6;
   }
 
+  /* Ningún campo debe salirse de su caja en móvil. Los de fecha/hora de Safari (iPhone) ignoran el
+     ancho de su contenedor si no se les fuerza min-width:0 / max-width:100%. */
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+  }
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'],
+  input[type='month'],
+  input[type='week'] {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
   /* Quita el retraso del doble toque en móvil en todos los controles. */
   button,
   [role='button'],

@@ -111,17 +111,17 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
         <div className="space-y-6">
             {/* Hero Section */}
             <div className="bg-gradient-to-r from-purple-600 to-fuchsia-600 rounded-xl p-6 text-white">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-4xl">
+                <div className="flex flex-col min-[400px]:flex-row min-[400px]:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 bg-white/20 rounded-full flex items-center justify-center text-3xl sm:text-4xl">
                             {levelInfo.icon}
                         </div>
-                        <div>
-                            <h2 className="text-2xl font-bold">{student.name}</h2>
+                        <div className="min-w-0">
+                            <h2 className="text-xl sm:text-2xl font-bold break-words">{student.name}</h2>
                             <p className="text-purple-100">Nivel {levelInfo.level} ({currentYearStr}): {levelInfo.name}</p>
                         </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left min-[400px]:text-right flex-shrink-0">
                         <div className="flex items-center space-x-2 text-2xl mb-1">
                             <span>🔥</span>
                             <span className="font-bold">{clientStreak}</span>
@@ -295,23 +295,23 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                             const isToday = new Date().toDateString() === date.toDateString();
 
                             return (
-                                <div key={record.id} className="bg-gray-700/50 rounded-lg p-4 flex items-center justify-between border border-gray-600 hover:border-purple-500 transition-colors">
-                                    <div className="flex items-center space-x-4">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${isToday ? 'bg-green-500/20 text-green-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                <div key={record.id} className="bg-gray-700/50 rounded-lg p-4 flex items-center justify-between gap-3 border border-gray-600 hover:border-purple-500 transition-colors">
+                                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                                        <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-xl ${isToday ? 'bg-green-500/20 text-green-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                             {isToday ? '✅' : '📅'}
                                         </div>
-                                        <div>
-                                            <h4 className="font-semibold text-white">
+                                        <div className="min-w-0">
+                                            <h4 className="font-semibold text-white break-words">
                                                 {classInfo?.name || 'Clase'}
                                             </h4>
-                                            <div className="flex items-center text-sm text-gray-400 space-x-3">
+                                            <div className="flex flex-wrap items-center text-sm text-gray-400 gap-x-3">
                                                 <span>{date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
                                                 <span>•</span>
                                                 <span>{classInfo?.startTime || 'Hora no disponible'}</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-right flex-shrink-0">
                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                             Asistido
                                         </span>

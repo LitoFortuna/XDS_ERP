@@ -129,11 +129,11 @@ const QuarterlyInvoicing: React.FC<QuarterlyInvoicingProps> = ({ payments, stude
                         {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
                     </select>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <span className="text-gray-300 font-medium">Trimestre:</span>
                     <div className="flex rounded-md bg-gray-700 border border-gray-600">
                         {[1, 2, 3, 4].map(q => (
-                            <button key={q} onClick={() => handleQuarterChange(q)} aria-pressed={selectedQuarter === q} className={`px-4 py-2.5 sm:py-2 text-sm font-semibold rounded-md transition-colors ${selectedQuarter === q ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
+                            <button key={q} onClick={() => handleQuarterChange(q)} aria-pressed={selectedQuarter === q} className={`px-3.5 min-[360px]:px-4 py-2.5 sm:py-2 text-sm font-semibold rounded-md transition-colors ${selectedQuarter === q ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
                                 T{q}
                             </button>
                         ))}

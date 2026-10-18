@@ -99,12 +99,12 @@ const ChangeRequestManagement: React.FC<ChangeRequestManagementProps> = ({ stude
             />
 
             {/* Filters */}
-            <div role="group" aria-label="Filtrar por estado" className="mb-6 sm:mb-8 flex gap-2 overflow-x-auto pb-4">
+            <div role="group" aria-label="Filtrar por estado" className="mb-6 sm:mb-8 flex flex-wrap gap-2">
                 {(['Todas', 'Pendiente', 'Aprobada', 'Rechazada'] as const).map(status => (
                     <button
                         key={status}
                         onClick={() => setFilterStatus(status)}
-                        className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all border whitespace-nowrap ${filterStatus === status
+                        className={`px-4 sm:px-5 py-2.5 rounded-full text-sm font-bold transition-all border whitespace-nowrap ${filterStatus === status
                                 ? 'bg-purple-600 text-white border-purple-500 shadow-lg'
                                 : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'
                             }`}
