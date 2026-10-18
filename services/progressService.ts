@@ -42,10 +42,58 @@ export const AVAILABLE_BADGES: Badge[] = [
     {
         id: 'first_event',
         name: 'Estrella del Escenario',
-        description: 'Participó en su primer evento',
+        description: 'Asistió a un evento de la academia',
         icon: '🎭',
         category: 'events',
         criteria: { type: 'events', value: 1 }
+    },
+    {
+        id: 'two_teachers',
+        name: 'Doble Maestría',
+        description: 'Ha recibido clase de 2 profesores distintos',
+        icon: '👩‍🏫',
+        category: 'community',
+        criteria: { type: 'distinct_instructors', value: 2 }
+    },
+    {
+        id: 'long_week',
+        name: 'Semana Intensiva',
+        description: 'Más de 3 horas de clase en una misma semana',
+        icon: '⏱️',
+        category: 'attendance',
+        criteria: { type: 'weekly_minutes', value: 180 }
+    },
+    {
+        id: 'competition',
+        name: 'Competidora',
+        description: 'Participó en una competición',
+        icon: '🥇',
+        category: 'events',
+        criteria: { type: 'competition', value: 1 }
+    },
+    {
+        id: 'merch_tshirt',
+        name: 'Camiseta XDS',
+        description: 'Consiguió la camiseta de Xen Dance Space',
+        icon: '👕',
+        category: 'community',
+        criteria: { type: 'merch', value: 1 }
+    },
+    {
+        id: 'merch_hoodie',
+        name: 'Sudadera XDS',
+        description: 'Consiguió la sudadera de Xen Dance Space',
+        icon: '🧥',
+        category: 'community',
+        criteria: { type: 'merch', value: 1 }
+    },
+    {
+        id: 'merch_backpack',
+        name: 'Mochila XDS',
+        description: 'Consiguió la mochila de Xen Dance Space',
+        icon: '🎒',
+        category: 'community',
+        criteria: { type: 'merch', value: 1 }
     }
 ];
 

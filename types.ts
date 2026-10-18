@@ -294,7 +294,8 @@ export interface Badge {
   icon: string; // emoji
   category: BadgeCategory;
   criteria: {
-    type: 'total_classes' | 'streak_days' | 'attendance_percent' | 'events' | 'first_class';
+    type: 'total_classes' | 'streak_days' | 'attendance_percent' | 'events' | 'first_class'
+      | 'distinct_instructors' | 'weekly_minutes' | 'competition' | 'merch'; // ver services/badgeRules.ts
     value: number;
   };
 }

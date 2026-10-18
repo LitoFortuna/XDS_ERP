@@ -1,4 +1,4 @@
-import { DanceClass, DanceEvent, Payment, Student } from '../../types';
+import { DanceClass, DanceEvent, MerchandiseSale, Payment, Student } from '../../types';
 
 // Copia local de lo que la alumna necesita consultar sin conexión (su ficha, sus clases, sus pagos
 // del año y los eventos en los que está apuntada). Firestore ya guarda una caché propia, pero solo
@@ -16,6 +16,7 @@ export interface PortalSnapshot {
     classes: DanceClass[];
     events: DanceEvent[];
     payments: Payment[];
+    sales?: MerchandiseSale[]; // compras propias (logros de merchandising)
     // Nivel y racha de la pantalla de Inicio (calculados con la asistencia, que no se guarda).
     progress?: { currentStreak: number; level: number; levelName: string; levelIcon: string };
 }

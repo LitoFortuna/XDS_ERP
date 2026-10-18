@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { StudentProgress, Student, DanceClass } from '../../../types';
+import { StudentProgress, Student, DanceClass, DanceEvent, MerchandiseSale } from '../../../types';
 import { getStudentProgress, getLevelInfo, getProgressToNextLevel, calculateYearlyDisplayStats, AVAILABLE_BADGES, LEVELS } from '../../../services/progressService';
+import { computeEarnedBadges } from '../../../services/badgeRules';
+import { toIsoLocal } from '../../utils/plannerUtils';
 
 interface ProgressDashboardProps {
     student: Student;
     attendanceRecords: any[];
     allClasses: DanceClass[];
+    events?: DanceEvent[];
+    sales?: MerchandiseSale[];
 }
 
-const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendanceRecords, allClasses }) => {
+const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendanceRecords, allClasses, events = [], sales = [] }) => {
     const [progress, setProgress] = useState<StudentProgress | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -59,24 +63,22 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
         }
     };
 
-    // Merge badges logic
-    let unlockedBadges = AVAILABLE_BADGES.filter(badge =>
-        progress.achievements.some(a => a.badgeId === badge.id)
-    );
-    let lockedBadges = AVAILABLE_BADGES.filter(badge =>
-        !progress.achievements.some(a => a.badgeId === badge.id)
-    );
+    // Los logros se calculan a partir de los datos reales (asistencia, eventos, compras): los guardados
+    // en studentProgress.achievements casi nunca se rellenaban. Se unen ambos por si algún logro quedó
+    // registrado a mano.
+    const earned = computeEarnedBadges({
+        student,
+        attendance: attendanceRecords,
+        classes: allClasses,
+        events,
+        sales,
+        today: toIsoLocal(new Date()),
+    });
+    const unlockedDates: Record<string, string> = { ...earned };
+    progress.achievements.forEach(a => { if (!unlockedDates[a.badgeId]) unlockedDates[a.badgeId] = (a.unlockedDate || '').slice(0, 10); });
 
-    if (currentYearAttendance.length > 0) {
-        const hasFirstClass = unlockedBadges.some(b => b.id === 'first_class');
-        if (!hasFirstClass) {
-            const firstClassBadge = AVAILABLE_BADGES.find(b => b.id === 'first_class');
-            if (firstClassBadge) {
-                unlockedBadges = [firstClassBadge, ...unlockedBadges];
-                lockedBadges = lockedBadges.filter(b => b.id !== 'first_class');
-            }
-        }
-    }
+    const unlockedBadges = AVAILABLE_BADGES.filter(badge => badge.id in unlockedDates);
+    const lockedBadges = AVAILABLE_BADGES.filter(badge => !(badge.id in unlockedDates));
 
     // Calculate monthly stats
     const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
@@ -225,12 +227,12 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ student, attendan
                     <div className="mb-6">
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                             {unlockedBadges.map(badge => {
-                                const achievement = progress.achievements.find(a => a.badgeId === badge.id);
+                                const unlockedOn = unlockedDates[badge.id];
                                 return (
                                     <div
                                         key={badge.id}
                                         className="relative bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg p-4 border border-purple-500/50 hover:border-purple-500 transition-all cursor-pointer group"
-                                        title={`${badge.description}\nDesbloqueado: ${new Date(achievement?.unlockedDate || '').toLocaleDateString('es-ES')}`}
+                                        title={`${badge.description}\nDesbloqueado: ${unlockedOn ? new Date(unlockedOn + 'T12:00:00').toLocaleDateString('es-ES') : '—'}`}
                                     >
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleShareBadge(badge); }}

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem, DanceEvent, ChangeRequest, StudentPrivateData, StudentProgress } from '../../../types';
+import { Student, Payment, AttendanceRecord, DanceClass, MerchandiseItem, MerchandiseSale, DanceEvent, ChangeRequest, StudentPrivateData, StudentProgress } from '../../../types';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { getStudentPrivateData } from '../../services/domain/studentService';
@@ -28,6 +28,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [classes, setClasses] = useState<DanceClass[]>([]);
     const [merchandise, setMerchandise] = useState<MerchandiseItem[]>([]);
+    const [sales, setSales] = useState<MerchandiseSale[]>([]); // compras de esta alumna (logros de camiseta, sudadera, mochila)
     const [events, setEvents] = useState<DanceEvent[]>([]);
     const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
     const [privateData, setPrivateData] = useState<StudentPrivateData | null>(null);
@@ -70,6 +71,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     setPayments(snapshot.payments);
                     setClasses(snapshot.classes);
                     setEvents(snapshot.events);
+                    setSales(snapshot.sales || []);
                     if (snapshot.progress) {
                         setCurrentStreak(snapshot.progress.currentStreak);
                         setLevel(snapshot.progress.level);
@@ -132,7 +134,12 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                     // "Pendiente" instead of blocking the rest of the portal.
                     auth.authStateReady()
                         .then(() => getStudentPrivateData(student.id))
-                        .catch(() => null)
+                        .catch(() => null),
+
+                    // Compras de merchandising de esta alumna, para los logros de la camiseta, la sudadera y la mochila.
+                    getDocs(query(collection(db, 'merchandiseSales'), where('studentId', '==', student.id))).then(snap =>
+                        snap.docs.map(d => ({ id: d.id, ...d.data() } as MerchandiseSale))
+                    )
                 ]);
 
                 // Cada lectura que falló cae a un valor por defecto seguro en vez de tirar abajo
@@ -166,6 +173,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 const progressData = getValue(results[6], null as StudentProgress | null);
                 const instructorsSnapshot = getValue(results[7], { docs: [] } as any); // QuerySnapshot
                 const privateDataResult = getValue(results[8], null as StudentPrivateData | null);
+                const salesData = withCache(results[9], [] as MerchandiseSale[], snapshot?.sales);
 
                 // Create instructor map
                 const instructorMap = new Map();
@@ -186,6 +194,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                 setAttendance(attendanceData);
                 setClasses(enrichedClasses);
                 setMerchandise(merchandiseData);
+                setSales(salesData);
                 setEvents(eventsData);
                 setChangeRequests(requestsData);
                 setPrivateData(privateDataResult);
@@ -205,7 +214,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
 
                 setOfflineSavedAt(usedCachedData && snapshot ? snapshot.savedAt : null);
                 // Solo cuenta como error lo que la copia local no ha podido cubrir.
-                const uncoveredFailure = results.some((r, i) => r.status === 'rejected' && !(snapshot && (i === 0 || i === 2 || i === 4)));
+                const uncoveredFailure = results.some((r, i) => r.status === 'rejected' && !(snapshot && (i === 0 || i === 2 || i === 4 || i === 9)));
                 if (uncoveredFailure) setLoadError(true);
 
                 // Carga completa: se renueva la copia local para el próximo uso sin conexión.
@@ -215,6 +224,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                         classes: enrichedClasses,
                         events: eventsData,
                         payments: paymentsData,
+                        sales: salesData,
                         progress: { currentStreak: clientStreak, level: levelInfo.level, levelName: levelInfo.name, levelIcon: levelInfo.icon },
                     });
                 }
@@ -368,6 +378,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student, onLogout }) => {
                                 student={student}
                                 attendanceRecords={attendance}
                                 allClasses={classes}
+                                events={events}
+                                sales={sales}
                             />
                         )}
                         {currentPage === 'profile' && (
