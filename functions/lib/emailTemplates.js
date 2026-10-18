@@ -111,7 +111,7 @@ const buildInstructorWelcomeEmail = ({ name, email, password, loginUrl = exports
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fffbeb;border-left:4px solid #f59e0b;border-radius:8px;">
                 <tr>
                   <td style="padding:14px 16px;font-size:13px;line-height:20px;color:#92400e;">
-                    <strong>Guarda este email en un lugar seguro</strong> y no compartas tu contraseña con nadie. Si la pierdes, pídele a la administración que te genere una nueva.
+                    <strong>Cambia la contraseña temporal</strong> en cuanto entres: en tu panel, botón <strong>«Contraseña»</strong> (arriba a la derecha). No la compartas con nadie; si la pierdes, pídele a la administración que te genere una nueva.
                   </td>
                 </tr>
               </table>
@@ -148,7 +148,7 @@ const buildInstructorWelcomeEmail = ({ name, email, password, loginUrl = exports
         '',
         `Entra aquí: ${loginUrl}`,
         '',
-        'Guarda este email en un lugar seguro y no compartas tu contraseña. Si la pierdes, pídele a la administración que te genere una nueva.',
+        'Cambia la contraseña temporal en cuanto entres: en tu panel, botón "Contraseña" (arriba a la derecha). No la compartas con nadie; si la pierdes, pídele a la administración que te genere una nueva.',
         '',
         '¡Gracias por todo lo que aportas a la academia!',
         'El equipo de Xen Dance Space',
