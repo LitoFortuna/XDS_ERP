@@ -13,6 +13,7 @@ import {
 import {
     shouldLogAccess, describeAttendance, matchesActivityFilters, clampPageSize, isSuperAdminEmail, isTeacherActivityType,
     ACTIVITY_RETENTION_DAYS, TeacherActivityEntry, ActivityFilters,
+    DIRECTOR_EMAIL, DIRECTOR_ACTIVITY_ID, DIRECTOR_NAME, mapAdminActivityType, isDirectorEmail,
 } from './teacherActivity';
 
 admin.initializeApp();
@@ -67,6 +68,17 @@ export const onNewActivityLog = onDocumentCreated('activityLogs/{logId}', async 
     if (!(await claimEvent(event.id))) {
         console.log('Evento ya atendido, se ignora el reintento:', event.id);
         return;
+    }
+
+    // Si la acción la hizo Xenia (dirección), también queda en el historial de actividad de profesores.
+    if (isDirectorEmail(activityData.actorEmail)) {
+        await logTeacherActivity({
+            instructorId: DIRECTOR_ACTIVITY_ID,
+            instructorName: DIRECTOR_NAME,
+            type: mapAdminActivityType(activityData.type),
+            description: String(activityData.description || '').slice(0, 300),
+            details: { origen: String(activityData.type || '') },
+        });
     }
 
     console.log('New activity for SuperAdmin:', activityData.description);
@@ -895,6 +907,21 @@ export const teacherLogEvent = onCall({ cors: true }, async (request) => {
 });
 
 /**
+ * La dirección (cuenta info@xendance.space) avisa de que ha abierto el ERP. Solo esa cuenta se registra;
+ * como con los profesores, el acceso solo se anota si el anterior fue hace más de 30 minutos.
+ */
+export const adminAccessPing = onCall({ cors: true }, async (request) => {
+    if (!isDirectorEmail(request.auth?.token?.email)) return { logged: false };
+    const ref = admin.firestore().collection('adminAccess').doc(DIRECTOR_ACTIVITY_ID);
+    const snap = await ref.get();
+    const now = new Date();
+    if (!shouldLogAccess(snap.data()?.lastAccessAt as string | undefined, now)) return { logged: false };
+    await ref.set({ lastAccessAt: now.toISOString(), email: DIRECTOR_EMAIL });
+    await logTeacherActivity({ instructorId: DIRECTOR_ACTIVITY_ID, instructorName: DIRECTOR_NAME, type: 'access', description: 'Entró al ERP' });
+    return { logged: true };
+});
+
+/**
  * Consulta del registro de actividad de profesores. SOLO el SuperAdmin. Pagina de más reciente a más
  * antiguo (`before` = createdAt del último elemento ya recibido) y admite filtros por profesor, tipo y
  * rango de días; los filtros se aplican en el servidor sobre bloques de 200 para no exigir índices
@@ -938,9 +965,10 @@ export const listTeacherActivity = onCall({ cors: true }, async (request) => {
 
     let teachers: Array<{ instructorId: string; name: string; email: string; lastAccessAt: string | null; createdAt: string | null }> | undefined;
     if (!data.before) {
-        const [accountsSnap, instructorsSnap] = await Promise.all([
+        const [accountsSnap, instructorsSnap, directorSnap] = await Promise.all([
             db.collection('instructorAccounts').get(),
             db.collection('instructors').get(),
+            db.collection('adminAccess').doc(DIRECTOR_ACTIVITY_ID).get(),
         ]);
         const names = new Map(instructorsSnap.docs.map(d => [d.id, String(d.data().name || '')]));
         teachers = accountsSnap.docs
@@ -952,6 +980,13 @@ export const listTeacherActivity = onCall({ cors: true }, async (request) => {
                 createdAt: (d.data().createdAt as string | undefined) || null,
             }))
             .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        teachers.unshift({
+            instructorId: DIRECTOR_ACTIVITY_ID,
+            name: DIRECTOR_NAME,
+            email: DIRECTOR_EMAIL,
+            lastAccessAt: (directorSnap.data()?.lastAccessAt as string | undefined) || null,
+            createdAt: null,
+        });
     }
 
     return { entries, hasMore, nextBefore: hasMore ? cursor || null : null, teachers };

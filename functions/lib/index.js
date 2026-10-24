@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendClassReminders = exports.listTeacherActivity = exports.teacherLogEvent = exports.teacherSaveAttendance = exports.teacherOverview = exports.manageInstructorAccount = exports.scheduledFirestoreBackup = exports.purgeTrash = exports.checkSpecialDates = exports.joinEvent = exports.studentPurchase = exports.studentLogin = exports.onChangeRequestReviewed = exports.getVapidPublicKey = exports.onNewActivityLog = void 0;
+exports.sendClassReminders = exports.listTeacherActivity = exports.adminAccessPing = exports.teacherLogEvent = exports.teacherSaveAttendance = exports.teacherOverview = exports.manageInstructorAccount = exports.scheduledFirestoreBackup = exports.purgeTrash = exports.checkSpecialDates = exports.joinEvent = exports.studentPurchase = exports.studentLogin = exports.onChangeRequestReviewed = exports.getVapidPublicKey = exports.onNewActivityLog = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
@@ -58,6 +58,16 @@ exports.onNewActivityLog = (0, firestore_1.onDocumentCreated)('activityLogs/{log
     if (!(await claimEvent(event.id))) {
         console.log('Evento ya atendido, se ignora el reintento:', event.id);
         return;
+    }
+    // Si la acción la hizo Xenia (dirección), también queda en el historial de actividad de profesores.
+    if ((0, teacherActivity_1.isDirectorEmail)(activityData.actorEmail)) {
+        await logTeacherActivity({
+            instructorId: teacherActivity_1.DIRECTOR_ACTIVITY_ID,
+            instructorName: teacherActivity_1.DIRECTOR_NAME,
+            type: (0, teacherActivity_1.mapAdminActivityType)(activityData.type),
+            description: String(activityData.description || '').slice(0, 300),
+            details: { origen: String(activityData.type || '') },
+        });
     }
     console.log('New activity for SuperAdmin:', activityData.description);
     // Get all SuperAdmin push subscriptions
@@ -828,13 +838,30 @@ exports.teacherLogEvent = (0, https_1.onCall)({ cors: true }, async (request) =>
     return { ok: true };
 });
 /**
+ * La dirección (cuenta info@xendance.space) avisa de que ha abierto el ERP. Solo esa cuenta se registra;
+ * como con los profesores, el acceso solo se anota si el anterior fue hace más de 30 minutos.
+ */
+exports.adminAccessPing = (0, https_1.onCall)({ cors: true }, async (request) => {
+    var _a, _b, _c;
+    if (!(0, teacherActivity_1.isDirectorEmail)((_b = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.token) === null || _b === void 0 ? void 0 : _b.email))
+        return { logged: false };
+    const ref = admin.firestore().collection('adminAccess').doc(teacherActivity_1.DIRECTOR_ACTIVITY_ID);
+    const snap = await ref.get();
+    const now = new Date();
+    if (!(0, teacherActivity_1.shouldLogAccess)((_c = snap.data()) === null || _c === void 0 ? void 0 : _c.lastAccessAt, now))
+        return { logged: false };
+    await ref.set({ lastAccessAt: now.toISOString(), email: teacherActivity_1.DIRECTOR_EMAIL });
+    await logTeacherActivity({ instructorId: teacherActivity_1.DIRECTOR_ACTIVITY_ID, instructorName: teacherActivity_1.DIRECTOR_NAME, type: 'access', description: 'Entró al ERP' });
+    return { logged: true };
+});
+/**
  * Consulta del registro de actividad de profesores. SOLO el SuperAdmin. Pagina de más reciente a más
  * antiguo (`before` = createdAt del último elemento ya recibido) y admite filtros por profesor, tipo y
  * rango de días; los filtros se aplican en el servidor sobre bloques de 200 para no exigir índices
  * compuestos. En la primera página devuelve además el resumen por profesor con su último acceso.
  */
 exports.listTeacherActivity = (0, https_1.onCall)({ cors: true }, async (request) => {
-    var _a, _b;
+    var _a, _b, _c;
     if (!(0, teacherActivity_1.isSuperAdminEmail)((_b = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.token) === null || _b === void 0 ? void 0 : _b.email)) {
         throw new https_1.HttpsError('permission-denied', 'Solo el SuperAdmin puede ver este registro.');
     }
@@ -879,9 +906,10 @@ exports.listTeacherActivity = (0, https_1.onCall)({ cors: true }, async (request
     const hasMore = stoppedEarly || !exhausted;
     let teachers;
     if (!data.before) {
-        const [accountsSnap, instructorsSnap] = await Promise.all([
+        const [accountsSnap, instructorsSnap, directorSnap] = await Promise.all([
             db.collection('instructorAccounts').get(),
             db.collection('instructors').get(),
+            db.collection('adminAccess').doc(teacherActivity_1.DIRECTOR_ACTIVITY_ID).get(),
         ]);
         const names = new Map(instructorsSnap.docs.map(d => [d.id, String(d.data().name || '')]));
         teachers = accountsSnap.docs
@@ -893,6 +921,13 @@ exports.listTeacherActivity = (0, https_1.onCall)({ cors: true }, async (request
             createdAt: d.data().createdAt || null,
         }))
             .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        teachers.unshift({
+            instructorId: teacherActivity_1.DIRECTOR_ACTIVITY_ID,
+            name: teacherActivity_1.DIRECTOR_NAME,
+            email: teacherActivity_1.DIRECTOR_EMAIL,
+            lastAccessAt: ((_c = directorSnap.data()) === null || _c === void 0 ? void 0 : _c.lastAccessAt) || null,
+            createdAt: null,
+        });
     }
     return { entries, hasMore, nextBefore: hasMore ? cursor || null : null, teachers };
 });

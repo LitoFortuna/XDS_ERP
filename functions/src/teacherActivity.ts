@@ -6,6 +6,12 @@ import { getMadridNow } from './classReminders';
 /** Quién puede ver el registro. Mismo SuperAdmin que userProfileService.ts. */
 export const SUPERADMIN_EMAILS = ['raulfdz3@gmail.com'];
 
+// Xenia (dirección) entra al ERP completo con la cuenta de administración, no al panel de profesor; su
+// actividad se registra igualmente en este historial con un id propio.
+export const DIRECTOR_EMAIL = 'info@xendance.space';
+export const DIRECTOR_ACTIVITY_ID = 'director';
+export const DIRECTOR_NAME = 'Xenia (dirección)';
+
 export type TeacherActivityType =
     | 'access'              // el profesor entra al panel
     | 'attendance_saved'    // pasa lista por primera vez de una clase y día
@@ -13,10 +19,11 @@ export type TeacherActivityType =
     | 'password_changed'    // cambia su contraseña
     | 'account_created'     // la administración le crea el acceso
     | 'account_reset'       // la administración restablece su contraseña
-    | 'account_revoked';    // la administración le quita el acceso
+    | 'account_revoked'     // la administración le quita el acceso
+    | 'admin_action';       // acción de la dirección en el ERP completo (cobros, gastos…)
 
 export const ACTIVITY_TYPES: TeacherActivityType[] = [
-    'access', 'attendance_saved', 'attendance_updated', 'password_changed', 'account_created', 'account_reset', 'account_revoked',
+    'access', 'attendance_saved', 'attendance_updated', 'password_changed', 'account_created', 'account_reset', 'account_revoked', 'admin_action',
 ];
 
 /** Un acceso solo se registra si el anterior fue hace más de esto: abrir y cerrar la app no llena el registro. */
@@ -47,6 +54,13 @@ export const shouldLogAccess = (lastAccessIso: string | undefined, now: Date, in
     if (isNaN(last)) return true;
     return now.getTime() - last >= intervalMinutes * 60000;
 };
+
+// Las acciones de la dirección ya se anotan en activityLogs (tipo attendance / payment / cost); aquí se
+// traducen al tipo del historial: las listas de asistencia como tal, el resto como acción en el ERP.
+export const mapAdminActivityType = (activityType: unknown): TeacherActivityType =>
+    activityType === 'attendance' ? 'attendance_saved' : 'admin_action';
+
+export const isDirectorEmail = (email: unknown): boolean => email === DIRECTOR_EMAIL;
 
 const formatDateEs = (iso: string): string => iso.split('-').reverse().join('/');
 

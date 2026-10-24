@@ -8,6 +8,7 @@ import { DayOfWeek } from '../../types';
 import { getUserProfile } from '../services/domain/userProfileService';
 import { subscribeToActivityLogs } from '../services/domain/activityLogService';
 import { getBirthdaysByDate, toIsoLocal } from '../utils/plannerUtils';
+import { pingAdminAccess } from '../services/domain/teacherActivityService';
 
 const BIRTHDAY_SHOWN_KEY = 'xds-birthday-modal-shown';
 
@@ -65,6 +66,12 @@ export const useInitializeData = () => {
             store.setHasCheckedBirthdays(true);
         }
     }, [store.dataLoading, store.students, store.hasCheckedBirthdays]);
+
+    // Acceso de la dirección (rol Admin) al ERP: el servidor lo anota en el historial de actividad. Una
+    // vez por carga de la página; el servidor además ignora cuentas que no sean la de Xenia.
+    useEffect(() => {
+        if (store.userProfile?.role === 'Admin') void pingAdminAccess();
+    }, [store.userProfile?.uid, store.userProfile?.role]);
 
     // Attendance Reminder Scheduling
     useEffect(() => {

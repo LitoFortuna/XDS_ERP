@@ -8,6 +8,7 @@ export const ACTIVITY_META: Record<TeacherActivityType, { label: string; icon: s
     account_created: { label: 'Acceso creado', icon: '🆕', tone: 'bg-indigo-500/15 text-indigo-200 border-indigo-500/30' },
     account_reset: { label: 'Contraseña restablecida', icon: '🔄', tone: 'bg-indigo-500/15 text-indigo-200 border-indigo-500/30' },
     account_revoked: { label: 'Acceso retirado', icon: '⛔', tone: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
+    admin_action: { label: 'Acción en el ERP', icon: '🛠️', tone: 'bg-fuchsia-500/15 text-fuchsia-200 border-fuchsia-500/30' },
 };
 
 export const ACTIVITY_TYPE_OPTIONS = (Object.keys(ACTIVITY_META) as TeacherActivityType[]).map(type => ({ type, ...ACTIVITY_META[type] }));

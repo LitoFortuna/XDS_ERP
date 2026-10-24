@@ -3,7 +3,7 @@ import { functions } from '../../config/firebase';
 
 export type TeacherActivityType =
     | 'access' | 'attendance_saved' | 'attendance_updated' | 'password_changed'
-    | 'account_created' | 'account_reset' | 'account_revoked';
+    | 'account_created' | 'account_reset' | 'account_revoked' | 'admin_action';
 
 export interface TeacherActivityEntry {
     id: string;
@@ -46,6 +46,16 @@ export const fetchTeacherActivity = async (
 ): Promise<TeacherActivityPage> => {
     const callable = httpsCallable<Record<string, unknown>, TeacherActivityPage>(functions, 'listTeacherActivity');
     return (await callable({ ...filters, before: before || undefined, limit })).data;
+};
+
+// La dirección (Xenia) avisa de que ha abierto el ERP; el servidor ignora a cualquier otra cuenta y
+// solo anota el acceso si el anterior fue hace más de 30 minutos. Best-effort: nunca debe molestar.
+export const pingAdminAccess = async (): Promise<void> => {
+    try {
+        await httpsCallable(functions, 'adminAccessPing')();
+    } catch (error) {
+        console.error('[teacherActivity] No se pudo registrar el acceso:', error);
+    }
 };
 
 // Aviso best-effort de una acción que solo ocurre en el navegador del profesor (cambio de contraseña).

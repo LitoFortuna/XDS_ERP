@@ -1,13 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.clampPageSize = exports.matchesActivityFilters = exports.describeAttendance = exports.shouldLogAccess = exports.isSuperAdminEmail = exports.isTeacherActivityType = exports.ACTIVITY_RETENTION_DAYS = exports.ACCESS_LOG_INTERVAL_MINUTES = exports.ACTIVITY_TYPES = exports.SUPERADMIN_EMAILS = void 0;
+exports.clampPageSize = exports.matchesActivityFilters = exports.describeAttendance = exports.isDirectorEmail = exports.mapAdminActivityType = exports.shouldLogAccess = exports.isSuperAdminEmail = exports.isTeacherActivityType = exports.ACTIVITY_RETENTION_DAYS = exports.ACCESS_LOG_INTERVAL_MINUTES = exports.ACTIVITY_TYPES = exports.DIRECTOR_NAME = exports.DIRECTOR_ACTIVITY_ID = exports.DIRECTOR_EMAIL = exports.SUPERADMIN_EMAILS = void 0;
 const classReminders_1 = require("./classReminders");
 // Registro histórico de la actividad de los profesores en el ERP (solo lo lee el SuperAdmin).
 // Lógica pura, probada desde el vitest de la raíz (src/utils/teacherActivity.test.ts).
 /** Quién puede ver el registro. Mismo SuperAdmin que userProfileService.ts. */
 exports.SUPERADMIN_EMAILS = ['raulfdz3@gmail.com'];
+// Xenia (dirección) entra al ERP completo con la cuenta de administración, no al panel de profesor; su
+// actividad se registra igualmente en este historial con un id propio.
+exports.DIRECTOR_EMAIL = 'info@xendance.space';
+exports.DIRECTOR_ACTIVITY_ID = 'director';
+exports.DIRECTOR_NAME = 'Xenia (dirección)';
 exports.ACTIVITY_TYPES = [
-    'access', 'attendance_saved', 'attendance_updated', 'password_changed', 'account_created', 'account_reset', 'account_revoked',
+    'access', 'attendance_saved', 'attendance_updated', 'password_changed', 'account_created', 'account_reset', 'account_revoked', 'admin_action',
 ];
 /** Un acceso solo se registra si el anterior fue hace más de esto: abrir y cerrar la app no llena el registro. */
 exports.ACCESS_LOG_INTERVAL_MINUTES = 30;
@@ -26,6 +31,12 @@ const shouldLogAccess = (lastAccessIso, now, intervalMinutes = exports.ACCESS_LO
     return now.getTime() - last >= intervalMinutes * 60000;
 };
 exports.shouldLogAccess = shouldLogAccess;
+// Las acciones de la dirección ya se anotan en activityLogs (tipo attendance / payment / cost); aquí se
+// traducen al tipo del historial: las listas de asistencia como tal, el resto como acción en el ERP.
+const mapAdminActivityType = (activityType) => activityType === 'attendance' ? 'attendance_saved' : 'admin_action';
+exports.mapAdminActivityType = mapAdminActivityType;
+const isDirectorEmail = (email) => email === exports.DIRECTOR_EMAIL;
+exports.isDirectorEmail = isDirectorEmail;
 const formatDateEs = (iso) => iso.split('-').reverse().join('/');
 const describeAttendance = (className, dateIso, present, enrolled, updated) => `${updated ? 'Corrigió' : 'Pasó'} lista de «${className}» del ${formatDateEs(dateIso)}: ${present} ${present === 1 ? 'presente' : 'presentes'} de ${enrolled}`;
 exports.describeAttendance = describeAttendance;

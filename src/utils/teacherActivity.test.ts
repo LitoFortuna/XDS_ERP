@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    shouldLogAccess, describeAttendance, matchesActivityFilters, clampPageSize, isSuperAdminEmail, isTeacherActivityType, TeacherActivityEntry,
+    shouldLogAccess, describeAttendance, matchesActivityFilters, clampPageSize, isSuperAdminEmail, isTeacherActivityType, mapAdminActivityType, isDirectorEmail, DIRECTOR_EMAIL, TeacherActivityEntry,
 } from '../../functions/src/teacherActivity';
 
 const entry = (over: Partial<TeacherActivityEntry> = {}): TeacherActivityEntry => ({
@@ -56,5 +56,20 @@ describe('utilidades', () => {
         expect(isSuperAdminEmail(undefined)).toBe(false);
         expect(isTeacherActivityType('password_changed')).toBe(true);
         expect(isTeacherActivityType('delete_everything')).toBe(false);
+    });
+});
+
+describe('actividad de la dirección (Xenia)', () => {
+    it('solo la cuenta de dirección se reconoce como tal', () => {
+        expect(isDirectorEmail(DIRECTOR_EMAIL)).toBe(true);
+        expect(isDirectorEmail('raulfdz3@gmail.com')).toBe(false);
+        expect(isDirectorEmail(undefined)).toBe(false);
+        expect(isDirectorEmail('INFO@xendance.space')).toBe(false);
+    });
+    it('traduce el tipo de la anotación de administración al del historial', () => {
+        expect(mapAdminActivityType('attendance')).toBe('attendance_saved');
+        expect(mapAdminActivityType('payment')).toBe('admin_action');
+        expect(mapAdminActivityType('cost')).toBe('admin_action');
+        expect(mapAdminActivityType(undefined)).toBe('admin_action');
     });
 });
