@@ -55,6 +55,7 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
     const [editingCost, setEditingCost] = useState<Cost | undefined>(undefined);
     const [costToDuplicate, setCostToDuplicate] = useState<Partial<Cost> | undefined>(undefined);
     const [searchQuery, setSearchQuery] = useState('');
+    const [classFilter, setClassFilter] = useState(''); // id de clase; vacío = todas
     const [costSearchQuery, setCostSearchQuery] = useState('');
     const [costCategoryFilter, setCostCategoryFilter] = useState<CostCategory | ''>('');
     const [costStartDate, setCostStartDate] = useState('');
@@ -256,9 +257,15 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
 
     const anyStudentStatusFilterActive = studentStatusFilter.inactive || studentStatusFilter.unpaid || studentStatusFilter.partial;
 
+    const sortedClassesForFilter = useMemo(
+        () => [...classes].filter(c => !c.deletedAt).sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+        [classes]
+    );
+
     const filteredStudents = useMemo(() => {
         let list = students.filter(student => {
             if (!student.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            if (classFilter && !(student.enrolledClassIds || []).includes(classFilter)) return false;
 
             if (anyStudentStatusFilterActive) {
                 return (studentStatusFilter.inactive && !student.active)
@@ -283,7 +290,16 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
 
         return list;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [students, searchQuery, studentStatusFilter, anyStudentStatusFilterActive, monthSortConfig, yearPayments, selectedYear]);
+    }, [students, searchQuery, classFilter, studentStatusFilter, anyStudentStatusFilterActive, monthSortConfig, yearPayments, selectedYear]);
+
+    // Con una clase elegida: cuántas alumnas hay y cuántas tienen algún mes impagado en el ejercicio.
+    const classSummary = useMemo(() => {
+        if (!classFilter) return null;
+        const inClass = students.filter(s => s.active && (s.enrolledClassIds || []).includes(classFilter));
+        const withUnpaid = inClass.filter(s => hasMonthStatusInYear(s, 'unpaid')).length;
+        return { total: inClass.length, withUnpaid };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [students, classFilter, yearPayments, selectedYear]);
 
 
 
@@ -330,6 +346,19 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
                             <div className="w-full sm:w-64">
                                 <input type="search" aria-label="Buscar alumna" placeholder="Buscar alumno..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-white" />
+                            </div>
+                            <div className="w-full sm:w-64">
+                                <select
+                                    aria-label="Filtrar por clase"
+                                    value={classFilter}
+                                    onChange={(e) => setClassFilter(e.target.value)}
+                                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-white"
+                                >
+                                    <option value="">Todas las clases</option>
+                                    {sortedClassesForFilter.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name} ({c.days.join(', ')} {c.startTime})</option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <button
@@ -391,6 +420,15 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                             </div>
                         </div>
                     </div>
+                    {classSummary && (
+                        <p role="status" className={`mb-3 text-sm rounded-lg border px-4 py-2.5 ${classSummary.withUnpaid === 0 ? 'text-green-200 bg-green-500/10 border-green-500/30' : 'text-amber-200 bg-amber-500/10 border-amber-500/30'}`}>
+                            {classSummary.total} {classSummary.total === 1 ? 'alumna activa' : 'alumnas activas'} en esta clase ·{' '}
+                            {classSummary.withUnpaid === 0
+                                ? `todas al corriente en ${selectedYear} ✓`
+                                : `${classSummary.withUnpaid} con algún mes impagado en ${selectedYear}`}
+                            <button onClick={() => setClassFilter('')} className="ml-3 underline font-semibold">Quitar filtro</button>
+                        </p>
+                    )}
                     <div className="bg-gray-800 rounded-lg shadow overflow-x-auto">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead className="text-xs text-gray-300 uppercase bg-gray-700 sticky top-0">
