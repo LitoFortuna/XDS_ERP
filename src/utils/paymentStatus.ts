@@ -110,3 +110,44 @@ export function getPaymentStatusForMonth(
     }
     return { status: 'na', amount: 0, naReason: 'future_or_current' };
 }
+
+/**
+ * Al cambiar la cuota mensual (o la de agosto) de una alumna, el cambio debe valer DESDE EL MES
+ * ACTUAL en adelante: los meses ya pasados conservan el importe que tenían. Antes se guardaba solo
+ * el nuevo monthlyFee y todo el histórico se recalculaba con él (alumnas que pagaron 14 € once meses
+ * pasaban a "pago parcial" al subir a 25 €).
+ *
+ * Devuelve el feeExceptions resultante: para cada mes entre el alta y el mes anterior al actual cuyo
+ * importe esperado cambiaría, se fija una excepción con el importe que tenía antes. Respeta las
+ * excepciones que ya existían (las que el admin puso a mano mandan siempre). Si la cuota no ha
+ * cambiado, devuelve feeExceptions tal cual.
+ */
+export function freezePastFees(previous: Student, next: Student, today: Date = new Date()): Student['feeExceptions'] {
+    const feeChanged = previous.monthlyFee !== next.monthlyFee || previous.augustMaintenanceFee !== next.augustMaintenanceFee;
+    if (!feeChanged) return next.feeExceptions;
+
+    const result: { [key: string]: number } = { ...(next.feeExceptions || {}) };
+
+    // Desde el mes de alta; sin fecha de alta válida, desde hace 24 meses.
+    const enrollment = parseDateLocal(previous.enrollmentDate || next.enrollmentDate || '');
+    const hasEnrollment = enrollment.year > 0 && enrollment.month >= 0;
+    const fallback = new Date(today.getFullYear(), today.getMonth() - 24, 1);
+    let year = hasEnrollment ? enrollment.year : fallback.getFullYear();
+    let month = hasEnrollment ? enrollment.month : fallback.getMonth();
+
+    const endYear = today.getFullYear();
+    const endMonth = today.getMonth(); // exclusivo: el mes actual ya usa la cuota nueva
+
+    while (year < endYear || (year === endYear && month < endMonth)) {
+        const key = `${year}-${month}`;
+        // Una excepción que ya existía manda; si el admin la quitó a propósito en este mismo guardado, tampoco se repone.
+        if (previous.feeExceptions?.[key] === undefined && result[key] === undefined) {
+            const oldFee = getExpectedFee(previous, year, month);
+            const newFee = getExpectedFee({ ...next, feeExceptions: result }, year, month);
+            if (oldFee !== newFee) result[key] = oldFee;
+        }
+        month++;
+        if (month > 11) { month = 0; year++; }
+    }
+    return Object.keys(result).length > 0 ? result : next.feeExceptions;
+}

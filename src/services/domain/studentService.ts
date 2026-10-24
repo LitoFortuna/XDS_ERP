@@ -3,6 +3,7 @@ import { collection, addDoc, updateDoc, doc, getDoc, setDoc, query, orderBy, wri
 import { db } from '../../config/firebase';
 import { Student, StudentPrivateData } from '../../../types';
 import { softDeleteDoc, restoreDoc, permanentlyDeleteDoc, filterActive } from './trashService';
+import { freezePastFees } from '../../utils/paymentStatus';
 
 // DNI/IBAN live in students/{id}/private/sensitive, not on the public student doc — see
 // firestore.rules for why (that doc is public-read for the Student Portal, this one isn't).
@@ -89,11 +90,23 @@ export const batchAddStudents = async (students: Omit<Student, 'id'>[]): Promise
 
 export const updateStudent = async (student: Student) => {
     const { id, augustMaintenanceFee, ...rest } = student;
+    const ref = doc(db, 'students', id);
     // undefined significa "el admin lo ha dejado vacío" -- hay que borrar el campo de verdad
     // (deleteField), no solo omitirlo, o un valor anterior se quedaría fantasma en Firestore.
     const data: Record<string, unknown> = { ...rest };
     data.augustMaintenanceFee = augustMaintenanceFee !== undefined ? augustMaintenanceFee : deleteField();
-    await updateDoc(doc(db, 'students', id), data);
+
+    // Cambiar la cuota vale DESDE EL MES ACTUAL: se compara con lo guardado y los meses ya pasados
+    // conservan el importe que tenían (si no, todo el histórico se recalculaba con la cuota nueva y
+    // los meses pagados quedaban como pago parcial). Ver freezePastFees.
+    const previousSnap = await getDoc(ref);
+    if (previousSnap.exists()) {
+        const previous = { id, ...(previousSnap.data() as Omit<Student, 'id'>) } as Student;
+        const feeExceptions = freezePastFees(previous, student);
+        if (feeExceptions !== undefined) data.feeExceptions = feeExceptions;
+    }
+
+    await updateDoc(ref, data);
 };
 
 // Usado al borrar una clase: hay que desinscribir a todos sus alumnos de golpe. Antes se hacía

@@ -169,6 +169,12 @@ export const StudentForm: React.FC<{
         <div>
           <label className="block text-sm font-medium text-gray-300">Cuota Mensual (€)</label>
           <input type="number" name="monthlyFee" value={formData.monthlyFee} onChange={handleChange} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" required min="0" step="1" />
+          {student && (formData.monthlyFee !== student.monthlyFee || formData.augustMaintenanceFee !== student.augustMaintenanceFee) && (
+            <p role="status" className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2 mt-2">
+              El cambio de cuota se aplica <strong>desde este mes ({new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })})</strong>.
+              Los meses anteriores se quedan con el importe que tenían ({student.monthlyFee} €). Si algún mes anterior también debía cambiar, ajusta su importe en Facturación.
+            </p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-300">Cuota de Mantenimiento en Agosto (opcional)</label>

@@ -558,7 +558,12 @@ const Billing: React.FC<BillingProps> = React.memo(() => {
                 onClose={() => setIsReconciliationModalOpen(false)}
                 students={students}
                 payments={payments}
-                onConfirm={addPaymentsBatch}
+                onConfirm={async (newPayments, replacePaymentIds) => {
+                    // Primero se crean los cobros nuevos; solo si salen bien se retiran los sustituidos (a la
+                    // Papelera, recuperables), así un fallo nunca deja al alumno sin ningún pago.
+                    await addPaymentsBatch(newPayments);
+                    for (const paymentId of replacePaymentIds) await deletePayment(paymentId);
+                }}
             />
             <Modal isOpen={isCostModalOpen} onClose={handleCloseCostModal} title={editingCost ? 'Editar Coste' : 'Registrar Coste'}>
                 <CostForm cost={editingCost} instructors={instructors} initialValues={costToDuplicate} onSubmit={handleCostSubmit} onCancel={handleCloseCostModal} />

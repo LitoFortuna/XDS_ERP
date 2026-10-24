@@ -5,13 +5,15 @@ import Modal from '../Modal';
 import { fetchAllStudentPrivateData } from '../../services/domain/studentService';
 import { normalizeIban, parseSpanishAmount, guessColumn, findHeaderRowIndex } from '../../utils/bankFileParsing';
 import { formatCurrency } from '../../utils/formatters';
+import { existingPaymentsForMonth, resultingMonthTotal, paymentIdsToReplace, sumPayments, DuplicateMode } from '../../utils/reconciliation';
 
 interface BankReconciliationProps {
     isOpen: boolean;
     onClose: () => void;
     students: Student[];
     payments: Payment[];
-    onConfirm: (payments: Omit<Payment, 'id'>[]) => Promise<void>;
+    // replacePaymentIds: pagos existentes que la persona ha elegido SUSTITUIR por la domiciliación (a la Papelera).
+    onConfirm: (payments: Omit<Payment, 'id'>[], replacePaymentIds: string[]) => Promise<void>;
 }
 
 type Step = 'upload' | 'mapping' | 'review';
@@ -26,6 +28,8 @@ interface MatchedRow {
     selectedStudentId: string | null;
     include: boolean;
     duplicateWarning: boolean;
+    existing: Payment[]; // pagos que la alumna ya tiene registrados ese mes
+    duplicateMode: DuplicateMode; // qué hacer con ellos: añadir la domiciliación o sustituirlos
 }
 
 interface UnmatchedRow {
@@ -59,6 +63,8 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ isOpen, onClose
 
     const [matchedRows, setMatchedRows] = useState<MatchedRow[]>([]);
     const [unmatchedRows, setUnmatchedRows] = useState<UnmatchedRow[]>([]);
+
+    const monthKeyForSelection = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
 
     const headers = rawRows[headerRowIndex] ? rawRows[headerRowIndex].map(h => String(h ?? '')) : [];
     const dataRows = rawRows.slice(headerRowIndex + 1);
@@ -169,9 +175,8 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ isOpen, onClose
                 }
 
                 const singleStudentId = candidates.length === 1 ? candidates[0].id : null;
-                const hasExistingPayment = singleStudentId
-                    ? payments.some(p => p.studentId === singleStudentId && p.date.startsWith(monthKey))
-                    : false;
+                const existing = singleStudentId ? existingPaymentsForMonth(payments, singleStudentId, monthKey) : [];
+                const hasExistingPayment = existing.length > 0;
 
                 matched.push({
                     bankRowIndex: i,
@@ -183,6 +188,8 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ isOpen, onClose
                     selectedStudentId: singleStudentId,
                     include: !!singleStudentId && !hasExistingPayment,
                     duplicateWarning: hasExistingPayment,
+                    existing,
+                    duplicateMode: 'add',
                 });
             });
 
@@ -201,8 +208,22 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ isOpen, onClose
     };
 
     const handleSelectCandidate = (bankRowIndex: number, studentId: string) => {
-        setMatchedRows(prev => prev.map(r => (r.bankRowIndex === bankRowIndex ? { ...r, selectedStudentId: studentId, include: true } : r)));
+        const existing = existingPaymentsForMonth(payments, studentId, monthKeyForSelection);
+        setMatchedRows(prev => prev.map(r => (r.bankRowIndex === bankRowIndex
+            ? { ...r, selectedStudentId: studentId, include: true, existing, duplicateWarning: existing.length > 0, duplicateMode: 'add' }
+            : r)));
     };
+
+    // Elegir qué hacer con lo que ya tiene ese mes marca también la fila para registrarla.
+    const handleSetDuplicateMode = (bankRowIndex: number, mode: DuplicateMode) => {
+        setMatchedRows(prev => prev.map(r => (r.bankRowIndex === bankRowIndex ? { ...r, duplicateMode: mode, include: true } : r)));
+    };
+
+    // Filas del banco que van a la misma alumna (p. ej. dos domiciliaciones en la misma remesa).
+    const rowsPerStudent = matchedRows.reduce<Record<string, number>>((acc, r) => {
+        if (r.include && r.selectedStudentId) acc[r.selectedStudentId] = (acc[r.selectedStudentId] || 0) + 1;
+        return acc;
+    }, {});
 
     const includedCount = matchedRows.filter(r => r.include && r.selectedStudentId).length;
 
@@ -224,8 +245,12 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ isOpen, onClose
                 concept: `Cuota ${MONTHS[selectedMonth]} ${selectedYear} (conciliación bancaria)`,
                 notes: [`Titular banco: ${r.titular || 'desconocido'}`, r.concept ? `Concepto banco: ${r.concept}` : null].filter(Boolean).join(' — '),
             }));
-            await onConfirm(paymentsToCreate);
-            setResultMessage(`Se han registrado ${paymentsToCreate.length} cobro(s) por domiciliación.`);
+            const replaceIds = paymentIdsToReplace(toCreate);
+            await onConfirm(paymentsToCreate, replaceIds);
+            setResultMessage(
+                `Se han registrado ${paymentsToCreate.length} cobro(s) por domiciliación.`
+                + (replaceIds.length > 0 ? ` Se han sustituido ${replaceIds.length} pago(s) anterior(es) (están en la Papelera por si hay que recuperarlos).` : '')
+            );
         } catch (err: any) {
             setError(err.message || 'Error al registrar los cobros.');
         } finally {
@@ -397,7 +422,24 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ isOpen, onClose
                                                             <span className="text-white">{r.candidates[0]?.name}</span>
                                                         )}
                                                         {r.duplicateWarning && (
-                                                            <p className="text-[10px] text-orange-400 mt-0.5">Ya existe un cobro este mes para este alumno</p>
+                                                            <fieldset className="mt-1.5 rounded-md border border-orange-500/40 bg-orange-500/10 p-2 text-xs">
+                                                                <legend className="px-1 text-orange-300 font-semibold">
+                                                                    Ya tiene {formatCurrency(sumPayments(r.existing))} este mes
+                                                                    {r.existing.length > 1 ? ` (${r.existing.length} pagos)` : ` (${r.existing[0]?.paymentMethod})`}
+                                                                </legend>
+                                                                <label className="flex items-start gap-2 cursor-pointer py-0.5">
+                                                                    <input type="radio" className="mt-0.5" name={`dup-${r.bankRowIndex}`} checked={r.include && r.duplicateMode === 'add'} onChange={() => handleSetDuplicateMode(r.bankRowIndex, 'add')} />
+                                                                    <span className="text-gray-200">Añadir {formatCurrency(r.amount)} → el mes quedará en <strong>{formatCurrency(resultingMonthTotal(r.existing, r.amount, 'add'))}</strong></span>
+                                                                </label>
+                                                                <label className="flex items-start gap-2 cursor-pointer py-0.5">
+                                                                    <input type="radio" className="mt-0.5" name={`dup-${r.bankRowIndex}`} checked={r.include && r.duplicateMode === 'replace'} onChange={() => handleSetDuplicateMode(r.bankRowIndex, 'replace')} />
+                                                                    <span className="text-gray-200">Sustituir lo anterior → el mes quedará en <strong>{formatCurrency(resultingMonthTotal(r.existing, r.amount, 'replace'))}</strong> <span className="text-gray-400">(el pago anterior va a la Papelera)</span></span>
+                                                                </label>
+                                                                {!r.include && <p className="text-gray-400 mt-1">Sin elegir, esta fila no se registra.</p>}
+                                                            </fieldset>
+                                                        )}
+                                                        {r.selectedStudentId && rowsPerStudent[r.selectedStudentId] > 1 && r.include && (
+                                                            <p className="text-[10px] text-sky-300 mt-0.5">Hay {rowsPerStudent[r.selectedStudentId]} filas del banco para este alumno: se registrarán todas.</p>
                                                         )}
                                                         {isInactive && (
                                                             <p className="text-[10px] text-yellow-400 mt-0.5">Este alumno está de baja — comprueba si es correcto antes de registrar</p>
