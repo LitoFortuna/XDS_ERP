@@ -15,6 +15,8 @@ import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
 import { StarIcon } from './icons/StarIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { CalendarDaysIcon } from './icons/CalendarDaysIcon';
+import { ActivityIcon } from './icons/ActivityIcon';
+import { useAppStore } from '../store/useAppStore';
 import ActivityNotificationBell from './ActivityNotificationBell';
 
 interface SidebarProps {
@@ -27,6 +29,8 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOpen, onLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // El registro de actividad de profesores solo lo ve el SuperAdmin.
+  const isSuperAdmin = useAppStore(state => state.userProfile?.role === 'SuperAdmin');
 
   // Las 15 pantallas agrupadas por para qué se usan, en vez de una lista plana sin pistas.
   const navGroups: { label?: string; items: { view: View; label: string; icon: React.FC<{ className?: string }> }[] }[] = [
@@ -66,6 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isOpen, setIsOp
       label: 'Sistema',
       items: [
         { view: View.DATA_MANAGEMENT, label: 'Gestión de Datos', icon: DatabaseIcon },
+        ...(isSuperAdmin ? [{ view: View.TEACHER_ACTIVITY, label: 'Actividad profesores', icon: ActivityIcon }] : []),
         { view: View.TRASH, label: 'Papelera', icon: TrashIcon },
       ],
     },

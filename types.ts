@@ -230,6 +230,7 @@ export enum View {
   CHANGE_REQUESTS = 'CHANGE_REQUESTS',
   PLANNER = 'PLANNER',
   TRASH = 'TRASH',
+  TEACHER_ACTIVITY = 'TEACHER_ACTIVITY',
 }
 
 export type UserRole = 'SuperAdmin' | 'Admin' | 'Editor' | 'Instructor' | 'Student';

@@ -42,6 +42,7 @@ const EventManagement = lazy(() => import('./src/components/EventManagement'));
 const ChangeRequestManagement = lazy(() => import('./src/components/ChangeRequestManagement'));
 const Papelera = lazy(() => import('./src/components/Papelera'));
 const Planner = lazy(() => import('./src/components/Planner'));
+const TeacherActivityLog = lazy(() => import('./src/components/TeacherActivityLog'));
 const TeacherApp = lazy(() => import('./src/components/teacher/TeacherApp'));
 
 const Loader = () => (
@@ -308,6 +309,8 @@ const AdminApp: React.FC = () => {
                 return <Planner />;
             case View.TRASH:
                 return <Papelera />;
+            case View.TEACHER_ACTIVITY:
+                return <TeacherActivityLog />;
             default:
                 return <Dashboard
                     students={students}

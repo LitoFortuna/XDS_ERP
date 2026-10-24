@@ -4,6 +4,7 @@ import { auth } from '../../config/firebase';
 import Modal from '../Modal';
 import { useToast } from '../ui/Feedback';
 import { validatePasswordChange, passwordChangeErrorMessage, MIN_PASSWORD_LENGTH } from '../../utils/passwordChange';
+import { logTeacherEvent } from '../../services/domain/teacherActivityService';
 
 interface ChangePasswordModalProps {
     isOpen: boolean;
@@ -84,6 +85,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
         try {
             await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, current));
             await updatePassword(user, next);
+            void logTeacherEvent('password_changed'); // queda en el registro de actividad; si falla no afecta al cambio
             toast('Contraseña cambiada correctamente.', 'success');
             close();
         } catch (err) {

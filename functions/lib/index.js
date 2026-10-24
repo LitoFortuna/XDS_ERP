@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendClassReminders = exports.teacherSaveAttendance = exports.teacherOverview = exports.manageInstructorAccount = exports.scheduledFirestoreBackup = exports.purgeTrash = exports.checkSpecialDates = exports.joinEvent = exports.studentPurchase = exports.studentLogin = exports.onChangeRequestReviewed = exports.getVapidPublicKey = exports.onNewActivityLog = void 0;
+exports.sendClassReminders = exports.listTeacherActivity = exports.teacherLogEvent = exports.teacherSaveAttendance = exports.teacherOverview = exports.manageInstructorAccount = exports.scheduledFirestoreBackup = exports.purgeTrash = exports.checkSpecialDates = exports.joinEvent = exports.studentPurchase = exports.studentLogin = exports.onChangeRequestReviewed = exports.getVapidPublicKey = exports.onNewActivityLog = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
@@ -9,6 +9,7 @@ const crypto_1 = require("crypto");
 const emailTemplates_1 = require("./emailTemplates");
 const classReminders_1 = require("./classReminders");
 const teacherData_1 = require("./teacherData");
+const teacherActivity_1 = require("./teacherActivity");
 admin.initializeApp();
 // VAPID keys for Web Push — loaded from functions/.env (gitignored), never hardcoded in source.
 // Rotate by regenerating with `npx web-push generate-vapid-keys`, updating .env, and also
@@ -434,6 +435,20 @@ exports.purgeTrash = (0, scheduler_1.onSchedule)({
             console.error(`[purgeTrash] Error purgando ${collectionName}:`, error);
         }
     }
+    // El registro de actividad de profesores se conserva ACTIVITY_RETENTION_DAYS días.
+    try {
+        const activityCutoff = new Date(Date.now() - teacherActivity_1.ACTIVITY_RETENTION_DAYS * 86400000).toISOString();
+        const oldActivity = await admin.firestore().collection('teacherActivity').where('createdAt', '<=', activityCutoff).limit(450).get();
+        if (!oldActivity.empty) {
+            const batch = admin.firestore().batch();
+            oldActivity.docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            console.log(`[purgeTrash] teacherActivity: ${oldActivity.size} registro(s) antiguo(s) borrado(s).`);
+        }
+    }
+    catch (error) {
+        console.error('[purgeTrash] Error limpiando teacherActivity:', error);
+    }
     console.log(`[purgeTrash] Total purgado: ${totalPurged} documento(s).`);
 });
 // --- Backups automáticos de Firestore ---
@@ -500,7 +515,7 @@ function generateTemporaryPassword(length = 12) {
  */
 exports.manageInstructorAccount = (0, https_1.onCall)({ cors: true }, async (request) => {
     var _a, _b, _c, _d;
-    requireAdminCaller(request);
+    const actorEmail = requireAdminCaller(request);
     const action = (_a = request.data) === null || _a === void 0 ? void 0 : _a.action;
     const instructorId = (_c = (_b = request.data) === null || _b === void 0 ? void 0 : _b.instructorId) === null || _c === void 0 ? void 0 : _c.trim();
     if (!instructorId || !['create', 'reset', 'revoke'].includes(action || '')) {
@@ -558,6 +573,7 @@ exports.manageInstructorAccount = (0, https_1.onCall)({ cors: true }, async (req
         catch (error) {
             console.error('[manageInstructorAccount] No se pudo enviar el email de bienvenida:', error);
         }
+        await logTeacherActivity({ instructorId, instructorName: String(instructor.name || ''), type: 'account_created', description: 'La administración creó su acceso al ERP', actorEmail, details: { emailSent: emailSent ? 'sí' : 'no' } });
         return { email, password, emailSent };
     }
     if (!accountSnap.exists)
@@ -567,6 +583,7 @@ exports.manageInstructorAccount = (0, https_1.onCall)({ cors: true }, async (req
         const password = generateTemporaryPassword();
         await admin.auth().updateUser(uid, { password });
         await admin.auth().revokeRefreshTokens(uid);
+        await logTeacherActivity({ instructorId, instructorName: String(instructor.name || ''), type: 'account_reset', description: 'La administración restableció su contraseña', actorEmail });
         return { email, password };
     }
     // revoke
@@ -582,8 +599,20 @@ exports.manageInstructorAccount = (0, https_1.onCall)({ cors: true }, async (req
         db.collection('userProfiles').doc(uid).delete(),
         instructorRef.update({ hasAccess: false }),
     ]);
+    await logTeacherActivity({ instructorId, instructorName: String(instructor.name || ''), type: 'account_revoked', description: 'La administración le quitó el acceso al ERP', actorEmail });
     return { ok: true };
 });
+// Registro histórico de la actividad de los profesores (colección teacherActivity, solo SDK admin; la
+// consulta es la función listTeacherActivity, solo SuperAdmin). Nunca debe romper la acción que se
+// registra: si falla, se anota en el log del servidor y se sigue.
+async function logTeacherActivity(entry) {
+    try {
+        await admin.firestore().collection('teacherActivity').add(Object.assign(Object.assign({}, entry), { createdAt: new Date().toISOString() }));
+    }
+    catch (error) {
+        console.error('[teacherActivity] No se pudo registrar la actividad:', error);
+    }
+}
 // Comprueba que quien llama es un profesor con cuenta vigente y devuelve su ficha. Se valida contra
 // instructorAccounts (no solo contra el claim del token) para que una revocación sea inmediata.
 async function requireInstructor(request) {
@@ -604,7 +633,12 @@ async function requireInstructor(request) {
         || !instructorSnap.exists || !instructor || instructor.deletedAt || instructor.active === false) {
         throw new https_1.HttpsError('permission-denied', 'Tu acceso ya no está activo. Contacta con la administración.');
     }
-    return { instructorId, instructor, email: request.auth.token.email };
+    return {
+        instructorId, instructor,
+        email: request.auth.token.email,
+        accountRef: accountSnap.ref,
+        account: accountSnap.data(),
+    };
 }
 async function getInstructorClassIds(instructorId) {
     // Una clase puede llevarla como profesor principal (instructorId) o como profesor de uno de sus
@@ -625,9 +659,21 @@ async function getInstructorClassIds(instructorId) {
  * mínimos), asistencia de los últimos ~13 meses y avisos de ausencia próximos.
  */
 exports.teacherOverview = (0, https_1.onCall)({ cors: true }, async (request) => {
-    const { instructorId, instructor } = await requireInstructor(request);
+    const { instructorId, instructor, accountRef, account } = await requireInstructor(request);
     const db = admin.firestore();
     const today = (0, classReminders_1.getMadridNow)(new Date()).dateIso;
+    // Acceso al panel: se registra si el anterior fue hace más de 30 min (abrir la app varias veces
+    // seguidas no llena el registro).
+    const accessNow = new Date();
+    if ((0, teacherActivity_1.shouldLogAccess)(account === null || account === void 0 ? void 0 : account.lastAccessAt, accessNow)) {
+        try {
+            await accountRef.update({ lastAccessAt: accessNow.toISOString() });
+        }
+        catch (error) {
+            console.error('[teacherActivity] lastAccessAt:', error);
+        }
+        await logTeacherActivity({ instructorId, instructorName: String(instructor.name || ''), type: 'access', description: 'Entró al panel de profesor' });
+    }
     const since = new Date(Date.parse(today + 'T00:00:00Z') - 400 * 86400000).toISOString().slice(0, 10);
     const { docs: classDocs, ids: classIds } = await getInstructorClassIds(instructorId);
     const classes = classDocs.map(d => (0, teacherData_1.toTeacherClass)(d.data(), d.id, instructorId));
@@ -750,6 +796,13 @@ exports.teacherSaveAttendance = (0, https_1.onCall)({ cors: true }, async (reque
         attendanceId = existing.docs[0].id;
         await existing.docs[0].ref.set(record);
     }
+    await logTeacherActivity({
+        instructorId,
+        instructorName: String(instructor.name || ''),
+        type: existing.empty ? 'attendance_saved' : 'attendance_updated',
+        description: (0, teacherActivity_1.describeAttendance)(String(danceClass.name || 'Clase'), date, presentStudentIds.length, eligibleIds.size, !existing.empty),
+        details: { classId, className: String(danceClass.name || ''), date, present: presentStudentIds.length, enrolled: eligibleIds.size },
+    });
     await db.collection('activityLogs').add({
         type: 'attendance',
         actorEmail: email || '',
@@ -760,6 +813,88 @@ exports.teacherSaveAttendance = (0, https_1.onCall)({ cors: true }, async (reque
         read: false,
     });
     return { id: attendanceId };
+});
+/**
+ * El propio profesor avisa de acciones que ocurren solo en su navegador (hoy, el cambio de contraseña).
+ * Solo se admiten tipos de una lista cerrada: no se puede escribir texto libre en el registro.
+ */
+exports.teacherLogEvent = (0, https_1.onCall)({ cors: true }, async (request) => {
+    var _a;
+    const { instructorId, instructor } = await requireInstructor(request);
+    const type = (_a = request.data) === null || _a === void 0 ? void 0 : _a.type;
+    if (type !== 'password_changed')
+        throw new https_1.HttpsError('invalid-argument', 'Evento no válido.');
+    await logTeacherActivity({ instructorId, instructorName: String(instructor.name || ''), type: 'password_changed', description: 'Cambió su contraseña' });
+    return { ok: true };
+});
+/**
+ * Consulta del registro de actividad de profesores. SOLO el SuperAdmin. Pagina de más reciente a más
+ * antiguo (`before` = createdAt del último elemento ya recibido) y admite filtros por profesor, tipo y
+ * rango de días; los filtros se aplican en el servidor sobre bloques de 200 para no exigir índices
+ * compuestos. En la primera página devuelve además el resumen por profesor con su último acceso.
+ */
+exports.listTeacherActivity = (0, https_1.onCall)({ cors: true }, async (request) => {
+    var _a, _b;
+    if (!(0, teacherActivity_1.isSuperAdminEmail)((_b = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.token) === null || _b === void 0 ? void 0 : _b.email)) {
+        throw new https_1.HttpsError('permission-denied', 'Solo el SuperAdmin puede ver este registro.');
+    }
+    const db = admin.firestore();
+    const data = request.data || {};
+    const pageSize = (0, teacherActivity_1.clampPageSize)(data.limit);
+    const isDay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const filters = {
+        instructorId: typeof data.instructorId === 'string' && data.instructorId ? data.instructorId : undefined,
+        type: (0, teacherActivity_1.isTeacherActivityType)(data.type) ? data.type : undefined,
+        from: isDay(data.from) ? data.from : undefined,
+        to: isDay(data.to) ? data.to : undefined,
+    };
+    let cursor = typeof data.before === 'string' && data.before ? data.before : undefined;
+    const entries = [];
+    let exhausted = false;
+    let stoppedEarly = false;
+    let scanned = 0;
+    while (entries.length < pageSize && !exhausted && scanned < 1000) {
+        let q = db.collection('teacherActivity').orderBy('createdAt', 'desc');
+        if (cursor)
+            q = q.startAfter(cursor);
+        const snap = await q.limit(200).get();
+        if (snap.empty) {
+            exhausted = true;
+            break;
+        }
+        for (const d of snap.docs) {
+            scanned++;
+            cursor = String(d.get('createdAt'));
+            const entry = Object.assign({ id: d.id }, d.data());
+            if ((0, teacherActivity_1.matchesActivityFilters)(entry, filters))
+                entries.push(entry);
+            if (entries.length >= pageSize) {
+                stoppedEarly = true;
+                break;
+            }
+        }
+        if (snap.size < 200 && !stoppedEarly)
+            exhausted = true;
+    }
+    const hasMore = stoppedEarly || !exhausted;
+    let teachers;
+    if (!data.before) {
+        const [accountsSnap, instructorsSnap] = await Promise.all([
+            db.collection('instructorAccounts').get(),
+            db.collection('instructors').get(),
+        ]);
+        const names = new Map(instructorsSnap.docs.map(d => [d.id, String(d.data().name || '')]));
+        teachers = accountsSnap.docs
+            .map(d => ({
+            instructorId: d.id,
+            name: names.get(d.id) || 'Profesor',
+            email: String(d.data().email || ''),
+            lastAccessAt: d.data().lastAccessAt || null,
+            createdAt: d.data().createdAt || null,
+        }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    }
+    return { entries, hasMore, nextBefore: hasMore ? cursor || null : null, teachers };
 });
 // --- Recordatorio push de clase para las alumnas del Portal ---
 // Corre cada 15 min y avisa a las alumnas inscritas unas 2 horas antes de cada clase (nunca antes
