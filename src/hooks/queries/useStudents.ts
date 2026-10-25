@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchStudents, addStudent, updateStudent, deleteStudent } from '../../services/domain/studentService';
+import { fetchStudents, addStudent, updateStudent, deleteStudent } from '../../services/firestoreService';
 import { Student } from '../../../types';
 
 // Stable reference: `data: x = []` in the destructuring below would create a brand new array on

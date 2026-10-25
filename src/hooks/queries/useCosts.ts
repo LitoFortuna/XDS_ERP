@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchCosts, addCost, updateCost, deleteCost } from '../../services/domain/financeService';
+import { fetchCosts, addCost, updateCost, deleteCost } from '../../services/firestoreService';
 import { Cost } from '../../../types';
 
 // See useStudents.ts for why this needs a stable reference instead of a `= []` default.

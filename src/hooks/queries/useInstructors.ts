@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchInstructors, addInstructor, updateInstructor, deleteInstructor } from '../../services/domain/instructorService';
+import { fetchInstructors, addInstructor, updateInstructor, deleteInstructor } from '../../services/firestoreService';
 import { Instructor } from '../../../types';
 
 // See useStudents.ts for why this needs a stable reference instead of a `= []` default.

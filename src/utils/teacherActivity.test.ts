@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    shouldLogAccess, describeAttendance, matchesActivityFilters, clampPageSize, isSuperAdminEmail, isTeacherActivityType, mapAdminActivityType, isDirectorEmail, DIRECTOR_EMAIL, TeacherActivityEntry,
+    shouldLogAccess, describeAttendance, matchesActivityFilters, clampPageSize, isSuperAdminEmail, isTeacherActivityType, mapAdminActivityType, isDirectorEmail, DIRECTOR_EMAIL, sanitizeAdminAction, TeacherActivityEntry,
 } from '../../functions/src/teacherActivity';
 
 const entry = (over: Partial<TeacherActivityEntry> = {}): TeacherActivityEntry => ({
@@ -66,10 +66,21 @@ describe('actividad de la dirección (Xenia)', () => {
         expect(isDirectorEmail(undefined)).toBe(false);
         expect(isDirectorEmail('INFO@xendance.space')).toBe(false);
     });
-    it('traduce el tipo de la anotación de administración al del historial', () => {
+    it('solo la asistencia se copia desde activityLogs; cobros y gastos se anotan en origen', () => {
         expect(mapAdminActivityType('attendance')).toBe('attendance_saved');
-        expect(mapAdminActivityType('payment')).toBe('admin_action');
-        expect(mapAdminActivityType('cost')).toBe('admin_action');
-        expect(mapAdminActivityType(undefined)).toBe('admin_action');
+        expect(mapAdminActivityType('payment')).toBeNull();
+        expect(mapAdminActivityType('cost')).toBeNull();
+        expect(mapAdminActivityType(undefined)).toBeNull();
+    });
+    it('sanitizeAdminAction acepta solo tipos conocidos y limpia la descripción', () => {
+        expect(sanitizeAdminAction({ kind: 'student_added', description: '  Dio de alta a «Ana»  ' })).toEqual({ kind: 'student_added', description: 'Dio de alta a «Ana»' });
+        expect(sanitizeAdminAction({ kind: 'student_added', description: 'a\n\tb\u0000c' })?.description).toBe('a b c');
+        expect(sanitizeAdminAction({ kind: 'student_added', description: 'x'.repeat(1000) })?.description).toHaveLength(300);
+    });
+    it('sanitizeAdminAction rechaza tipos desconocidos y descripciones vacías', () => {
+        expect(sanitizeAdminAction({ kind: 'borrar_todo', description: 'x' })).toBeNull();
+        expect(sanitizeAdminAction({ kind: 'cost_added', description: '   ' })).toBeNull();
+        expect(sanitizeAdminAction({ kind: 'cost_added' })).toBeNull();
+        expect(sanitizeAdminAction(null)).toBeNull();
     });
 });

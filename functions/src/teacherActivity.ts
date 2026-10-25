@@ -55,10 +55,37 @@ export const shouldLogAccess = (lastAccessIso: string | undefined, now: Date, in
     return now.getTime() - last >= intervalMinutes * 60000;
 };
 
-// Las acciones de la dirección ya se anotan en activityLogs (tipo attendance / payment / cost); aquí se
-// traducen al tipo del historial: las listas de asistencia como tal, el resto como acción en el ERP.
-export const mapAdminActivityType = (activityType: unknown): TeacherActivityType =>
-    activityType === 'attendance' ? 'attendance_saved' : 'admin_action';
+// La asistencia de la dirección llega por activityLogs (lleva clase, día y presentes) y se copia aquí como
+// 'Lista pasada'. Cobros, gastos y el resto de acciones se anotan en origen (logAdminAction), así que las
+// demás anotaciones de activityLogs se ignoran para no duplicarlas. null = no copiar.
+export const mapAdminActivityType = (activityType: unknown): TeacherActivityType | null =>
+    activityType === 'attendance' ? 'attendance_saved' : null;
+
+// Acciones de gestión de la dirección que acepta logAdminAction: lista cerrada y descripción acotada.
+export const ADMIN_ACTION_KINDS = [
+    'student_added', 'student_updated', 'student_deleted', 'student_restored', 'student_purged', 'students_imported',
+    'instructor_added', 'instructor_updated', 'instructor_deleted', 'instructor_restored', 'instructor_purged',
+    'class_added', 'class_updated', 'class_deleted', 'class_restored', 'class_purged',
+    'event_added', 'event_updated', 'event_deleted', 'event_restored', 'event_purged',
+    'nuptial_added', 'nuptial_updated', 'nuptial_deleted', 'nuptial_restored', 'nuptial_purged',
+    'merch_item_added', 'merch_item_updated', 'merch_item_deleted', 'merch_sale_added', 'merch_sale_cancelled',
+    'payment_added', 'payment_updated', 'payment_deleted', 'payment_restored', 'payment_purged', 'payments_imported',
+    'cost_added', 'cost_updated', 'cost_deleted', 'cost_restored', 'cost_purged', 'costs_imported',
+] as const;
+export type AdminActionKind = typeof ADMIN_ACTION_KINDS[number];
+
+export const MAX_ADMIN_DESCRIPTION = 300;
+
+// Valida lo que envía el navegador de la dirección: tipo de la lista cerrada y descripción de texto sin
+// caracteres de control, recortada. Devuelve null si no es válido.
+export const sanitizeAdminAction = (data: any): { kind: AdminActionKind; description: string } | null => {
+    const kind = data?.kind;
+    if (typeof kind !== 'string' || !(ADMIN_ACTION_KINDS as readonly string[]).includes(kind)) return null;
+    const description = typeof data?.description === 'string'
+        ? data.description.replace(/[\u0000-\u001F\u007F]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_ADMIN_DESCRIPTION)
+        : '';
+    return description ? { kind: kind as AdminActionKind, description } : null;
+};
 
 export const isDirectorEmail = (email: unknown): boolean => email === DIRECTOR_EMAIL;
 

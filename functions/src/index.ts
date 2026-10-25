@@ -13,7 +13,7 @@ import {
 import {
     shouldLogAccess, describeAttendance, matchesActivityFilters, clampPageSize, isSuperAdminEmail, isTeacherActivityType,
     ACTIVITY_RETENTION_DAYS, TeacherActivityEntry, ActivityFilters,
-    DIRECTOR_EMAIL, DIRECTOR_ACTIVITY_ID, DIRECTOR_NAME, mapAdminActivityType, isDirectorEmail,
+    DIRECTOR_EMAIL, DIRECTOR_ACTIVITY_ID, DIRECTOR_NAME, mapAdminActivityType, isDirectorEmail, sanitizeAdminAction,
 } from './teacherActivity';
 
 admin.initializeApp();
@@ -70,12 +70,14 @@ export const onNewActivityLog = onDocumentCreated('activityLogs/{logId}', async 
         return;
     }
 
-    // Si la acción la hizo Xenia (dirección), también queda en el historial de actividad de profesores.
-    if (isDirectorEmail(activityData.actorEmail)) {
+    // Si la lista de asistencia la pasó Xenia (dirección), también queda en el historial de actividad.
+    // (Cobros, gastos y demás acciones se anotan en origen con logAdminAction.)
+    const mappedType = mapAdminActivityType(activityData.type);
+    if (mappedType && isDirectorEmail(activityData.actorEmail)) {
         await logTeacherActivity({
             instructorId: DIRECTOR_ACTIVITY_ID,
             instructorName: DIRECTOR_NAME,
-            type: mapAdminActivityType(activityData.type),
+            type: mappedType,
             description: String(activityData.description || '').slice(0, 300),
             details: { origen: String(activityData.type || '') },
         });
@@ -918,6 +920,26 @@ export const adminAccessPing = onCall({ cors: true }, async (request) => {
     if (!shouldLogAccess(snap.data()?.lastAccessAt as string | undefined, now)) return { logged: false };
     await ref.set({ lastAccessAt: now.toISOString(), email: DIRECTOR_EMAIL });
     await logTeacherActivity({ instructorId: DIRECTOR_ACTIVITY_ID, instructorName: DIRECTOR_NAME, type: 'access', description: 'Entró al ERP' });
+    return { logged: true };
+});
+
+/**
+ * Acciones de gestión de la dirección (alta/edición/borrado de alumnas, clases, cobros, gastos…). Las envía
+ * el navegador de Xenia tras cada operación; el servidor solo acepta su cuenta, un tipo de la lista cerrada
+ * y una descripción corta sin caracteres de control. No es una auditoría a prueba de manipulación (el texto
+ * viene del navegador), pero deja constancia de lo que se hace en el ERP.
+ */
+export const logAdminAction = onCall({ cors: true }, async (request) => {
+    if (!isDirectorEmail(request.auth?.token?.email)) return { logged: false };
+    const action = sanitizeAdminAction(request.data);
+    if (!action) throw new HttpsError('invalid-argument', 'Acción no válida.');
+    await logTeacherActivity({
+        instructorId: DIRECTOR_ACTIVITY_ID,
+        instructorName: DIRECTOR_NAME,
+        type: 'admin_action',
+        description: action.description,
+        details: { kind: action.kind },
+    });
     return { logged: true };
 });
 

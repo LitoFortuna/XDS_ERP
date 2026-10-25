@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchClasses, addClass, updateClass, deleteClass } from '../../services/domain/classService';
+import { fetchClasses, addClass, updateClass, deleteClass } from '../../services/firestoreService';
 import { DanceClass } from '../../../types';
 
 // See useStudents.ts for why this needs a stable reference instead of a `= []` default.
